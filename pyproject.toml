@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "djinnite"
+version = "0.1.0"
+description = "Lightweight AI abstraction layer for multiple providers (Gemini, Claude, OpenAI)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Brian Bulkowski"},
+]
+keywords = ["ai", "llm", "gemini", "claude", "openai", "abstraction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "google-genai>=1.0.0",
+    "anthropic>=0.8.0",
+    "openai>=1.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.setuptools.packages.find]
+# The pyproject.toml is inside djinnite/, so look one level up to find
+# the "djinnite" package directory. When djinnite becomes its own repo,
+# this will change to where = ["."] with a nested djinnite/ subdirectory.
+where = [".."]
+include = ["djinnite*"]
+
+[tool.setuptools.package-data]
+"djinnite.config" = ["*.json"]

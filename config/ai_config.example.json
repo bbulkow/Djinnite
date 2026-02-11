@@ -1,0 +1,32 @@
+{
+  "providers": {
+    "gemini": {
+      "api_key": "your-gemini-api-key-here",
+      "enabled": true,
+      "default_model": "gemini-2.5-flash",
+      "use_cases": {
+        "validation": "gemini-2.5-flash",
+        "query": "gemini-2.5-flash"
+      }
+    },
+    "claude": {
+      "api_key": "your-anthropic-api-key-here",
+      "enabled": true,
+      "default_model": "claude-haiku-4-5-20251001",
+      "use_cases": {
+        "validation": "claude-haiku-4-5-20251001",
+        "query": "claude-haiku-4-5-20251001"
+      }
+    },
+    "chatgpt": {
+      "api_key": "your-openai-api-key-here",
+      "enabled": false,
+      "default_model": "gpt-4o",
+      "use_cases": {
+        "validation": "gpt-4o-mini",
+        "query": "gpt-4o"
+      }
+    }
+  },
+  "default_provider": "gemini"
+}

@@ -36,12 +36,25 @@ dev = [
     "pytest-cov>=4.0",
 ]
 
-[tool.setuptools.packages.find]
-# The pyproject.toml is inside djinnite/, so look one level up to find
-# the "djinnite" package directory. When djinnite becomes its own repo,
-# this will change to where = ["."] with a nested djinnite/ subdirectory.
-where = [".."]
-include = ["djinnite*"]
+[tool.setuptools.package-dir]
+# Map package names to directories relative to pyproject.toml.
+# Since pyproject.toml IS inside the djinnite package, "." = this directory.
+"djinnite" = "."
+"djinnite.ai_providers" = "ai_providers"
+"djinnite.prompts" = "prompts"
+"djinnite.scripts" = "scripts"
+"djinnite.tests" = "tests"
+"djinnite.config" = "config"
+
+[tool.setuptools]
+packages = [
+    "djinnite",
+    "djinnite.ai_providers",
+    "djinnite.prompts",
+    "djinnite.scripts",
+    "djinnite.tests",
+    "djinnite.config",
+]
 
 [tool.setuptools.package-data]
 "djinnite.config" = ["*.json"]

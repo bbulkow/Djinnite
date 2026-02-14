@@ -3,10 +3,12 @@
     "gemini": {
       "api_key": "your-gemini-api-key-here",
       "enabled": true,
-      "default_model": "gemini-2.5-flash",
+      "default_model": "gemini-3-flash-preview",
+      "backend": "gemini",
+      "project_id": null,
       "use_cases": {
-        "validation": "gemini-2.5-flash",
-        "query": "gemini-2.5-flash"
+        "validation": "gemini-3-flash-preview",
+        "query": "gemini-3-flash-preview"
       }
     },
     "claude": {
@@ -21,10 +23,10 @@
     "chatgpt": {
       "api_key": "your-openai-api-key-here",
       "enabled": false,
-      "default_model": "gpt-4o",
+      "default_model": "gpt-5-chat-latest",
       "use_cases": {
-        "validation": "gpt-4o-mini",
-        "query": "gpt-4o"
+        "validation": "gpt-5-chat-latest",
+        "query": "gpt-5-chat-latest"
       }
     }
   },

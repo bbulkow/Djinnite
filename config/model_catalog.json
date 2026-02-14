@@ -1,0 +1,2446 @@
+{
+  "gemini": {
+    "models": [
+      {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "anchor",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.0-flash",
+        "name": "Gemini 2.0 Flash",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.0-flash-001",
+        "name": "Gemini 2.0 Flash 001",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.0-flash-exp-image-generation",
+        "name": "Gemini 2.0 Flash (Image Generation) Experimental",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.0-flash-lite-001",
+        "name": "Gemini 2.0 Flash-Lite 001",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.0-flash-lite",
+        "name": "Gemini 2.0 Flash-Lite",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-exp-1206",
+        "name": "Gemini Experimental 1206",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-preview-tts",
+        "name": "Gemini 2.5 Flash Preview TTS",
+        "context_window": 8192,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-pro-preview-tts",
+        "name": "Gemini 2.5 Pro Preview TTS",
+        "context_window": 8192,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-flash-latest",
+        "name": "Gemini Flash Latest",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 4.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-flash-lite-latest",
+        "name": "Gemini Flash-Lite Latest",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-pro-latest",
+        "name": "Gemini Pro Latest",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-lite",
+        "name": "Gemini 2.5 Flash-Lite",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-image",
+        "name": "Nano Banana",
+        "context_window": 32768,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-preview-09-2025",
+        "name": "Gemini 2.5 Flash Preview Sep 2025",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-lite-preview-09-2025",
+        "name": "Gemini 2.5 Flash-Lite Preview Sep 2025",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-3-pro-preview",
+        "name": "Gemini 3 Pro Preview",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 13.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-3-flash-preview",
+        "name": "Gemini 3 Flash Preview",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-3-pro-image-preview",
+        "name": "Nano Banana Pro",
+        "context_window": 131072,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 13.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-robotics-er-1.5-preview",
+        "name": "Gemini Robotics-ER 1.5 Preview",
+        "context_window": 1048576,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 11.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-computer-use-preview-10-2025",
+        "name": "Gemini 2.5 Computer Use Preview 10-2025",
+        "context_window": 131072,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-embedding-001",
+        "name": "Gemini Embedding 001",
+        "context_window": 2048,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "embedding"
+          ]
+        },
+        "costing": {
+          "score": 2.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-latest",
+        "name": "Gemini 2.5 Flash Native Audio Latest",
+        "context_window": 131072,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-preview-09-2025",
+        "name": "Gemini 2.5 Flash Native Audio Preview 09-2025",
+        "context_window": 131072,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gemini-2.5-flash-native-audio-preview-12-2025",
+        "name": "Gemini 2.5 Flash Native Audio Preview 12-2025",
+        "context_window": 131072,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "known_prices",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      }
+    ],
+    "last_updated": "2026-02-14"
+  },
+  "claude": {
+    "models": [
+      {
+        "id": "claude-opus-4-6",
+        "name": "Claude Opus 4.6",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 8.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "premium"
+        }
+      },
+      {
+        "id": "claude-opus-4-5-20251101",
+        "name": "Claude Opus 4.5",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 8.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "premium"
+        }
+      },
+      {
+        "id": "claude-haiku-4-5-20251001",
+        "name": "Claude Haiku 4.5",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.17,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "economical"
+        }
+      },
+      {
+        "id": "claude-sonnet-4-5-20250929",
+        "name": "Claude Sonnet 4.5",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.5,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "claude-opus-4-1-20250805",
+        "name": "Claude Opus 4.1",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 25.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "premium"
+        }
+      },
+      {
+        "id": "claude-opus-4-20250514",
+        "name": "Claude Opus 4",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 25.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "premium"
+        }
+      },
+      {
+        "id": "claude-sonnet-4-20250514",
+        "name": "Claude Sonnet 4",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 5.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "claude-3-7-sonnet-20250219",
+        "name": "Claude Sonnet 3.7",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 5.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "claude-3-5-haiku-20241022",
+        "name": "Claude Haiku 3.5",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.5,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "economical"
+        }
+      },
+      {
+        "id": "claude-3-haiku-20240307",
+        "name": "Claude Haiku 3",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.5,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "economical"
+        }
+      }
+    ],
+    "last_updated": "2026-02-14"
+  },
+  "chatgpt": {
+    "models": [
+      {
+        "id": "gpt-4-0613",
+        "name": "gpt-4-0613",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4",
+        "name": "gpt-4",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo",
+        "name": "gpt-3.5-turbo",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.07,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2-codex",
+        "name": "gpt-5.2-codex",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 11.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-tts-2025-12-15",
+        "name": "gpt-4o-mini-tts-2025-12-15",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-realtime-mini-2025-12-15",
+        "name": "gpt-realtime-mini-2025-12-15",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-audio-mini-2025-12-15",
+        "name": "gpt-audio-mini-2025-12-15",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "chatgpt-image-latest",
+        "name": "chatgpt-image-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo-instruct",
+        "name": "gpt-3.5-turbo-instruct",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 20.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo-instruct-0914",
+        "name": "gpt-3.5-turbo-instruct-0914",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4-1106-preview",
+        "name": "gpt-4-1106-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo-1106",
+        "name": "gpt-3.5-turbo-1106",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 13.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4-0125-preview",
+        "name": "gpt-4-0125-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4-turbo-preview",
+        "name": "gpt-4-turbo-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo-0125",
+        "name": "gpt-3.5-turbo-0125",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4-turbo",
+        "name": "gpt-4-turbo",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4-turbo-2024-04-09",
+        "name": "gpt-4-turbo-2024-04-09",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o",
+        "name": "gpt-4o",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-2024-05-13",
+        "name": "gpt-4o-2024-05-13",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 200.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-2024-07-18",
+        "name": "gpt-4o-mini-2024-07-18",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 4.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini",
+        "name": "gpt-4o-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.8,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-2024-08-06",
+        "name": "gpt-4o-2024-08-06",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 200.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "chatgpt-4o-latest",
+        "name": "chatgpt-4o-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-audio-preview",
+        "name": "gpt-4o-audio-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-realtime-preview",
+        "name": "gpt-4o-realtime-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-realtime-preview-2024-12-17",
+        "name": "gpt-4o-realtime-preview-2024-12-17",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-audio-preview-2024-12-17",
+        "name": "gpt-4o-audio-preview-2024-12-17",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-realtime-preview-2024-12-17",
+        "name": "gpt-4o-mini-realtime-preview-2024-12-17",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-audio-preview-2024-12-17",
+        "name": "gpt-4o-mini-audio-preview-2024-12-17",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-realtime-preview",
+        "name": "gpt-4o-mini-realtime-preview",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-audio-preview",
+        "name": "gpt-4o-mini-audio-preview",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-2024-11-20",
+        "name": "gpt-4o-2024-11-20",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-search-preview-2025-03-11",
+        "name": "gpt-4o-search-preview-2025-03-11",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-search-preview",
+        "name": "gpt-4o-search-preview",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-search-preview-2025-03-11",
+        "name": "gpt-4o-mini-search-preview-2025-03-11",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-search-preview",
+        "name": "gpt-4o-mini-search-preview",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.8,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-transcribe",
+        "name": "gpt-4o-transcribe",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-transcribe",
+        "name": "gpt-4o-mini-transcribe",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-tts",
+        "name": "gpt-4o-mini-tts",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1-2025-04-14",
+        "name": "gpt-4.1-2025-04-14",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1",
+        "name": "gpt-4.1",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1-mini-2025-04-14",
+        "name": "gpt-4.1-mini-2025-04-14",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1-mini",
+        "name": "gpt-4.1-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1-nano-2025-04-14",
+        "name": "gpt-4.1-nano-2025-04-14",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4.1-nano",
+        "name": "gpt-4.1-nano",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-image-1",
+        "name": "gpt-image-1",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-realtime-preview-2025-06-03",
+        "name": "gpt-4o-realtime-preview-2025-06-03",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-audio-preview-2025-06-03",
+        "name": "gpt-4o-audio-preview-2025-06-03",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-transcribe-diarize",
+        "name": "gpt-4o-transcribe-diarize",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-chat-latest",
+        "name": "gpt-5-chat-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-2025-08-07",
+        "name": "gpt-5-2025-08-07",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5",
+        "name": "gpt-5",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-mini-2025-08-07",
+        "name": "gpt-5-mini-2025-08-07",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-mini",
+        "name": "gpt-5-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-nano-2025-08-07",
+        "name": "gpt-5-nano-2025-08-07",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-nano",
+        "name": "gpt-5-nano",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-audio-2025-08-28",
+        "name": "gpt-audio-2025-08-28",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-realtime",
+        "name": "gpt-realtime",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 53.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-realtime-2025-08-28",
+        "name": "gpt-realtime-2025-08-28",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-audio",
+        "name": "gpt-audio",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-codex",
+        "name": "gpt-5-codex",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-image-1-mini",
+        "name": "gpt-image-1-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-pro-2025-10-06",
+        "name": "gpt-5-pro-2025-10-06",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-pro",
+        "name": "gpt-5-pro",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-audio-mini",
+        "name": "gpt-audio-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-audio-mini-2025-10-06",
+        "name": "gpt-audio-mini-2025-10-06",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-search-api",
+        "name": "gpt-5-search-api",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-realtime-mini",
+        "name": "gpt-realtime-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 3.2,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-realtime-mini-2025-10-06",
+        "name": "gpt-realtime-mini-2025-10-06",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5-search-api-2025-10-14",
+        "name": "gpt-5-search-api-2025-10-14",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1-chat-latest",
+        "name": "gpt-5.1-chat-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1-2025-11-13",
+        "name": "gpt-5.1-2025-11-13",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1",
+        "name": "gpt-5.1",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1-codex",
+        "name": "gpt-5.1-codex",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1-codex-mini",
+        "name": "gpt-5.1-codex-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.1-codex-max",
+        "name": "gpt-5.1-codex-max",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-image-1.5",
+        "name": "gpt-image-1.5",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2-2025-12-11",
+        "name": "gpt-5.2-2025-12-11",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2",
+        "name": "gpt-5.2",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 23.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2-pro-2025-12-11",
+        "name": "gpt-5.2-pro-2025-12-11",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2-pro",
+        "name": "gpt-5.2-pro",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-5.2-chat-latest",
+        "name": "gpt-5.2-chat-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 23.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-transcribe-2025-12-15",
+        "name": "gpt-4o-mini-transcribe-2025-12-15",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-transcribe-2025-03-20",
+        "name": "gpt-4o-mini-transcribe-2025-03-20",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-4o-mini-tts-2025-03-20",
+        "name": "gpt-4o-mini-tts-2025-03-20",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      },
+      {
+        "id": "gpt-3.5-turbo-16k",
+        "name": "gpt-3.5-turbo-16k",
+        "context_window": 16000,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 1.0,
+          "source": "failed",
+          "updated": "2026-02-14",
+          "tier": "standard"
+        }
+      }
+    ],
+    "last_updated": "2026-02-14"
+  }
+}

@@ -4,7 +4,7 @@ Google Gemini AI Provider
 Wraps the Google Gen AI SDK (google-genai) for Gemini models.
 """
 
-from typing import Optional
+from typing import Optional, Union, List, Dict
 
 from .base_provider import (
     BaseAIProvider,
@@ -20,16 +20,48 @@ class GeminiProvider(BaseAIProvider):
     """
     Google Gemini AI provider implementation.
     
+    Supports both Google AI Studio (backend="gemini") and Vertex AI (backend="vertexai").
     Uses the google-genai SDK.
     """
     
     PROVIDER_NAME = "gemini"
     
+    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None):
+        """
+        Initialize the Gemini provider.
+        
+        Args:
+            api_key: The Google API key
+            model: The model ID to use
+            backend: The Google backend to use ('gemini' or 'vertexai')
+            project_id: The Google Cloud project ID (required for Vertex AI)
+        """
+        self.backend = backend
+        self.project_id = project_id
+        super().__init__(api_key, model)
+
     def _initialize_client(self) -> None:
         """Initialize the Gemini client."""
         try:
             from google import genai
-            self._client = genai.Client(api_key=self.api_key)
+            
+            # Configure client based on backend
+            if self.backend == "vertexai":
+                if not self.project_id:
+                    raise AIProviderError(
+                        "project_id is required for Vertex AI backend",
+                        provider=self.PROVIDER_NAME
+                    )
+                self._client = genai.Client(
+                    api_key=self.api_key,
+                    vertexai=True,
+                    project=self.project_id,
+                    location="us-central1" # Default location for Vertex
+                )
+            else:
+                # Default to Google AI Studio
+                self._client = genai.Client(api_key=self.api_key)
+                
         except ImportError:
             raise AIProviderError(
                 "google-genai package not installed. "
@@ -43,26 +75,60 @@ class GeminiProvider(BaseAIProvider):
                 original_error=e
             )
     
+    def _map_parts(self, parts: List[Dict]) -> List:
+        """Map internal parts to Gemini SDK parts."""
+        from google.genai import types
+        gemini_parts = []
+        
+        for part in parts:
+            if part["type"] == "text":
+                gemini_parts.append(types.Part.from_text(text=part["text"]))
+            elif part["type"] == "image":
+                if "image_data" in part:
+                    gemini_parts.append(types.Part.from_bytes(
+                        data=part["image_data"],
+                        mime_type=part.get("mime_type", "image/jpeg")
+                    ))
+                elif "file_uri" in part:
+                    gemini_parts.append(types.Part.from_uri(
+                        file_uri=part["file_uri"],
+                        mime_type=part.get("mime_type", "image/jpeg")
+                    ))
+            elif part["type"] == "audio":
+                if "audio_data" in part:
+                    gemini_parts.append(types.Part.from_bytes(
+                        data=part["audio_data"],
+                        mime_type=part.get("mime_type", "audio/mp3")
+                    ))
+                elif "file_uri" in part:
+                    gemini_parts.append(types.Part.from_uri(
+                        file_uri=part["file_uri"],
+                        mime_type=part.get("mime_type", "audio/mp3")
+                    ))
+            elif part["type"] == "video":
+                 if "file_uri" in part:
+                    gemini_parts.append(types.Part.from_uri(
+                        file_uri=part["file_uri"],
+                        mime_type=part.get("mime_type", "video/mp4")
+                    ))
+            # Add other types as needed
+            
+        return gemini_parts
+
     def generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
     ) -> AIResponse:
         """
         Generate a response using Gemini.
-        
-        Args:
-            prompt: The user prompt/message
-            system_prompt: Optional system instruction
-            temperature: Sampling temperature (0.0-1.0)
-            max_tokens: Maximum tokens to generate
-            
-        Returns:
-            AIResponse with the generated content
         """
         try:
+            parts = self._normalize_input(prompt)
+            gemini_parts = self._map_parts(parts)
+            
             # Build configuration
             config = {
                 "temperature": temperature,
@@ -75,7 +141,7 @@ class GeminiProvider(BaseAIProvider):
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=gemini_parts,
                 config=config
             )
             
@@ -88,11 +154,32 @@ class GeminiProvider(BaseAIProvider):
                     "output_tokens": getattr(metadata, 'candidates_token_count', 0),
                 }
             
+            # Extract parts and text
+            output_parts = []
+            text_content = ""
+            if response.candidates:
+                candidate = response.candidates[0]
+                if candidate.content and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            text_content += part.text
+                            output_parts.append({"type": "text", "text": part.text})
+                        elif hasattr(part, 'inline_data') and part.inline_data:
+                            output_parts.append({
+                                "type": "inline_data",
+                                "mime_type": part.inline_data.mime_type,
+                                "data": part.inline_data.data
+                            })
+            
+            if not text_content and hasattr(response, 'text'):
+                text_content = response.text
+
             return AIResponse(
-                content=response.text,
+                content=text_content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=response
             )
             
@@ -127,7 +214,7 @@ class GeminiProvider(BaseAIProvider):
     
     def generate_json(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
@@ -135,25 +222,18 @@ class GeminiProvider(BaseAIProvider):
     ) -> AIResponse:
         """
         Generate a JSON response using Gemini.
-        
-        Uses Gemini's JSON mode for more reliable JSON output.
-        NOTE: Gemini does NOT support JSON mode + web_search together.
-        When web_search=True, we skip JSON mode and rely on the prompt for JSON output.
-        
-        Args:
-            web_search: If True, enable Google Search grounding for current info
         """
         try:
             from google.genai import types
             
+            parts = self._normalize_input(prompt)
+            gemini_parts = self._map_parts(parts)
+
             # Build configuration
             config = {
                 "temperature": temperature,
             }
             
-            # IMPORTANT: Gemini does NOT support response_mime_type with tools!
-            # Error: "Tool use with a response mime type: 'application/json' is unsupported"
-            # When web_search is enabled, skip JSON mode - prompt instructs JSON output
             if not web_search:
                 config["response_mime_type"] = "application/json"
             
@@ -169,20 +249,20 @@ class GeminiProvider(BaseAIProvider):
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=gemini_parts,
                 config=config
             )
             
-            # Extract text from candidates directly instead of using response.text
-            # This ensures we get the complete response
+            # Extract text from candidates
             text_content = ""
+            output_parts = []
             if response.candidates:
                 candidate = response.candidates[0]
                 if candidate.content and candidate.content.parts:
-                    text_content = "".join(
-                        part.text for part in candidate.content.parts 
-                        if hasattr(part, 'text')
-                    )
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            text_content += part.text
+                            output_parts.append({"type": "text", "text": part.text})
             
             # Fall back to response.text if candidates extraction failed
             if not text_content and hasattr(response, 'text'):
@@ -202,18 +282,17 @@ class GeminiProvider(BaseAIProvider):
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=response
             )
             
         except Exception as e:
-            # If web_search was requested and failed, RAISE the error - don't silently degrade
             if web_search:
                 raise AIProviderError(
                     f"Web search generation failed: {e}",
                     provider=self.PROVIDER_NAME,
                     original_error=e
                 )
-            # Only fall back if web_search was NOT requested
             return self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -228,9 +307,7 @@ class GeminiProvider(BaseAIProvider):
         
         try:
             # Try to list models as a connectivity check
-            # We iterate properly since it might return a generator
-            models = self._client.models.list(config={"page_size": 1})
-            # Just trying to access it is enough
+            self._client.models.list(config={"page_size": 1})
             return True
         except Exception:
             return False
@@ -246,26 +323,21 @@ class GeminiProvider(BaseAIProvider):
             
             for model in pager:
                 name = getattr(model, "name", "")
-                
-                # Filter for Gemini models, exclude tuning/embedding models if desired
-                # Usually we just want 'generateContent' supported models
-                # But checking name for 'gemini' is a good heuristic
                 if "gemini" not in name.lower():
                     continue
                 
-                # Extract ID from resource name (e.g. models/gemini-1.5-pro -> gemini-1.5-pro)
                 model_id = name.split("/")[-1] if "/" in name else name
                 
                 # Determine capabilities
-                capabilities = ["text"]
-                if "vision" in model_id.lower() or "gemini" in model_id.lower():
-                    capabilities.append("vision")
+                modalities = ["text"]
+                if any(x in model_id.lower() for x in ["vision", "flash", "pro"]):
+                    modalities.extend(["vision", "audio", "video"])
                 
                 models_list.append({
                     "id": model_id,
                     "name": getattr(model, "display_name", model_id),
                     "context_window": getattr(model, "input_token_limit", 0),
-                    "capabilities": capabilities,
+                    "modalities": modalities,
                     "cost_tier": "standard"
                 })
             
@@ -273,3 +345,22 @@ class GeminiProvider(BaseAIProvider):
         except Exception as e:
             print(f"Error listing Gemini models: {e}")
             return []
+
+    def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
+        """Discover modalities for Gemini models."""
+        # Most modern Gemini models are natively multimodal for input
+        input_modalities = ["text", "vision", "audio", "video"]
+        output_modalities = ["text"]
+        
+        # Suffix/ID based overrides
+        low_id = model_id.lower()
+        if "tts" in low_id:
+            input_modalities = ["text"]
+            output_modalities = ["audio"]
+        elif "embedding" in low_id:
+            input_modalities = ["text"]
+            output_modalities = ["embedding"]
+        elif "robotics" in low_id:
+             input_modalities = ["text", "vision"]
+        
+        return {"input": input_modalities, "output": output_modalities}

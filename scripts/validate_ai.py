@@ -21,9 +21,16 @@ from djinnite.ai_providers.gemini_provider import GeminiProvider
 from djinnite.ai_providers.claude_provider import ClaudeProvider
 from djinnite.ai_providers.openai_provider import OpenAIProvider
 
+import argparse
+
 def validate_ai():
+    parser = argparse.ArgumentParser(description="Validate AI provider configuration")
+    parser.add_argument("--config", type=str, help="Path to ai_config.json")
+    args = parser.parse_args()
+
     print("Loading configuration...")
-    config = load_ai_config()
+    config_path = Path(args.config) if args.config else None
+    config = load_ai_config(config_path)
     
     providers = {
         "gemini": GeminiProvider,
@@ -61,8 +68,13 @@ def validate_ai():
         print(f"Testing {name}{model_info}...", end=" ", flush=True)
         
         try:
-            # Init
-            provider = provider_cls(api_key=provider_config.api_key, model=model)
+            # Init with additional backend info if available
+            provider_kwargs = {}
+            if name == "gemini":
+                provider_kwargs["backend"] = provider_config.backend
+                provider_kwargs["project_id"] = provider_config.project_id
+
+            provider = provider_cls(api_key=provider_config.api_key, model=model, **provider_kwargs)
             
             # Connectivity check (is_available usually does a lightweight check)
             if not provider.is_available():

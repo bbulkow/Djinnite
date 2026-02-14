@@ -6,23 +6,35 @@ Each provider wraps the native SDK directly without heavy frameworks.
 """
 
 import json
+import sys
 from pathlib import Path
 from typing import Optional
+
+# Registry of available providers (declared before imports to avoid circularity if needed)
+PROVIDERS = {}
 
 from .base_provider import BaseAIProvider, AIResponse, AIProviderError
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
 
-from ..config_loader import CONFIG_DIR
+# Try absolute or relative import for CONFIG_DIR
+try:
+    from djinnite.config_loader import CONFIG_DIR
+except ImportError:
+    try:
+        from ..config_loader import CONFIG_DIR
+    except ImportError:
+        # Fallback for scripts running directly
+        CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
 # Registry of available providers
-PROVIDERS = {
+PROVIDERS.update({
     "gemini": GeminiProvider,
     "claude": ClaudeProvider,
     "chatgpt": OpenAIProvider,
-}
+})
 
 # Path to model catalog (in host project's config directory)
 MODEL_CATALOG_PATH = CONFIG_DIR / "model_catalog.json"
@@ -63,7 +75,8 @@ def get_provider(
     provider_name: str,
     api_key: str,
     model: Optional[str] = None,
-    gemini_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None,
+    **kwargs
 ) -> BaseAIProvider:
     """
     Factory function to create an AI provider instance.
@@ -73,6 +86,7 @@ def get_provider(
         api_key: API key for the provider
         model: Optional model ID to use
         gemini_api_key: Optional Gemini API key for web search (used by OpenAI)
+        **kwargs: Additional provider-specific arguments (e.g., backend, project_id for Gemini)
         
     Returns:
         Configured provider instance
@@ -100,9 +114,9 @@ def get_provider(
     
     # OpenAI needs Gemini API key for web search capability
     if provider_name == "chatgpt" and gemini_api_key:
-        return provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key)
+        return provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key, **kwargs)
     
-    return provider_class(api_key=api_key, model=model)
+    return provider_class(api_key=api_key, model=model, **kwargs)
 
 
 def list_available_providers() -> list[str]:

@@ -7,20 +7,44 @@
 
 Djinnite is a purpose-built AI abstraction layer that wraps provider SDKs directly—no heavy frameworks, no vendor lock-in, maximum control. Built for developers who need reliable, switchable AI capabilities across multiple projects.
 
+**🔍 Breakthrough Feature: Unified Multimodality**
+
+Stop juggling provider-specific formats like Gemini `parts` vs. OpenAI `content` blocks. Djinnite standardizes multimodal interaction into a single, normative schema.
+
+- **Unified Input**: Pass images, audio, video, or text using a simple list-of-dicts.
+- **Interleaved Output**: Receive text plus non-text parts (like cropped images or audio) in a consistent format.
+- **Safety First**: Global `modality_policy` allows you to disable high-cost modalities (like video) across your entire organization.
+- **Automatic Conversion**: Plain strings are auto-converted to multimodal parts—your existing code just works.
+
+```python
+# Multimodal: Mix text and images with any supporting provider
+prompt = [
+    {"type": "text", "text": "What is in this receipt?"},
+    {"type": "image", "image_data": open("receipt.jpg", "rb").read(), "mime_type": "image/jpeg"}
+]
+response = provider.generate(prompt)
+```
+
 **🔍 Breakthrough Feature: Universal Knowledge Grounding**
 
-Escape the knowledge cutoff trap! Every AI provider has opaque training data cutoffs—Gemini knows about events until some unknown date, Claude until another, OpenAI until yet another. When you ask "What happened this week?" you get outdated information without even knowing it.
-
-**Djinnite solves this with universal grounding/web search** across ALL providers:
+Escape the knowledge cutoff trap! Every AI provider has opaque training data cutoffs. Djinnite solves this with **universal grounding/web search** across ALL providers:
 - **Gemini**: Uses native search grounding 
 - **Claude**: Uses native search capabilities (when available)
 - **OpenAI**: Uses intelligent Gemini-powered web search (since OpenAI doesn't support this yet)
 - **Single API**: Same `web_search=True` parameter works everywhere
 - **Automatic fallback**: Graceful degradation when search isn't available
 
+**Enterprise-Ready Google Integration**
+Djinnite supports both paths for Google Gemini:
+- **Google AI Studio**: Fast, free-tier friendly setup for developers.
+- **Vertex AI (Google Cloud)**: Secure, production-ready infrastructure for enterprises.
+
 Your agents get **current information** regardless of which provider you use, without being "mired in the past."
 
-Future goals may include stateful streaming, more providers.
+Future goals may include:
+- **Automatic Training Horizon Detection**: Systematic discovery of training data cutoffs by querying each model directly.
+- **Enhanced Web Search Capability Detection**: Better heuristics for identifying models with native search capabilities (e.g., newer OpenAI search-specific models).
+- **Stateful Streaming**: High-performance streaming for long-form content.
 
 Pull requests accepted.
 
@@ -30,8 +54,8 @@ NOTE: this project coded with Gemini (Pro 3), and Anthropic Claude (mostly Opus 
 
 ## 🎯 Why Djinnite?
 
-### **True Multi-Provider Abstraction**
-Switch between **Google Gemini**, **Anthropic Claude**, and **OpenAI ChatGPT** with identical code. No provider-specific syntax to learn or maintain.
+### **True Multi-Provider Orchestration**
+Use **Google Gemini**, **Anthropic Claude**, and **OpenAI ChatGPT** side-by-side with identical code. No provider-specific syntax to learn or maintain, allowing you to mix and match the best models for each specific task in your application.
 
 ```python
 # Same code works with any provider
@@ -47,6 +71,7 @@ response = provider.generate("Explain quantum computing")  # Identical API
 ### **Perfect for Agentic Development**
 Designed from day one for **AI agents and automated systems**:
 
+- **Unified Multimodality** - standardized vision, audio, and video support
 - **Standardized responses** with consistent token counting across providers
 - **Robust error handling** with retry-friendly exception hierarchy
 - **JSON generation** optimized for structured agent outputs
@@ -71,19 +96,31 @@ Never fall behind on the latest AI capabilities:
 
 ```bash
 # Stay current with one command
-python -m djinnite.scripts.update_models
+uv run python -m djinnite.scripts.update_models
 # Updates: gemini-2.5-flash, claude-3-5-sonnet-20241022, gpt-4o, etc.
 ```
 
-### **Effortless Provider Switching**
-Change AI providers in **seconds, not hours**:
+### **Optimized Multi-Model Orchestration**
+Don't just switch providers—**use them in parallel**. Djinnite lets you orchestrate multiple models across different providers simultaneously, choosing the best tool for every specific task:
+
+- **Claude 3.5 Sonnet** for complex reasoning and coding
+- **Gemini 2.5 Flash** for high-speed, high-volume extraction
+- **GPT-4o** for specialized creative tasks
+- **Unified Interface**: Use them all together in the same application without juggling multiple SDKs or different response formats.
 
 ```json
-// Switch from expensive to economical with one config change
+// Configure multiple providers for simultaneous use
 {
-  "default_provider": "gemini",  // Was "claude"
+  "default_provider": "gemini",
   "providers": {
-    "gemini": { "default_model": "gemini-2.5-flash" }  // 40x cheaper than Claude
+    "gemini": { 
+      "default_model": "gemini-2.5-flash",
+      "use_cases": { "extraction": "gemini-2.5-flash" } 
+    },
+    "claude": { 
+      "default_model": "claude-3-5-sonnet-20241022",
+      "use_cases": { "reasoning": "claude-3-5-sonnet-20241022" }
+    }
   }
 }
 ```
@@ -125,6 +162,8 @@ Built to be **shared across multiple projects** without conflicts:
 
 ### Installation
 
+To use Djinnite, it is recommended to install it in editable mode so that the `djinnite` package is available in your Python environment:
+
 ```bash
 # As a git submodule (recommended for sharing across projects)
 git submodule add https://github.com/bbulkow/Djinnite.git djinnite
@@ -160,31 +199,31 @@ print(f"Content: {response.content}")
 print(f"Tokens: {response.total_tokens}")
 ```
 
-### Configuration
+### Multimodal Usage
 
-Create `config/ai_config.json` in your project:
+```python
+# Pass a list of parts for multimodal interaction
+prompt = [
+    {"type": "text", "text": "What color is the object in this image?"},
+    {"type": "image", "image_data": open("image.png", "rb").read(), "mime_type": "image/png"}
+]
 
-```json
-{
-  "providers": {
-    "gemini": {
-      "api_key": "your-gemini-api-key",
-      "enabled": true,
-      "default_model": "gemini-2.5-flash",
-      "use_cases": {
-        "coding": "gemini-2.5-flash",
-        "analysis": "gemini-2.5-pro"
-      }
-    },
-    "claude": {
-      "api_key": "your-claude-api-key", 
-      "enabled": true,
-      "default_model": "claude-3-5-sonnet-20241022"
-    }
-  },
-  "default_provider": "gemini"
-}
+response = provider.generate(prompt)
+print(response.content)
+
+# Access interleaved output parts if returned by the model
+for part in response.parts:
+    if part["type"] == "text":
+        print(f"Text: {part['text']}")
+    elif part["type"] == "inline_data":
+        print(f"Received data: {part['mime_type']}")
 ```
+
+### Configuration & Maintenance
+
+Djinnite requires a `config/ai_config.json` file in your project root to manage API keys and model preferences.
+
+For detailed instructions on setup, maintenance scripts, and integration, see **[USE.md](USE.md)**.
 
 ---
 
@@ -216,10 +255,25 @@ response.content        # Generated text
 response.model         # Actual model used
 response.provider      # Provider name
 response.usage         # Token usage dict
+response.parts         # Multimodal output parts (interleaved)
 response.input_tokens  # Tokens in prompt
 response.output_tokens # Tokens in response
 response.total_tokens  # Combined total
 response.raw_response  # Original provider response
+```
+
+### Multimodal Schema
+
+Djinnite uses a standardized "Part" schema for all multimodal inputs:
+
+```python
+# Standard Input Parts
+[
+    {"type": "text", "text": "Describe this audio and image."},
+    {"type": "image", "image_data": b"...", "mime_type": "image/jpeg"},
+    {"type": "audio", "file_uri": "gs://...", "mime_type": "audio/mp3"},
+    {"type": "video", "file_uri": "https://...", "mime_type": "video/mp4"}
+]
 ```
 
 ### Error Handling
@@ -227,16 +281,16 @@ response.raw_response  # Original provider response
 Comprehensive exception hierarchy for robust applications:
 
 ```python
-from djinnite.ai_providers import AIProviderError, AIRateLimitError, AIAuthenticationError
+from djinnite.ai_providers import AIProviderError, AIRateLimitError, AIAuthenticationError, DjinniteModalityError
 
 try:
-    response = provider.generate("Hello")
+    response = provider.generate(multimodal_prompt)
+except DjinniteModalityError as e:
+    # Model doesn't support one of the requested modalities (e.g. video)
+    print(f"Unsupported: {e.requested_modalities}")
 except AIRateLimitError:
     # Switch to different provider or implement backoff
     pass
-except AIAuthenticationError:
-    # Invalid API key
-    pass  
 except AIProviderError as e:
     # General provider error
     print(f"Provider {e.provider} failed: {e}")
@@ -244,58 +298,6 @@ except AIProviderError as e:
 
 ---
 
-## 🔧 Available Scripts
-
-Djinnite includes powerful utility scripts for managing AI providers:
-
-### Validate Connectivity
-
-Test your API keys and provider setup:
-
-```bash
-python -m djinnite.scripts.validate_ai
-```
-
-**Output:**
-```
-Testing Gemini provider...
-✅ Gemini: Successfully connected with gemini-2.5-flash
-✅ Generated 25 tokens in 1.2s
-
-Testing Claude provider...
-✅ Claude: Successfully connected with claude-3-5-sonnet-20241022  
-✅ Generated 31 tokens in 0.8s
-```
-
-### Update Model Catalog
-
-Refresh available models from provider APIs:
-
-```bash
-python -m djinnite.scripts.update_models
-```
-
-**What it does:**
-- Fetches latest model lists from Gemini, Claude, OpenAI APIs
-- Updates `config/model_catalog.json` with new models
-- Preserves existing cost scores and capabilities
-- Warns about deprecated or removed models
-
-### Update Model Costs
-
-AI-powered cost estimation for intelligent provider selection:
-
-```bash
-python -m djinnite.scripts.update_model_costs --dry-run
-```
-
-**Features:**
-- Uses AI to estimate relative costs between providers
-- Anchored to Gemini 2.5 Flash (cost_score = 1.0) 
-- Calculates costs from official pricing when available
-- Enables cost-aware model selection in your applications
-
----
 
 ## 🛠 Advanced Usage
 
@@ -442,6 +444,7 @@ djinnite/
 ├── llm_logger.py          # Request/response logging
 ├── scripts/               # Utility commands
 │   ├── validate_ai.py     # Test connectivity
+│   ├── validate_models.py # Comprehensive modality test
 │   ├── update_models.py   # Refresh model catalog
 │   └── update_model_costs.py  # Cost estimation
 ├── prompts/               # Shared prompt templates
@@ -449,16 +452,21 @@ djinnite/
 └── tests/                 # Test suite
 ```
 
+### 🗓️ Future Roadmap (Agentic Tasks)
+
+- [ ] **Modality-Aware Web Search Discovery**: Refine `discover_modalities` to identify models with native "tools" for web search.
+- [ ] **Training Horizon Probe**: Implement a script to automatically verify training data cutoffs for all models in the catalog.
+
 ### Provider Interface
 
 All providers implement the same abstract interface:
 
 ```python
 class BaseAIProvider(ABC):
-    def generate(self, prompt: str, system_prompt: Optional[str] = None, 
+    def generate(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None, 
                  temperature: float = 0.7, max_tokens: Optional[int] = None) -> AIResponse
     
-    def generate_json(self, prompt: str, system_prompt: Optional[str] = None,
+    def generate_json(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None,
                       temperature: float = 0.3, max_tokens: Optional[int] = None,
                       web_search: bool = False) -> AIResponse
     
@@ -504,57 +512,6 @@ When used as a git submodule:
 
 ---
 
-## 🔄 Model Management
-
-### Automatic Model Discovery
-
-Stay current with the latest AI capabilities:
-
-```bash
-# Refresh available models from provider APIs
-python -m djinnite.scripts.update_models
-```
-
-Updates `config/model_catalog.json` with:
-- **New models** from provider APIs (e.g., gemini-2.5-flash, claude-3-5-sonnet-20241022)
-- **Context windows** and capabilities
-- **Deprecation status** for model lifecycle management
-
-### Intelligent Cost Estimation
-
-AI-powered cost analysis for optimal provider selection:
-
-```bash
-# Estimate costs using AI
-python -m djinnite.scripts.update_model_costs
-```
-
-**How it works:**
-- Anchors to **Gemini 2.5 Flash** (cost_score = 1.0)
-- Uses **AI analysis** of provider pricing pages
-- **Calculates** from API pricing data when available
-- **Estimates** relative costs between providers for cost-aware switching
-
-Example cost scores:
-```json
-{
-  "gemini-2.5-flash": 1.0,      // Anchor (very economical)
-  "claude-3-5-sonnet": 40.0,    // 40x more expensive
-  "gpt-4o": 15.0                 // 15x more expensive
-}
-```
-
-### Model Validation
-
-Prevent broken deployments with model validation:
-
-```python
-# Automatic disabled model checking
-provider = get_provider("gemini", api_key, "deprecated-model")
-# Raises AIProviderError: Model 'deprecated-model' is disabled: model deprecated as of 2024-01-15
-```
-
----
 
 ## 🤝 Contributing
 
@@ -622,30 +579,13 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for complete guidelines.
 | **Provider Switching** | 🔄 Instant | 🔄 Instant | 🔄 Instant | 💼 Rewrite Code |
 | **Dependencies** | 📦 Minimal | 📦 Heavy | 📦 Moderate | 📦 Provider-specific |
 | **Performance** | 🚀 Native SDK | 🐌 Abstraction Overhead | 🚀 Native SDK | 🚀 Native SDK |
+| **Multimodality** | 🖼️ Unified | 📚 Complex | ❌ Basic | 🔧 Provider-specific |
 | **Model Discovery** | 🤖 AI-Powered | ❌ Manual | ❌ Manual | ❌ Manual |
 | **Cost Tracking** | 📊 AI-Estimated | ❌ Manual | ❌ Manual | ❌ Manual |
 | **Web Search** | 🌐 Unified API | 🌐 Various Tools | ❌ No | 🔧 Provider-specific |
 | **Error Handling** | 🛡️ Standardized | 🛡️ Standardized | 🛡️ Standardized | 🔧 Provider-specific |
 | **Agentic Features** | 🤖 Built-in | 🤖 Extensive | ❌ Basic | 🔧 Manual |
 | **Submodule Safe** | ✅ Designed for it | ❌ Version Hell | ❌ Dependency Conflicts | ✅ If Managed |
-
-### Why Not LangChain?
-
-- **Complexity**: LangChain is a full framework with hundreds of dependencies
-- **Performance**: Multiple abstraction layers slow down simple AI calls  
-- **Overkill**: Most projects just need basic text generation with provider switching
-
-### Why Not LiteLLM?
-
-- **Static Model Lists**: Requires manual updates for new models
-- **No Intelligence**: No cost estimation or automatic model discovery
-- **Limited Features**: Basic abstraction without advanced capabilities
-
-### Why Not Direct SDKs?
-
-- **Vendor Lock-in**: Code tied to specific provider APIs
-- **Maintenance**: Need to update code when switching providers
-- **Inconsistency**: Different error handling and response formats per provider
 
 ---
 
@@ -689,7 +629,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - Built for the [EventFinder](https://github.com/bbulkow/EventFinder) project
 - Inspired by the need for reliable, switchable AI across multiple applications
+- And to use AI to choose the AI models that both perform best and are lowest cost
 - Thanks to Google, Anthropic, and OpenAI for excellent AI APIs
+- But more importantly to Gemini and Claude coding agents without which I wouldn't have bothered with this layer
 
 ---
 

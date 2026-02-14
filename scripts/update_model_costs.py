@@ -8,9 +8,11 @@ The anchor model is Gemini 2.5 Flash (cost_score = 1.0).
 - Gemini models: Calculate from API pricing data where available
 - Other providers: Use AI to estimate based on published pricing
 
+By default, this script updates all models in the catalog that are not
+manually overridden.
+
 Usage:
-    python -m djinnite.scripts.update_model_costs           # Update models without cost_score
-    python -m djinnite.scripts.update_model_costs --force   # Recalculate all costs
+    python -m djinnite.scripts.update_model_costs           # Update all possible costs
     python -m djinnite.scripts.update_model_costs --dry-run # Show changes without saving
     python -m djinnite.scripts.update_model_costs --estimator gemini-2.5-pro  # Use specific model
 """
@@ -53,6 +55,8 @@ TIER_DEFAULTS = {
 # Known Gemini pricing ($ per 1M tokens) - fallback when API doesn't provide pricing
 # Source: https://ai.google.dev/pricing
 GEMINI_KNOWN_PRICES = {
+    "gemini-3-flash": {"input": 0.05, "output": 0.20},
+    "gemini-3-pro": {"input": 1.00, "output": 4.00},
     "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
     "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
@@ -101,22 +105,20 @@ def calculate_gemini_cost(model_id: str, api_key: str = None) -> Optional[tuple[
     output_price = None
     source = None
     
-    # Check known prices FIRST (no API call needed!)
-    if input_price is None or output_price is None:
-        # Try exact match first
-        if model_id in GEMINI_KNOWN_PRICES:
-            prices = GEMINI_KNOWN_PRICES[model_id]
-            input_price = prices["input"]
-            output_price = prices["output"]
-            source = "known_prices"
-        else:
-            # Try to match base model (e.g., gemini-2.5-flash-001 -> gemini-2.5-flash)
-            for known_id, prices in GEMINI_KNOWN_PRICES.items():
-                if model_id.startswith(known_id):
-                    input_price = prices["input"]
-                    output_price = prices["output"]
-                    source = "known_prices"
-                    break
+    # Check known prices table FIRST
+    if model_id in GEMINI_KNOWN_PRICES:
+        prices = GEMINI_KNOWN_PRICES[model_id]
+        input_price = prices["input"]
+        output_price = prices["output"]
+        source = "known_prices"
+    else:
+        # Try to match base model (e.g., gemini-2.5-flash-001 -> gemini-2.5-flash)
+        for known_id, prices in GEMINI_KNOWN_PRICES.items():
+            if model_id.startswith(known_id):
+                input_price = prices["input"]
+                output_price = prices["output"]
+                source = "known_prices"
+                break
     
     if input_price is not None and output_price is not None:
         cost_score = calculate_cost_score(input_price, output_price)
@@ -144,21 +146,6 @@ def estimate_costs_with_ai(
 ) -> dict[str, float]:
     """
     Use AI to estimate cost_scores for models.
-    
-    Uses externalized prompts from djinnite/prompts/__init__.py and logs
-    all requests/responses for debugging.
-    
-    Args:
-        models_to_estimate: List of model dicts with id, provider info
-        provider_name: Name of the provider being estimated (e.g., "chatgpt")
-        estimator_provider: Provider to use for estimation (e.g., "gemini")
-        estimator_model: Model to use for estimation
-        api_key: API key for the estimator provider
-        logger: Optional LLMLogger for observability
-        gemini_api_key: Optional Gemini API key for web search (used by OpenAI)
-        
-    Returns:
-        Dict mapping model_id to estimated cost_score
     """
     if not models_to_estimate:
         return {}
@@ -187,7 +174,7 @@ def estimate_costs_with_ai(
         model_list=model_list
     )
     
-    # Log the request BEFORE sending (observability)
+    # Log the request BEFORE sending
     request_id = logger.log_request(
         prompt=prompt,
         system_prompt=system_prompt,
@@ -205,37 +192,31 @@ def estimate_costs_with_ai(
             system_prompt=system_prompt,
             temperature=temperature,
             max_tokens=max_tokens,
-            web_search=web_search  # Enable web search for current pricing
+            web_search=web_search
         )
         
         raw_response = response.content
         content = raw_response.strip()
         
         # Clean up common LLM output issues
-        # Remove markdown code fences if present
         if content.startswith("```"):
             lines = content.split("\n")
-            lines = lines[1:]  # Remove first line (```json or ```)
+            lines = lines[1:]
             if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]  # Remove last line
+                lines = lines[:-1]
             content = "\n".join(lines)
         
-        # Try to find JSON object in the response
         start_idx = content.find("{")
         end_idx = content.rfind("}")
         if start_idx != -1 and end_idx != -1:
             content = content[start_idx:end_idx + 1]
         
-        # Parse the JSON response
         estimates = json.loads(content)
-        
-        # Validate and clean up
         cleaned = {}
         for model_id, score in estimates.items():
             if isinstance(score, (int, float)) and score > 0:
                 cleaned[model_id] = float(score)
         
-        # Log successful response
         logger.log_response(
             request_id=request_id,
             response_content=raw_response,
@@ -246,32 +227,20 @@ def estimate_costs_with_ai(
         
         return cleaned
         
-    except json.JSONDecodeError as e:
-        error_msg = f"JSON parse error: {e}"
-        print(f"  ⚠️ Failed to parse AI response as JSON: {e}")
-        # Log failed response for debugging
-        logger.log_response(
-            request_id=request_id,
-            response_content=raw_response,
-            success=False,
-            error=error_msg
-        )
-        return {}
     except Exception as e:
-        error_msg = f"AI estimation error: {e}"
-        print(f"  ⚠️ AI estimation failed: {e}")
         logger.log_response(
             request_id=request_id,
             response_content=raw_response,
             success=False,
-            error=error_msg
+            error=str(e)
         )
         return {}
 
 
 def get_tier_default(model: dict) -> float:
     """Get default cost_score based on model's cost_tier."""
-    tier = model.get("cost_tier", "standard")
+    costing = model.get("costing", {})
+    tier = costing.get("tier", model.get("cost_tier", "standard"))
     return TIER_DEFAULTS.get(tier, 1.0)
 
 
@@ -279,38 +248,36 @@ def get_tier_default(model: dict) -> float:
 # MAIN UPDATE LOGIC
 # ============================================================================
 
-def load_catalog() -> dict:
+def load_catalog(catalog_path: Optional[Path] = None) -> dict:
     """Load the model catalog from disk."""
-    catalog_path = CONFIG_DIR / "model_catalog.json"
-    if not catalog_path.exists():
-        print("❌ Model catalog not found. Run 'python -m djinnite.scripts.update_models' first.")
+    path = catalog_path or CONFIG_DIR / "model_catalog.json"
+    if not path.exists():
+        print(f"❌ Model catalog not found at {path}. Run 'python -m djinnite.scripts.update_models' first.")
         sys.exit(1)
     
-    with open(catalog_path, 'r', encoding='utf-8') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
-def save_catalog(catalog: dict) -> None:
+def save_catalog(catalog: dict, catalog_path: Optional[Path] = None) -> None:
     """Save the model catalog to disk."""
-    catalog_path = CONFIG_DIR / "model_catalog.json"
-    with open(catalog_path, 'w', encoding='utf-8') as f:
+    path = catalog_path or CONFIG_DIR / "model_catalog.json"
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(catalog, f, indent=2)
 
 
 def update_model_costs(
-    force: bool = False,
+    force: bool = True,
     dry_run: bool = False,
     estimator_model: Optional[str] = None,
-    provider_filter: Optional[str] = None
+    provider_filter: Optional[str] = None,
+    config_path: Optional[Path] = None,
+    catalog_path: Optional[Path] = None
 ) -> None:
     """
     Main function to update cost_score values in the model catalog.
     
-    Args:
-        force: If True, recalculate all costs (not just missing ones)
-        dry_run: If True, show changes without saving
-        estimator_model: Specific model to use for AI estimation
-        provider_filter: If specified, only process this provider (e.g., "chatgpt")
+    By default, force=True means it will update all existing models (except manual ones).
     """
     print("🔧 Model Cost Updater")
     print("━" * 40)
@@ -319,22 +286,18 @@ def update_model_costs(
         print(f"Provider filter: {provider_filter}")
     print()
     
-    # Load configuration and catalog
-    ai_config = load_ai_config()
-    catalog = load_catalog()
+    ai_config = load_ai_config(config_path)
+    catalog = load_catalog(catalog_path)
     
     # Determine estimator model
     if estimator_model:
         est_provider, est_model = None, estimator_model
-        # Figure out which provider has this model
         for prov_name, prov_data in catalog.items():
             model_ids = [m["id"] for m in prov_data.get("models", [])]
             if estimator_model in model_ids:
                 est_provider = prov_name
                 break
         if not est_provider:
-            print(f"⚠️ Estimator model '{estimator_model}' not found in catalog.")
-            print("   Using default provider's default model.")
             est_provider = ai_config.default_provider
             prov_config = ai_config.get_provider(est_provider)
             est_model = prov_config.default_model if prov_config else None
@@ -355,9 +318,7 @@ def update_model_costs(
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     stats = {"updated": 0, "new": 0, "unchanged": 0, "estimated": 0, "failed": 0, "disabled": 0}
     
-    # Process each provider
     for provider_name, provider_data in catalog.items():
-        # Skip if provider filter is set and doesn't match
         if provider_filter and provider_name != provider_filter:
             continue
             
@@ -367,46 +328,49 @@ def update_model_costs(
         
         print(f"📊 {provider_name.upper()} ({len(models)} models)")
         
-        # Get API key for this provider (for Gemini pricing lookup)
         provider_config = ai_config.get_provider(provider_name)
         provider_api_key = provider_config.api_key if provider_config else None
         
-        # Separate models that need estimation
         models_needing_estimation = []
         
         for model in models:
             model_id = model["id"]
-            has_cost = "cost_score" in model
-            is_manual = model.get("cost_source") == "manual"
+            
+            # Migrate old schema if needed
+            if "costing" not in model:
+                model["costing"] = {
+                    "score": model.get("cost_score", 1.0),
+                    "source": model.get("cost_source", "default"),
+                    "updated": model.get("cost_updated", ""),
+                    "tier": model.get("cost_tier", "standard")
+                }
+                # Remove old fields
+                for f in ["cost_score", "cost_source", "cost_updated", "cost_tier"]:
+                    if f in model: del model[f]
+
+            costing = model["costing"]
+            has_cost = costing.get("updated") != ""
+            is_manual = costing.get("source") == "manual"
             is_disabled = model.get("disabled", False)
             
-            # Skip already-disabled models (unless forcing)
-            if is_disabled and not force:
+            # Skip disabled models
+            if is_disabled:
                 reason = model.get("disabled_reason", "unknown")
                 print(f"  🚫 {model_id}: DISABLED ({reason})")
                 stats["unchanged"] += 1
                 continue
             
-            # Skip if already has cost and not forcing (unless manual)
-            if has_cost and not force:
-                if is_manual:
-                    print(f"  ⏭️ {model_id}: {model['cost_score']:.2f} (manual, preserved)")
-                else:
-                    print(f"  ✓ {model_id}: {model['cost_score']:.2f} (existing)")
-                stats["unchanged"] += 1
-                continue
-            
-            # Skip manual overrides even with --force
+            # Skip manual overrides
             if is_manual:
-                print(f"  ⏭️ {model_id}: {model['cost_score']:.2f} (manual, preserved)")
+                print(f"  ⏭️ {model_id}: {costing['score']:.2f} (manual, preserved)")
                 stats["unchanged"] += 1
                 continue
             
             # Check if this is the anchor
             if model_id == ANCHOR_MODEL_ID and provider_name == ANCHOR_PROVIDER:
-                model["cost_score"] = ANCHOR_COST_SCORE
-                model["cost_source"] = "anchor"
-                model["cost_updated"] = today
+                costing["score"] = ANCHOR_COST_SCORE
+                costing["source"] = "anchor"
+                costing["updated"] = today
                 print(f"  ⚓ {model_id}: {ANCHOR_COST_SCORE} (anchor)")
                 stats["updated" if has_cost else "new"] += 1
                 continue
@@ -416,9 +380,9 @@ def update_model_costs(
                 result = calculate_gemini_cost(model_id, provider_api_key)
                 if result is not None:
                     cost_score, source = result
-                    model["cost_score"] = round(cost_score, 2)
-                    model["cost_source"] = source
-                    model["cost_updated"] = today
+                    costing["score"] = round(cost_score, 2)
+                    costing["source"] = source
+                    costing["updated"] = today
                     print(f"  ✓ {model_id}: {cost_score:.2f} ({source})")
                     stats["updated" if has_cost else "new"] += 1
                     continue
@@ -428,22 +392,19 @@ def update_model_costs(
                 "id": model_id,
                 "provider": provider_name,
                 "name": model.get("name", model_id),
-                "cost_tier": model.get("cost_tier", "standard"),
-                "_model_ref": model  # Reference to update later
+                "cost_tier": costing.get("tier", "standard"),
+                "_model_ref": model
             })
         
-        # Batch AI estimation for this provider
         if models_needing_estimation and est_api_key:
             print(f"  🤖 Estimating {len(models_needing_estimation)} models with AI...")
-            
-            # Get Gemini API key for OpenAI web search fallback
             gemini_config = ai_config.get_provider("gemini")
             gemini_api_key = gemini_config.api_key if gemini_config else None
             
             estimates = estimate_costs_with_ai(
                 models_needing_estimation,
-                provider_name,  # The provider being estimated
-                est_provider,   # The estimator provider
+                provider_name,
+                est_provider,
                 est_model,
                 est_api_key,
                 gemini_api_key=gemini_api_key
@@ -452,53 +413,49 @@ def update_model_costs(
             for m in models_needing_estimation:
                 model_id = m["id"]
                 model_ref = m["_model_ref"]
-                has_cost = "cost_score" in model_ref
+                costing = model_ref["costing"]
+                has_prev_cost = costing.get("updated") != ""
                 
                 if model_id in estimates:
-                    model_ref["cost_score"] = round(estimates[model_id], 2)
-                    model_ref["cost_source"] = "estimated"
-                    model_ref["cost_updated"] = today
+                    costing["score"] = round(estimates[model_id], 2)
+                    costing["source"] = "estimated"
+                    costing["updated"] = today
                     print(f"  ✓ {model_id}: {estimates[model_id]:.2f} (estimated)")
                     stats["estimated"] += 1
-                    stats["updated" if has_cost else "new"] += 1
+                    stats["updated" if has_prev_cost else "new"] += 1
                 else:
-                    # FAILED - AI estimation didn't return this model
-                    # Still set a tier default as placeholder, but mark as FAILED
                     default_score = get_tier_default(model_ref)
-                    model_ref["cost_score"] = default_score
-                    model_ref["cost_source"] = "failed"  # Mark as failed, not tier_default
-                    model_ref["cost_updated"] = today
+                    costing["score"] = default_score
+                    costing["source"] = "failed"
+                    costing["updated"] = today
                     print(f"  ❌ {model_id}: {default_score:.2f} (FAILED - needs manual review)")
                     stats["failed"] += 1
         
         elif models_needing_estimation:
-            # No AI available - this is a failure
             print(f"  ❌ No AI estimator available - marking as FAILED...")
             for m in models_needing_estimation:
                 model_ref = m["_model_ref"]
+                costing = model_ref["costing"]
                 default_score = get_tier_default(model_ref)
-                model_ref["cost_score"] = default_score
-                model_ref["cost_source"] = "failed"  # Mark as failed
-                model_ref["cost_updated"] = today
+                costing["score"] = default_score
+                costing["source"] = "failed"
+                costing["updated"] = today
                 print(f"  ❌ {m['id']}: {default_score:.2f} (FAILED - needs manual review)")
                 stats["failed"] += 1
         
         print()
     
-    # Save or report
     print("━" * 40)
     if dry_run:
         print("🔍 DRY RUN - No changes saved")
     else:
-        save_catalog(catalog)
-        print(f"💾 Saved to {CONFIG_DIR / 'model_catalog.json'}")
+        save_catalog(catalog, catalog_path)
+        print(f"💾 Saved to {catalog_path or CONFIG_DIR / 'model_catalog.json'}")
     
     print(f"   Updated: {stats['updated']} models")
     print(f"   New: {stats['new']} models")
     print(f"   Estimated by AI: {stats['estimated']} models")
     print(f"   Unchanged: {stats['unchanged']} models")
-    if stats["disabled"] > 0:
-        print(f"   🚫 Disabled: {stats['disabled']} models (specialty/legacy)")
     if stats["failed"] > 0:
         print(f"   ❌ FAILED: {stats['failed']} models (need manual review)")
 
@@ -512,10 +469,12 @@ def main():
         description="Update cost_score values for AI models in the catalog."
     )
     parser.add_argument(
-        "--force", "-f",
-        action="store_true",
-        help="Recalculate all costs (not just missing ones)"
+        "--no-force",
+        dest="force",
+        action="store_false",
+        help="Only update models without existing cost data"
     )
+    parser.set_defaults(force=True)
     parser.add_argument(
         "--dry-run", "-n",
         action="store_true",
@@ -533,6 +492,16 @@ def main():
         default=None,
         help="Only process this provider (e.g., chatgpt, claude, gemini)"
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to ai_config.json"
+    )
+    parser.add_argument(
+        "--catalog",
+        type=str,
+        help="Path to model_catalog.json"
+    )
     
     args = parser.parse_args()
     
@@ -540,7 +509,9 @@ def main():
         force=args.force,
         dry_run=args.dry_run,
         estimator_model=args.estimator,
-        provider_filter=args.provider
+        provider_filter=args.provider,
+        config_path=Path(args.config) if args.config else None,
+        catalog_path=Path(args.catalog) if args.catalog else None
     )
 
 

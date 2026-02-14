@@ -5,7 +5,7 @@ Wraps the OpenAI SDK.
 Supports web search via Gemini's native Google Search grounding.
 """
 
-from typing import Optional
+from typing import Optional, Union, List, Dict
 
 from .base_provider import (
     BaseAIProvider,
@@ -56,10 +56,37 @@ class OpenAIProvider(BaseAIProvider):
                 provider=self.PROVIDER_NAME,
                 original_error=e
             )
+
+    def _map_parts(self, parts: List[Dict]) -> List:
+        """Map internal parts to OpenAI SDK message content."""
+        openai_content = []
+        for part in parts:
+            if part["type"] == "text":
+                openai_content.append({"type": "text", "text": part["text"]})
+            elif part["type"] == "image":
+                if "image_data" in part:
+                    # OpenAI supports base64 in data URLs
+                    import base64
+                    data = part["image_data"]
+                    if isinstance(data, bytes):
+                        data = base64.b64encode(data).decode("utf-8")
+                    mime = part.get("mime_type", "image/jpeg")
+                    openai_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{data}"}
+                    })
+                elif "file_uri" in part:
+                    openai_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": part["file_uri"]}
+                    })
+            # OpenAI's chat completion API (at least currently) primarily supports vision for multimodal
+            # Audio/Video are handled via other endpoints or specifically formatted if supported
+        return openai_content
     
     def generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
@@ -68,10 +95,13 @@ class OpenAIProvider(BaseAIProvider):
         Generate a response using OpenAI.
         """
         try:
+            parts = self._normalize_input(prompt)
+            openai_content = self._map_parts(parts)
+
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
+            messages.append({"role": "user", "content": openai_content})
             
             kwargs = {
                 "model": self.model,
@@ -131,12 +161,6 @@ class OpenAIProvider(BaseAIProvider):
     def _search_with_gemini(self, query: str) -> str:
         """
         Perform a web search using Gemini's native Google Search grounding.
-        
-        Args:
-            query: The search query
-            
-        Returns:
-            Search results as text
         """
         if not self._gemini_api_key:
             raise AIProviderError(
@@ -173,7 +197,7 @@ class OpenAIProvider(BaseAIProvider):
     
     def generate_json(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
@@ -181,19 +205,7 @@ class OpenAIProvider(BaseAIProvider):
     ) -> AIResponse:
         """
         Generate a JSON response using OpenAI.
-        
-        Uses OpenAI's JSON mode for more reliable JSON output.
-        When web_search=True, uses Gemini to fetch current info first,
-        then passes that context to OpenAI for structured output.
-        
-        Args:
-            prompt: The user prompt
-            system_prompt: Optional system instruction
-            temperature: Sampling temperature
-            max_tokens: Maximum output tokens (capped at 16384 for gpt-4o)
-            web_search: If True, use Gemini to search web first
         """
-        # Cap max_tokens for OpenAI (gpt-4o max is 16384 completion tokens)
         if max_tokens is not None and max_tokens > 16384:
             max_tokens = 16384
         
@@ -208,23 +220,21 @@ class OpenAIProvider(BaseAIProvider):
                     )
                 
                 # Extract search context from Gemini
-                search_results = self._search_with_gemini(prompt)
+                search_results = self._search_with_gemini(str(prompt))
                 
-                # Augment the prompt with search results
-                augmented_prompt = f"""Based on the following current information from web search:
-
----SEARCH RESULTS---
-{search_results}
----END SEARCH RESULTS---
-
-Now answer the original question:
-{prompt}"""
-                prompt = augmented_prompt
+                # Augment the prompt
+                if isinstance(prompt, str):
+                    prompt = f"Based on web search results: {search_results}\n\n{prompt}"
+                else:
+                    prompt.insert(0, {"type": "text", "text": f"Web search results: {search_results}"})
             
+            parts = self._normalize_input(prompt)
+            openai_content = self._map_parts(parts)
+
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
+            messages.append({"role": "user", "content": openai_content})
             
             kwargs = {
                 "model": self.model,
@@ -257,7 +267,6 @@ Now answer the original question:
         except AIProviderError:
             raise  # Re-raise our own errors
         except Exception as e:
-            # Fall back to regular generation if JSON mode fails
             return self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -271,7 +280,6 @@ Now answer the original question:
             return False
         
         try:
-            # Try to list models (lightweight check)
             self._client.models.list()
             return True
         except Exception:
@@ -288,22 +296,24 @@ Now answer the original question:
             models_list = []
             for model in models.data:
                 model_id = model.id
-                
-                # Heuristic filter for chat models
                 if "gpt" not in model_id:
                     continue
                     
-                context = 128000 # Default assumption for modern GPT-4
+                context = 128000
                 if "gpt-3.5" in model_id:
                     context = 16000
                 elif "mini" in model_id:
-                    context = 256000 # gpt-4o-mini has larger context
+                    context = 256000
+                
+                modalities = ["text"]
+                if any(x in model_id.lower() for x in ["vision", "gpt-4", "4o"]):
+                    modalities.append("vision")
                 
                 models_list.append({
                     "id": model_id,
-                    "name": model_id, # OpenAI doesn't give display names usually
+                    "name": model_id,
                     "context_window": context,
-                    "capabilities": ["text", "vision"] if "vision" in model_id or "gpt-4" in model_id else ["text"],
+                    "modalities": modalities,
                     "cost_tier": "standard"
                 })
             
@@ -311,3 +321,23 @@ Now answer the original question:
         except Exception as e:
             print(f"Error listing OpenAI models: {e}")
             return []
+
+    def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
+        """Discover modalities for OpenAI models."""
+        input_modalities = ["text"]
+        output_modalities = ["text"]
+        
+        low_id = model_id.lower()
+        if "gpt-4o" in low_id or "vision" in low_id:
+            input_modalities.append("vision")
+        
+        if "tts" in low_id:
+            input_modalities = ["text"]
+            output_modalities = ["audio"]
+            
+        if "whisper" in low_id or "audio" in low_id:
+            input_modalities.append("audio")
+            if "preview" in low_id:
+                output_modalities.append("audio")
+        
+        return {"input": input_modalities, "output": output_modalities}

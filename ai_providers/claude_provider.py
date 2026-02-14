@@ -8,7 +8,8 @@ Supports native web search for Claude 4.5+ models.
 import json
 import urllib.request
 import urllib.error
-from typing import Optional
+import base64
+from typing import Optional, Union, List, Dict
 
 from .base_provider import (
     BaseAIProvider,
@@ -31,16 +32,11 @@ WEB_SEARCH_TOOL = {
 def _supports_native_web_search(model_id: str) -> bool:
     """
     Check if a Claude model supports native web search.
-    
-    Only Claude 4.5+ models support the web-search-2025-03-05 beta.
     """
-    # Check for 4.5+ model indicators
     if "4-5" in model_id or "4.5" in model_id:
         return True
     if "latest" in model_id.lower():
-        # Latest models typically support newest features
         return True
-    # Explicit model checks for future-proofing
     if any(x in model_id for x in ["sonnet-4-5", "opus-4-5", "haiku-4-5"]):
         return True
     return False
@@ -49,9 +45,6 @@ def _supports_native_web_search(model_id: str) -> bool:
 class ClaudeProvider(BaseAIProvider):
     """
     Anthropic Claude AI provider implementation.
-    
-    Uses the anthropic SDK directly.
-    Supports native web search for Claude 4.5+ models via the beta API.
     """
     
     PROVIDER_NAME = "claude"
@@ -74,31 +67,42 @@ class ClaudeProvider(BaseAIProvider):
                 provider=self.PROVIDER_NAME,
                 original_error=e
             )
+
+    def _map_parts(self, parts: List[Dict]) -> List:
+        """Map internal parts to Anthropic SDK content blocks."""
+        claude_content = []
+        for part in parts:
+            if part["type"] == "text":
+                claude_content.append({"type": "text", "text": part["text"]})
+            elif part["type"] == "image":
+                if "image_data" in part:
+                    data = part["image_data"]
+                    if isinstance(data, bytes):
+                        data = base64.b64encode(data).decode("utf-8")
+                    claude_content.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": part.get("mime_type", "image/jpeg"),
+                            "data": data
+                        }
+                    })
+                # Claude doesn't support file_uri directly in the same way as Gemini
+        return claude_content
     
     def generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
     ) -> AIResponse:
         """
         Generate a response using Claude.
-        
-        Args:
-            prompt: The user prompt/message
-            system_prompt: Optional system instruction
-            temperature: Sampling temperature (0.0-1.0)
-            max_tokens: Maximum tokens to generate (default 4096)
-            
-        Returns:
-            AIResponse with the generated content
         """
         try:
-            # Build the messages
-            messages = [
-                {"role": "user", "content": prompt}
-            ]
+            parts = self._normalize_input(prompt)
+            claude_content = self._map_parts(parts)
             
             # Claude requires max_tokens to be specified
             if max_tokens is None:
@@ -109,10 +113,9 @@ class ClaudeProvider(BaseAIProvider):
                 "model": self.model,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
-                "messages": messages,
+                "messages": [{"role": "user", "content": claude_content}],
             }
             
-            # Add system prompt if provided
             if system_prompt:
                 kwargs["system"] = system_prompt
             
@@ -121,11 +124,12 @@ class ClaudeProvider(BaseAIProvider):
             
             # Extract content
             content = ""
+            output_parts = []
             if response.content:
-                # Claude returns a list of content blocks
                 for block in response.content:
                     if hasattr(block, 'text'):
                         content += block.text
+                        output_parts.append({"type": "text", "text": block.text})
             
             # Extract usage info
             usage = {}
@@ -140,6 +144,7 @@ class ClaudeProvider(BaseAIProvider):
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=response
             )
             
@@ -147,7 +152,6 @@ class ClaudeProvider(BaseAIProvider):
             error_message = str(e).lower()
             error_type = type(e).__name__
             
-            # Check for specific error types
             if "authentication" in error_message or "api_key" in error_message or "AuthenticationError" in error_type:
                 raise AIAuthenticationError(
                     "Invalid API key or authentication failed",
@@ -175,16 +179,13 @@ class ClaudeProvider(BaseAIProvider):
     
     def _generate_with_web_search(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: int = 4096,
     ) -> AIResponse:
         """
         Generate a response using Claude with native web search.
-        
-        Uses the web-search-2025-03-05 beta API directly via HTTP
-        since the SDK may not fully support it yet.
         """
         url = "https://api.anthropic.com/v1/messages"
         
@@ -195,11 +196,14 @@ class ClaudeProvider(BaseAIProvider):
             "content-type": "application/json"
         }
         
+        parts = self._normalize_input(prompt)
+        claude_content = self._map_parts(parts)
+
         data = {
             "model": self.model,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": claude_content}],
             "tools": [WEB_SEARCH_TOOL],
         }
         
@@ -217,19 +221,17 @@ class ClaudeProvider(BaseAIProvider):
             with urllib.request.urlopen(req) as response:
                 result = json.load(response)
             
-            # Extract content from response
             content = ""
+            output_parts = []
             content_blocks = result.get('content', [])
             
             for block in content_blocks:
                 block_type = block.get('type', '')
                 if block_type == 'text':
-                    content += block.get('text', '')
-                elif block_type == 'tool_use':
-                    # Tool was called - content may be in the result
-                    pass
+                    text = block.get('text', '')
+                    content += text
+                    output_parts.append({"type": "text", "text": text})
             
-            # Extract usage
             usage_data = result.get('usage', {})
             usage = {
                 "input_tokens": usage_data.get('input_tokens', 0),
@@ -241,6 +243,7 @@ class ClaudeProvider(BaseAIProvider):
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=result
             )
             
@@ -248,35 +251,21 @@ class ClaudeProvider(BaseAIProvider):
             error_body = e.read().decode('utf-8')
             if e.code == 400 and "beta" in error_body.lower():
                 raise AIProviderError(
-                    f"Web search not available for model '{self.model}'. "
-                    "Only Claude 4.5+ models support native web search.",
+                    f"Web search not available for model '{self.model}'.",
                     provider=self.PROVIDER_NAME
                 )
             elif e.code == 401:
-                raise AIAuthenticationError(
-                    "Invalid API key",
-                    provider=self.PROVIDER_NAME
-                )
+                raise AIAuthenticationError("Invalid API key", provider=self.PROVIDER_NAME)
             elif e.code == 429:
-                raise AIRateLimitError(
-                    "Rate limit exceeded",
-                    provider=self.PROVIDER_NAME
-                )
+                raise AIRateLimitError("Rate limit exceeded", provider=self.PROVIDER_NAME)
             else:
-                raise AIProviderError(
-                    f"HTTP {e.code}: {error_body}",
-                    provider=self.PROVIDER_NAME
-                )
+                raise AIProviderError(f"HTTP {e.code}: {error_body}", provider=self.PROVIDER_NAME)
         except Exception as e:
-            raise AIProviderError(
-                f"Web search generation failed: {e}",
-                provider=self.PROVIDER_NAME,
-                original_error=e
-            )
+            raise AIProviderError(f"Web search generation failed: {e}", provider=self.PROVIDER_NAME, original_error=e)
     
     def generate_json(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
@@ -284,35 +273,20 @@ class ClaudeProvider(BaseAIProvider):
     ) -> AIResponse:
         """
         Generate a JSON response using Claude.
-        
-        Args:
-            prompt: The user prompt
-            system_prompt: Optional system instruction
-            temperature: Sampling temperature
-            max_tokens: Maximum output tokens
-            web_search: If True, enable web search for current information.
-                       Only supported on Claude 4.5+ models.
-        
-        Raises:
-            AIProviderError: If web_search=True but model doesn't support it.
         """
-        # Cap max_tokens to avoid Anthropic's streaming requirement for long operations
         if max_tokens is not None and max_tokens > 8192:
             max_tokens = 8192
         elif max_tokens is None:
             max_tokens = 4096
         
-        # Enhance system prompt for JSON output
         json_system = "You must respond with valid JSON only. No additional text or explanation."
         if system_prompt:
             json_system = f"{system_prompt}\n\n{json_system}"
         
-        # Handle web search
         if web_search:
             if not _supports_native_web_search(self.model):
                 raise AIProviderError(
-                    f"Web search not supported for model '{self.model}'. "
-                    "Only Claude 4.5+ models (e.g., claude-sonnet-4-5-20250929) support web search.",
+                    f"Web search not supported for model '{self.model}'.",
                     provider=self.PROVIDER_NAME
                 )
             return self._generate_with_web_search(
@@ -330,20 +304,17 @@ class ClaudeProvider(BaseAIProvider):
         )
     
     def is_available(self) -> bool:
-        """Check if Claude is available and configured."""
+        """Check if Claude is available."""
         if not self.api_key:
             return False
         
         try:
-            # Try a minimal API call to verify connectivity
-            # Using count_tokens as a lightweight check
             self._client.count_tokens(
                 model=self.model,
                 messages=[{"role": "user", "content": "test"}]
             )
             return True
         except Exception:
-            # Fall back to just checking if client initialized
             return self._client is not None
 
     def list_models(self) -> list[dict]:
@@ -352,18 +323,13 @@ class ClaudeProvider(BaseAIProvider):
             return []
             
         try:
-            # New Anthropic SDKs support models.list()
-            # It returns a SyncCursorPage[Model]
             models = self._client.models.list(limit=100)
             
             models_list = []
             for model in models:
-                # model attributes: id, display_name, created_at, type
                 model_id = model.id
                 name = getattr(model, "display_name", model_id)
-                
-                # Heuristic for context window and cost
-                context = 200000 # Default for Claude 3/3.5
+                context = 200000
                 cost = "standard"
                 
                 if "opus" in model_id:
@@ -371,16 +337,13 @@ class ClaudeProvider(BaseAIProvider):
                 elif "haiku" in model_id:
                     cost = "economical"
                 
-                # Check web search capability
-                capabilities = ["text", "vision"]
-                if _supports_native_web_search(model_id):
-                    capabilities.append("web_search")
+                modalities = ["text", "vision"]
                 
                 models_list.append({
                     "id": model_id,
                     "name": name,
                     "context_window": context,
-                    "capabilities": capabilities,
+                    "modalities": modalities,
                     "cost_tier": cost
                 })
             
@@ -388,3 +351,14 @@ class ClaudeProvider(BaseAIProvider):
         except Exception as e:
             print(f"Error listing Claude models: {e}")
             return []
+
+    def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
+        """Discover modalities for Claude models."""
+        input_modalities = ["text"]
+        output_modalities = ["text"]
+        
+        low_id = model_id.lower()
+        if any(x in low_id for x in ["claude-3", "claude-4"]):
+            input_modalities.append("vision")
+            
+        return {"input": input_modalities, "output": output_modalities}

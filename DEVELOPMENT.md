@@ -1,4 +1,4 @@
-# Djinnite Development Guide
+I# Djinnite Development Guide
 
 ## ⚠️ This is a Shared Package — Breaking Changes Affect Multiple Projects
 
@@ -50,6 +50,7 @@ BaseAIProvider.generate_json(prompt: str, system_prompt: Optional[str], temperat
 
 load_ai_config(config_path: Optional[Path]) -> AIConfig
 load_model_catalog(catalog_path: Optional[Path]) -> ModelCatalog
+ModelCatalog.find_models(input_modality, output_modality, provider) -> list[tuple[str, ModelInfo]]
 
 LLMLogger.log_request(prompt, system_prompt, model, provider, metadata) -> str
 LLMLogger.log_response(request_id, response_content, success, error, usage, parsed_result) -> None
@@ -143,12 +144,23 @@ This works both when djinnite is a subdirectory and when it's a git submodule.
 
 ## Running Scripts
 
+IMPORTANT: Always use `uv run` to ensure all provider SDK dependencies are correctly loaded.
+
 ```bash
 # From the host project root:
-python -m djinnite.scripts.validate_ai
-python -m djinnite.scripts.update_models
-python -m djinnite.scripts.update_model_costs --dry-run
+uv run python -m djinnite.scripts.validate_ai
+uv run python -m djinnite.scripts.update_models
+uv run python -m djinnite.scripts.update_model_costs --dry-run
+uv run python -m djinnite.scripts.validate_models --multimodal
 ```
+
+### Validation Notes for AI Agents
+
+When running validation scripts (like `validate_models.py`), it is critical to **look at the actual command output text**, not just the exit code. Provider SDKs may be missing or API keys may be invalid, which are reported as successes in the process but failures in the output logic.
+
+- **Check for ✅**: Indicates a successful end-to-end round trip.
+- **Check for ❌**: Indicates a failure in initialization or generation.
+- **Dependency Failures**: If a provider SDK (e.g., `google-genai`, `openai`, `anthropic`) is missing, the script will report an initialization failure with the specific package name.
 
 ## Version Policy
 

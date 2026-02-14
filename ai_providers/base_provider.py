@@ -7,7 +7,7 @@ Each concrete provider wraps its native SDK directly.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Optional, Any, Union, List, Dict
 
 
 @dataclass
@@ -22,6 +22,7 @@ class AIResponse:
     model: str
     provider: str
     usage: dict[str, int] = field(default_factory=dict)
+    parts: List[Dict] = field(default_factory=list)  # Multimodal output parts
     raw_response: Any = None
     
     @property
@@ -38,6 +39,40 @@ class AIResponse:
     def total_tokens(self) -> int:
         """Total tokens used (input + output)."""
         return self.input_tokens + self.output_tokens
+
+
+class AIProviderError(Exception):
+    """Base exception for AI provider errors."""
+    
+    def __init__(self, message: str, provider: str, original_error: Optional[Exception] = None):
+        self.provider = provider
+        self.original_error = original_error
+        super().__init__(f"[{provider}] {message}")
+
+
+class AIRateLimitError(AIProviderError):
+    """Raised when rate limit is exceeded."""
+    pass
+
+
+class AIAuthenticationError(AIProviderError):
+    """Raised when authentication fails."""
+    pass
+
+
+class AIModelNotFoundError(AIProviderError):
+    """Raised when the requested model is not available."""
+    pass
+
+
+class DjinniteModalityError(AIProviderError):
+    """Raised when a model is asked to handle an unsupported modality."""
+    def __init__(self, message: str, provider: str, model: str, requested_modalities: list[str], supported_modalities: list[str]):
+        self.model = model
+        self.requested_modalities = requested_modalities
+        self.supported_modalities = supported_modalities
+        full_message = f"{message} (Model: {model}, Requested: {requested_modalities}, Supported: {supported_modalities})"
+        super().__init__(full_message, provider=provider)
 
 
 class BaseAIProvider(ABC):
@@ -80,7 +115,7 @@ class BaseAIProvider(ABC):
     @abstractmethod
     def generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
@@ -89,7 +124,7 @@ class BaseAIProvider(ABC):
         Generate a response from the AI model.
         
         Args:
-            prompt: The user prompt/message
+            prompt: The user prompt/message (str or list of multimodal parts)
             system_prompt: Optional system instruction
             temperature: Sampling temperature (0.0-1.0)
             max_tokens: Maximum tokens to generate (provider default if None)
@@ -99,12 +134,57 @@ class BaseAIProvider(ABC):
             
         Raises:
             AIProviderError: If generation fails
+            DjinniteModalityError: If prompt contains unsupported modalities
         """
         pass
     
+    def _normalize_input(self, prompt: Union[str, List[Dict]]) -> List[Dict]:
+        """
+        Standardize the input prompt into a list of multimodal parts.
+        
+        Args:
+            prompt: Either a plain string or a list of part dictionaries
+            
+        Returns:
+            List of dicts in the form [{"type": "text", "text": "..."}]
+        """
+        if isinstance(prompt, str):
+            return [{"type": "text", "text": prompt}]
+        elif isinstance(prompt, list):
+            # Basic validation of parts
+            for i, part in enumerate(prompt):
+                if not isinstance(part, dict) or "type" not in part:
+                    raise ValueError(f"Invalid multimodal part at index {i}: {part}")
+            return prompt
+        else:
+            raise ValueError(f"Prompt must be a string or a list of dicts, got {type(prompt)}")
+
+    def _validate_modalities(self, parts: List[Dict], supported_modalities: list[str]):
+        """
+        Validate that all modalities in parts are supported by the model.
+        
+        Args:
+            parts: The normalized input parts
+            supported_modalities: List of supported input modalities (e.g. ['text', 'vision'])
+            
+        Raises:
+            DjinniteModalityError: If an unsupported modality is requested
+        """
+        requested = list(set(p["type"] for p in parts))
+        unsupported = [m for m in requested if m not in supported_modalities]
+        
+        if unsupported:
+            raise DjinniteModalityError(
+                f"Model does not support requested modalities: {unsupported}",
+                provider=self.PROVIDER_NAME,
+                model=self.model,
+                requested_modalities=requested,
+                supported_modalities=supported_modalities
+            )
+
     def generate_json(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
@@ -156,29 +236,16 @@ class BaseAIProvider(ABC):
         """
         pass
 
+    def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
+        """
+        Discover input/output modalities for a model based on its ID.
+        
+        Default implementation assumes text-only.
+        
+        Returns:
+            Dict with 'input' and 'output' keys.
+        """
+        return {"input": ["text"], "output": ["text"]}
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(model={self.model})"
-
-
-class AIProviderError(Exception):
-    """Base exception for AI provider errors."""
-    
-    def __init__(self, message: str, provider: str, original_error: Optional[Exception] = None):
-        self.provider = provider
-        self.original_error = original_error
-        super().__init__(f"[{provider}] {message}")
-
-
-class AIRateLimitError(AIProviderError):
-    """Raised when rate limit is exceeded."""
-    pass
-
-
-class AIAuthenticationError(AIProviderError):
-    """Raised when authentication fails."""
-    pass
-
-
-class AIModelNotFoundError(AIProviderError):
-    """Raised when the requested model is not available."""
-    pass

@@ -18,10 +18,22 @@ from typing import Any, Optional
 from dataclasses import dataclass, field
 
 
-# Default paths: djinnite/ lives inside the project root
-# So project_root = djinnite/../ = parent of this package
-PROJECT_ROOT = Path(__file__).parent.parent
-CONFIG_DIR = PROJECT_ROOT / "config"
+# Configuration discovery
+# We check two locations for the 'config/' directory:
+# 1. Current Working Directory (handles standalone projects & CLI use)
+# 2. Parent of the package (handles submodule/integrated use)
+
+def _discover_config_dir() -> Path:
+    """Find the best configuration directory."""
+    cwd_config = Path.cwd() / "config"
+    if cwd_config.exists() and cwd_config.is_dir():
+        return cwd_config
+    
+    # Fallback to parent of package (submodule case)
+    pkg_parent_config = Path(__file__).parent.parent / "config"
+    return pkg_parent_config
+
+CONFIG_DIR = _discover_config_dir()
 
 
 @dataclass
@@ -31,6 +43,10 @@ class ProviderConfig:
     enabled: bool = True
     default_model: str = ""
     use_cases: dict[str, str] = field(default_factory=dict)
+    # Backend-specific fields
+    backend: str = "gemini"  # For Google: 'gemini' (AI Studio) or 'vertexai'
+    project_id: Optional[str] = None  # Required for Vertex AI
+    modality_policy: dict[str, bool] = field(default_factory=dict)  # Policy for allowing/disabling modalities
 
 
 @dataclass
@@ -38,6 +54,7 @@ class AIConfig:
     """Full AI configuration with all providers."""
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     default_provider: str = "gemini"
+    modality_policy: dict[str, bool] = field(default_factory=dict)  # Global policy
     
     def get_provider(self, name: str) -> Optional[ProviderConfig]:
         """Get provider config by name, returns None if not found or disabled."""
@@ -69,13 +86,30 @@ class AIConfig:
 
 
 @dataclass
+class ModelCosting:
+    """Cost-related information for an AI model."""
+    score: float = 1.0
+    source: str = "default"
+    updated: str = ""
+    tier: str = "standard"
+
+
+@dataclass
+class Modalities:
+    """Input and output modality capabilities."""
+    input: list[str] = field(default_factory=lambda: ["text"])
+    output: list[str] = field(default_factory=lambda: ["text"])
+
+
+@dataclass
 class ModelInfo:
     """Information about a single AI model."""
     id: str
     name: str
     context_window: int
     capabilities: list[str] = field(default_factory=list)
-    cost_tier: str = "standard"
+    modalities: Modalities = field(default_factory=Modalities)
+    costing: ModelCosting = field(default_factory=ModelCosting)
 
 
 @dataclass
@@ -94,6 +128,36 @@ class ModelCatalog:
     def list_models(self, provider: str) -> list[ModelInfo]:
         """List all models for a provider."""
         return self.providers.get(provider, [])
+
+    def find_models(self, 
+                    input_modality: Optional[str] = None, 
+                    output_modality: Optional[str] = None,
+                    provider: Optional[str] = None) -> list[tuple[str, ModelInfo]]:
+        """
+        Find models across providers that support specific input and/or output modalities.
+        
+        Args:
+            input_modality: Filter by input capability (e.g. 'vision', 'audio')
+            output_modality: Filter by output capability (e.g. 'audio', 'text')
+            provider: Limit search to a specific provider
+            
+        Returns:
+            List of (provider_name, ModelInfo) tuples
+        """
+        results = []
+        providers_to_search = [provider] if provider else self.providers.keys()
+        
+        for p_name in providers_to_search:
+            for model in self.providers.get(p_name, []):
+                match = True
+                if input_modality and input_modality not in model.modalities.input:
+                    match = False
+                if output_modality and output_modality not in model.modalities.output:
+                    match = False
+                
+                if match:
+                    results.append((p_name, model))
+        return results
 
 
 def load_json_file(path: Path, default: Any = None) -> Any:
@@ -141,12 +205,16 @@ def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:
             api_key=provider_data.get("api_key", ""),
             enabled=provider_data.get("enabled", True),
             default_model=provider_data.get("default_model", ""),
-            use_cases=provider_data.get("use_cases", {})
+            use_cases=provider_data.get("use_cases", {}),
+            backend=provider_data.get("backend", "gemini"),
+            project_id=provider_data.get("project_id"),
+            modality_policy=provider_data.get("modality_policy", {})
         )
     
     return AIConfig(
         providers=providers,
-        default_provider=data.get("default_provider", "gemini")
+        default_provider=data.get("default_provider", "gemini"),
+        modality_policy=data.get("modality_policy", {})
     )
 
 
@@ -172,12 +240,37 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
     for provider_name, provider_data in data.items():
         models = []
         for model_data in provider_data.get("models", []):
+            # Support both old and new costing schema
+            costing_data = model_data.get("costing", {})
+            costing = ModelCosting(
+                score=costing_data.get("score", model_data.get("cost_score", 1.0)),
+                source=costing_data.get("source", model_data.get("cost_source", "default")),
+                updated=costing_data.get("updated", model_data.get("cost_updated", "")),
+                tier=costing_data.get("tier", model_data.get("cost_tier", "standard"))
+            )
+
+            # Handle modalities schema evolution
+            raw_modalities = model_data.get("modalities")
+            if isinstance(raw_modalities, dict):
+                modalities = Modalities(
+                    input=raw_modalities.get("input", ["text"]),
+                    output=raw_modalities.get("output", ["text"])
+                )
+            elif isinstance(raw_modalities, list):
+                # Fallback: assume list means input capabilities, output is text
+                modalities = Modalities(input=raw_modalities, output=["text"])
+            else:
+                # Default for old models
+                caps = model_data.get("capabilities", ["text"])
+                modalities = Modalities(input=caps, output=["text"])
+            
             models.append(ModelInfo(
                 id=model_data["id"],
                 name=model_data["name"],
                 context_window=model_data.get("context_window", 0),
                 capabilities=model_data.get("capabilities", []),
-                cost_tier=model_data.get("cost_tier", "standard")
+                modalities=modalities,
+                costing=costing
             ))
         providers[provider_name] = models
     

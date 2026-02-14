@@ -8,36 +8,47 @@ Djinnite is used as a git submodule by multiple projects. Any change to its publ
 
 ---
 
-## Public API (Do Not Break)
+## 📜 THE CONTRACT (Public API)
 
-These are the stable import paths and signatures that consuming projects depend on:
+These are the **only** stable import paths and signatures that consuming projects should depend on. Anything not listed here is an internal implementation detail and may change in a PATCH release.
 
-### Core Imports
+### Public Imports (Stable)
 
 ```python
-# Provider factory and types
-from djinnite.ai_providers import get_provider, list_available_providers
-from djinnite.ai_providers import BaseAIProvider, AIResponse, AIProviderError
-from djinnite.ai_providers.base_provider import AIRateLimitError, AIAuthenticationError, AIModelNotFoundError
+# The Primary Interface
+from djinnite import get_provider, load_ai_config, load_model_catalog
+from djinnite import BaseAIProvider, AIResponse, AIProviderError, DjinniteModalityError
 
-# Individual providers
-from djinnite.ai_providers.gemini_provider import GeminiProvider
-from djinnite.ai_providers.claude_provider import ClaudeProvider
-from djinnite.ai_providers.openai_provider import OpenAIProvider
-
-# Configuration
-from djinnite.config_loader import load_ai_config, load_model_catalog
+# Configuration Types
 from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCatalog
-from djinnite.config_loader import CONFIG_DIR, PROJECT_ROOT
-
-# Logging
-from djinnite.llm_logger import LLMLogger
-
-# Prompts
-from djinnite.prompts import COST_ESTIMATION_CONFIG
 ```
 
-### Key Function Signatures
+### Public Function Signatures
+
+```python
+# Provider factory
+get_provider(provider_name, api_key, model, **kwargs) -> BaseAIProvider
+
+# Generation
+BaseAIProvider.generate(prompt: str | list, ...) -> AIResponse
+BaseAIProvider.generate_json(prompt: str | list, ...) -> AIResponse
+
+# Discovery
+load_ai_config() -> AIConfig
+load_model_catalog() -> ModelCatalog
+ModelCatalog.find_models(input_modality, output_modality) -> list[tuple[str, ModelInfo]]
+```
+
+## 🛠 INTERNAL IMPLEMENTATION (Do Not Depend On)
+
+The following are internal tools used for maintenance scripts. Host projects **must not** latch onto these as they lack stability guarantees.
+
+- `djinnite.llm_logger.LLMLogger`: Internal observability for Djinnite scripts.
+- `djinnite.ai_providers.gemini_provider.*`: Use the `get_provider` factory instead.
+- `djinnite.prompts.*`: Internal template system for maintenance.
+- `djinnite.scripts.*`: CLI utility implementation details.
+
+### Key Function Signatures (Maintenance Only)
 
 ```python
 # These signatures are contracts — do not change without coordinating across projects

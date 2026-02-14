@@ -293,3 +293,15 @@ if __name__ == "__main__":
         print(f"  {provider}: {[m.id for m in models]}")
     
     print("\nDjinnite configuration loader test complete.")
+
+
+__all__ = [
+    "AIConfig",
+    "ProviderConfig",
+    "ModelInfo",
+    "ModelCatalog",
+    "Modalities",
+    "load_ai_config",
+    "load_model_catalog",
+    "CONFIG_DIR"
+]

@@ -6,14 +6,10 @@ Each provider wraps the native SDK directly without heavy frameworks.
 """
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
-# Registry of available providers (declared before imports to avoid circularity if needed)
-PROVIDERS = {}
-
-from .base_provider import BaseAIProvider, AIResponse, AIProviderError
+from .base_provider import BaseAIProvider, AIResponse, AIProviderError, DjinniteModalityError
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
@@ -25,16 +21,15 @@ except ImportError:
     try:
         from ..config_loader import CONFIG_DIR
     except ImportError:
-        # Fallback for scripts running directly
         CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
 # Registry of available providers
-PROVIDERS.update({
+PROVIDERS = {
     "gemini": GeminiProvider,
     "claude": ClaudeProvider,
     "chatgpt": OpenAIProvider,
-})
+}
 
 # Path to model catalog (in host project's config directory)
 MODEL_CATALOG_PATH = CONFIG_DIR / "model_catalog.json"
@@ -127,6 +122,8 @@ def list_available_providers() -> list[str]:
 __all__ = [
     "BaseAIProvider",
     "AIResponse",
+    "AIProviderError",
+    "DjinniteModalityError",
     "GeminiProvider",
     "ClaudeProvider",
     "OpenAIProvider",

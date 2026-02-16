@@ -122,11 +122,18 @@ class OpenAIProvider(BaseAIProvider):
             kwargs = {
                 "model": self.model,
                 "messages": messages,
-                "temperature": temperature,
             }
+
+            # Temperature: omit if the catalog says the model doesn't support it.
+            # If model_info is None (no catalog), include it.
+            if self._model_info and self._model_info.capabilities.temperature is False:
+                pass  # Omit temperature — model doesn't support it
+            else:
+                kwargs["temperature"] = temperature
+
             if max_tokens:
-                kwargs["max_tokens"] = max_tokens
-                
+                kwargs["max_completion_tokens"] = max_tokens
+
             response = self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content
@@ -355,7 +362,6 @@ class OpenAIProvider(BaseAIProvider):
             kwargs = {
                 "model": self.model,
                 "messages": messages,
-                "temperature": temperature,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
@@ -365,9 +371,16 @@ class OpenAIProvider(BaseAIProvider):
                     }
                 },
             }
+
+            # Temperature: omit if the catalog says the model doesn't support it.
+            if self._model_info and self._model_info.capabilities.temperature is False:
+                pass  # Omit temperature — model doesn't support it
+            else:
+                kwargs["temperature"] = temperature
+
             if max_tokens:
-                kwargs["max_tokens"] = max_tokens
-                
+                kwargs["max_completion_tokens"] = max_tokens
+            
             response = self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content

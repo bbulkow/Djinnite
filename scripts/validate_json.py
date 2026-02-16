@@ -225,9 +225,12 @@ def validate_json():
                 response = provider.generate_json(
                     prompt=prompt,
                     schema=schema,
-                    temperature=0.0,
-                    max_tokens=256,
-                    force=True,  # Skip catalog checks — we're testing the pipeline
+                    # Temperature default (0.3) — the provider will omit it
+                    # automatically if the catalog says the model doesn't
+                    # support temperature.
+                    # Use 4096 to give reasoning models (GPT-5, o-series)
+                    # enough room for thinking tokens + output.
+                    max_tokens=4096,
                 )
 
                 # Parse JSON

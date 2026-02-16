@@ -4,7 +4,7 @@ Google Gemini AI Provider
 Wraps the Google Gen AI SDK (google-genai) for Gemini models.
 """
 
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
     BaseAIProvider,
@@ -28,7 +28,7 @@ class GeminiProvider(BaseAIProvider):
     
     PROVIDER_NAME = "gemini"
     
-    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None):
+    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None, model_info=None):
         """
         Initialize the Gemini provider.
         
@@ -40,7 +40,7 @@ class GeminiProvider(BaseAIProvider):
         """
         self.backend = backend
         self.project_id = project_id
-        super().__init__(api_key, model)
+        super().__init__(api_key, model, model_info=model_info)
 
     def _initialize_client(self) -> None:
         """Initialize the Gemini client."""
@@ -123,11 +123,14 @@ class GeminiProvider(BaseAIProvider):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        web_search: bool = False,
     ) -> AIResponse:
         """
         Generate a response using Gemini.
         """
         try:
+            from google.genai import types
+
             parts = self._normalize_input(prompt)
             gemini_parts = self._map_parts(parts)
             
@@ -139,6 +142,10 @@ class GeminiProvider(BaseAIProvider):
                 config["max_output_tokens"] = max_tokens
             if system_prompt:
                 config["system_instruction"] = system_prompt
+            
+            # Enable Google Search grounding for current information
+            if web_search:
+                config["tools"] = [types.Tool(google_search=types.GoogleSearch())]
             
             # Generate response
             response = self._client.models.generate_content(
@@ -253,27 +260,52 @@ class GeminiProvider(BaseAIProvider):
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
+        schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        force: bool = False,
     ) -> AIResponse:
         """
-        Generate a JSON response using Gemini.
+        Generates structured JSON using Gemini's **Constraint Decoding** (``response_schema``).
+
+        [AGENT NOTE]: Uses ``response_mime_type="application/json"`` combined with
+        ``response_schema`` for Guaranteed Structure.  The output is constrained at the
+        decoding level to conform to the supplied schema.
+
+        Args:
+            prompt: The user prompt (str or list of multimodal parts).
+            schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
+            system_prompt: Optional system instruction.
+            temperature: Sampling temperature (default 0.3).
+            max_tokens: Maximum tokens to generate.
+            web_search: If True, enable Google Search grounding for current info.
+
+        Returns:
+            AIResponse whose ``content`` is schema-conforming JSON.
         """
+        if schema is None:
+            raise ValueError(
+                "schema is required for generate_json(). "
+                "Use generate() for freeform text responses."
+            )
+        if not force:
+            self._check_capability("structured_json")
+        json_schema = self._normalize_schema(schema)
+
         try:
             from google.genai import types
             
             parts = self._normalize_input(prompt)
             gemini_parts = self._map_parts(parts)
 
-            # Build configuration
+            # Build configuration with schema-enforced JSON output
             config = {
                 "temperature": temperature,
+                "response_mime_type": "application/json",
+                "response_schema": json_schema,
             }
-            
-            if not web_search:
-                config["response_mime_type"] = "application/json"
             
             if max_tokens:
                 config["max_output_tokens"] = max_tokens
@@ -346,20 +378,20 @@ class GeminiProvider(BaseAIProvider):
         except AIProviderError:
             raise  # Re-raise all our own errors (including truncation/context)
         except Exception as e:
-            if web_search:
-                raise AIProviderError(
-                    f"Web search generation failed: {e}",
+            error_message = str(e).lower()
+            
+            if "invalid_argument" in error_message and \
+               ("token" in error_message or "context" in error_message or "too long" in error_message):
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
                     provider=self.PROVIDER_NAME,
                     original_error=e
                 )
-            # Only fall back to plain generate() for JSON-mode-specific failures
-            # (e.g. response_mime_type not supported). Truncation and
-            # context errors are already re-raised above.
-            return self.generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens
+            
+            raise AIProviderError(
+                f"JSON generation failed: {e}",
+                provider=self.PROVIDER_NAME,
+                original_error=e
             )
     
     def is_available(self) -> bool:
@@ -415,6 +447,64 @@ class GeminiProvider(BaseAIProvider):
         except Exception as e:
             print(f"Error listing Gemini models: {e}")
             return []
+
+    def probe_temperature(self) -> Optional[bool]:
+        """Probe whether this Gemini model accepts temperature. (All Gemini text models do.)"""
+        try:
+            self._client.models.generate_content(
+                model=self.model, contents="Say hi.",
+                config={"temperature": 0.5, "max_output_tokens": 10},
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            return False
+
+    def probe_thinking(self) -> Optional[bool]:
+        """Probe whether this Gemini model supports thinking mode."""
+        try:
+            self._client.models.generate_content(
+                model=self.model, contents="Say hi.",
+                config={
+                    "max_output_tokens": 100,
+                    "thinking_config": {"thinking_budget": 1024},
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            return False
+
+    def probe_structured_json(self) -> Optional[bool]:
+        """Probe whether this Gemini model supports response_schema JSON mode."""
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+        }
+        try:
+            self._client.models.generate_content(
+                model=self.model,
+                contents="Return the number 1.",
+                config={
+                    "temperature": 0,
+                    "max_output_tokens": 50,
+                    "response_mime_type": "application/json",
+                    "response_schema": _PROBE_SCHEMA,
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "invalid" in err or "not supported" in err or "response_schema" in err or "400" in err:
+                return False
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            return None
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for Gemini models."""

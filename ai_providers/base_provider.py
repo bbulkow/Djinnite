@@ -7,7 +7,7 @@ Each concrete provider wraps its native SDK directly.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Any, Union, List, Dict
+from typing import Optional, Any, Union, List, Dict, Type
 
 
 @dataclass
@@ -144,23 +144,33 @@ class BaseAIProvider(ABC):
     1. Initialize with an API key and optional model
     2. Implement the generate() method for text generation
     3. Handle provider-specific errors gracefully
+    
+    Providers are catalog-aware: when initialized via ``get_provider()``,
+    they receive ``model_info`` from the model catalog.  This enables
+    pre-flight capability checks (e.g., ``supports_structured_json``)
+    before making API calls.  Pass ``force=True`` on methods like
+    ``generate_json()`` to bypass these checks (used by probes).
     """
     
     PROVIDER_NAME: str = "base"
     
-    def __init__(self, api_key: str, model: str):
+    def __init__(self, api_key: str, model: str, model_info=None):
         """
         Initialize the provider.
         
         Args:
             api_key: API key for authentication
             model: Model ID to use (Required)
+            model_info: Optional ModelInfo from the catalog for pre-flight
+                        capability checks. Passed automatically by
+                        ``get_provider()``. None means no catalog validation.
         """
         if not model:
             raise ValueError(f"Model must be specified for {self.PROVIDER_NAME} provider. Check your ai_config.json.")
             
         self.api_key = api_key
         self.model = model
+        self._model_info = model_info  # From catalog — may be None
         self._client = None
         self._initialize_client()
     
@@ -180,15 +190,18 @@ class BaseAIProvider(ABC):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        web_search: bool = False,
     ) -> AIResponse:
         """
-        Generate a response from the AI model.
+        Generate a freeform text response from the AI model.
         
         Args:
             prompt: The user prompt/message (str or list of multimodal parts)
             system_prompt: Optional system instruction
             temperature: Sampling temperature (0.0-1.0)
             max_tokens: Maximum tokens to generate (provider default if None)
+            web_search: If True, enable web/grounding search for current info
+                        (provider support varies).
             
         Returns:
             AIResponse with the generated content
@@ -243,33 +256,140 @@ class BaseAIProvider(ABC):
                 supported_modalities=supported_modalities
             )
 
+    def _normalize_schema(self, schema: Union[Dict, Type]) -> Dict:
+        """
+        Normalize a schema into a standard JSON Schema dictionary.
+
+        Accepts either a raw JSON Schema dict or a Pydantic BaseModel class
+        and returns a plain ``dict`` suitable for passing to any provider's
+        structured-output API.
+
+        Args:
+            schema: A JSON Schema dictionary **or** a Pydantic ``BaseModel``
+                    subclass (the *class itself*, not an instance).
+
+        Returns:
+            A JSON Schema dictionary.
+
+        Raises:
+            TypeError: If ``schema`` is not a dict or a Pydantic BaseModel class.
+        """
+        if isinstance(schema, dict):
+            return schema
+
+        # Check for Pydantic BaseModel class (not instance)
+        # We do a lazy check so pydantic is not a hard dependency.
+        try:
+            import pydantic
+            if isinstance(schema, type) and issubclass(schema, pydantic.BaseModel):
+                return schema.model_json_schema()
+        except ImportError:
+            pass
+
+        raise TypeError(
+            f"schema must be a dict (JSON Schema) or a Pydantic BaseModel class, "
+            f"got {type(schema).__name__}. "
+            f"Use generate() for freeform text responses."
+        )
+
+    def _check_capability(self, capability: str) -> None:
+        """
+        Pre-flight check: raise if the catalog says the model does NOT
+        support the requested capability.
+
+        Skipped when ``self._model_info`` is None (no catalog loaded,
+        e.g. during probing or testing).
+
+        Args:
+            capability: One of ``"structured_json"`` (more may be added).
+
+        Raises:
+            AIProviderError: If the catalog explicitly says False for
+                this capability.
+        """
+        if self._model_info is None:
+            return  # No catalog → allow (could be a new/unknown model)
+
+        if capability == "structured_json":
+            ssj = self._model_info.supports_structured_json
+            if ssj is False:
+                raise AIProviderError(
+                    f"Model '{self.model}' does not support structured JSON "
+                    f"(supports_structured_json=false in catalog). "
+                    f"Use a different model, or pass force=True to bypass.",
+                    provider=self.PROVIDER_NAME,
+                )
+            # True or None → allow
+
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
+        schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        force: bool = False,
     ) -> AIResponse:
         """
-        Generate a JSON response from the AI model.
-        
-        Uses a lower temperature by default for more deterministic output.
-        The prompt should instruct the model to output valid JSON.
-        
+        Generates structured JSON **strictly** adhering to the provided ``schema``.
+
+        [AGENT NOTE — PREFERRED PATH FOR STRUCTURED DATA]:
+        This method activates provider-native **Strict Mode / Constraint Decoding**
+        (OpenAI ``json_schema`` with ``strict=True``, Anthropic ``output_config``,
+        Gemini ``response_schema``).  The output is **guaranteed** to validate
+        against the supplied schema — it is not "best-effort" JSON.
+
+        Use this method for **all programmatic tasks** — routing decisions,
+        entity extraction, SQL generation, tool-call argument construction,
+        structured reporting — where schema adherence is critical.
+        Do **not** use ``generate()`` for structured data; that method returns
+        freeform text with no structural guarantees.
+
         Args:
-            prompt: The user prompt (should request JSON output)
-            system_prompt: Optional system instruction
-            temperature: Sampling temperature (default 0.3 for consistency)
-            max_tokens: Maximum tokens to generate
-            web_search: If True, enable web search for current info (if supported)
-            
+            prompt: The user prompt / message (str or list of multimodal parts).
+            schema: **Required.** A Pydantic ``BaseModel`` class or a JSON Schema
+                    dictionary describing the exact structure the response must
+                    conform to.  The output is guaranteed to validate against
+                    this structure via provider-native Constraint Decoding.
+            system_prompt: Optional system instruction prepended to the request.
+            temperature: Sampling temperature (default 0.3 for deterministic,
+                         schema-conforming output).
+            max_tokens: Maximum tokens to generate (provider default if None).
+            web_search: If True, enable web/grounding search for current info
+                        (provider support varies).
+            force: If True, skip catalog pre-flight checks. Used by probes
+                   and testing. Default False.
+
         Returns:
-            AIResponse with JSON content
+            AIResponse whose ``content`` is a JSON string that conforms to
+            ``schema``.
+
+        Raises:
+            ValueError: If ``schema`` is None (fail-fast — use ``generate()``
+                        for freeform text).
+            TypeError: If ``schema`` is not a dict or Pydantic BaseModel class.
+            AIProviderError: If model doesn't support structured JSON (per catalog).
+            AIOutputTruncatedError: If the JSON output was truncated.
         """
-        # Default implementation just calls generate with lower temperature
-        # Subclasses can override to use provider-specific JSON modes
-        # Note: web_search is ignored in base implementation
+        if schema is None:
+            raise ValueError(
+                "schema is required for generate_json(). "
+                "Pass a Pydantic BaseModel class or a JSON Schema dict. "
+                "Use generate() for freeform text responses."
+            )
+
+        # Pre-flight: check catalog before burning an API call
+        if not force:
+            self._check_capability("structured_json")
+
+        # Normalize once; providers use self._normalize_schema() in their
+        # overrides, but the base implementation validates eagerly.
+        self._normalize_schema(schema)
+
+        # Default implementation — subclasses override with provider-native
+        # strict modes.  The base fallback just calls generate() with a
+        # JSON-requesting system prompt (no structural guarantee).
         return self.generate(
             prompt=prompt,
             system_prompt=system_prompt,
@@ -296,6 +416,48 @@ class BaseAIProvider(ABC):
             List of dictionaries with keys: id, name, context_window, etc.
         """
         pass
+
+    def probe_temperature(self) -> Optional[bool]:
+        """
+        Probe whether the current model accepts the temperature parameter.
+        
+        Returns:
+            True  – model accepts temperature
+            False – model rejects temperature (reasoning/o3 models)
+            None  – inconclusive (rate limit, timeout)
+        """
+        return None  # Base: unknown — subclasses override
+
+    def probe_thinking(self) -> Optional[bool]:
+        """
+        Probe whether the current model supports extended thinking/reasoning.
+        
+        Returns:
+            True  – model supports thinking mode
+            False – model does not support thinking
+            None  – inconclusive
+        """
+        return None  # Base: unknown — subclasses override
+
+    def probe_structured_json(self) -> Optional[bool]:
+        """
+        Probe whether the current model supports schema-enforced structured
+        JSON output (Constraint Decoding).
+
+        Sends a minimal request using the provider-native strict JSON schema
+        mechanism.  If the model accepts the request → ``True``.  If the
+        provider returns a 400/unsupported error → ``False``.  If the result
+        is ambiguous (rate limit, auth error, etc.) → ``None``.
+
+        This method is used by ``update_models.py`` during catalog refresh.
+        Subclasses should override with provider-specific probe logic.
+
+        Returns:
+            True  – confirmed supported
+            False – confirmed NOT supported
+            None  – inconclusive (rate limit, auth error, etc.)
+        """
+        return None  # Base: unknown
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """

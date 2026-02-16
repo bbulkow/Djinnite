@@ -19,17 +19,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "anchor",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.5-pro",
@@ -48,18 +42,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.0-flash",
@@ -78,18 +66,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.0-flash-001",
@@ -108,18 +90,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.0-flash-exp-image-generation",
@@ -138,18 +114,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.0-flash-lite-001",
@@ -168,18 +138,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.0-flash-lite",
@@ -199,17 +163,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-exp-1206",
@@ -228,18 +186,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-flash-preview-tts",
@@ -256,17 +208,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-pro-preview-tts",
@@ -282,18 +228,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-flash-latest",
@@ -312,18 +252,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 4.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-flash-lite-latest",
@@ -342,18 +276,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-pro-latest",
@@ -372,18 +300,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.5-flash-lite",
@@ -403,17 +325,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.5-flash-image",
@@ -433,17 +349,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-flash-preview-09-2025",
@@ -463,17 +373,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-2.5-flash-lite-preview-09-2025",
@@ -493,17 +397,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-3-pro-preview",
@@ -522,18 +420,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 13.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-3-flash-preview",
@@ -552,18 +444,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.67,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "mode"
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gemini-3-pro-image-preview",
@@ -582,18 +468,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 13.33,
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-robotics-er-1.5-preview",
@@ -610,18 +490,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 11.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-computer-use-preview-10-2025",
@@ -640,18 +514,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-embedding-001",
@@ -667,18 +535,12 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 2.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-flash-native-audio-latest",
@@ -698,17 +560,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-09-2025",
@@ -728,17 +584,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -758,17 +608,11 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "known_prices",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       }
     ],
     "last_updated": "2026-02-16"
@@ -781,27 +625,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 8.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "premium"
         },
-        "max_output_tokens": 128000,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "claude-opus-4-5-20251101",
@@ -809,27 +646,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 8.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "premium"
         },
-        "max_output_tokens": 64000,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "claude-haiku-4-5-20251001",
@@ -837,27 +667,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.17,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "economical"
         },
-        "max_output_tokens": 64000,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 8192,
+        "supports_structured_json": true
       },
       {
         "id": "claude-sonnet-4-5-20250929",
@@ -865,27 +688,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.5,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 64000,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "claude-opus-4-1-20250805",
@@ -893,27 +709,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 25.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "premium"
         },
-        "max_output_tokens": 32000,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "claude-opus-4-20250514",
@@ -921,27 +730,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 25.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "premium"
         },
-        "max_output_tokens": 32000,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "claude-sonnet-4-20250514",
@@ -949,27 +751,20 @@
         "context_window": 200000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 5.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 64000,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "claude-3-7-sonnet-20250219",
@@ -985,19 +780,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 5.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 128000,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 8192,
+        "supports_structured_json": false
       },
       {
         "id": "claude-3-5-haiku-20241022",
@@ -1013,19 +802,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.5,
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "economical"
         },
         "max_output_tokens": 8192,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "claude-3-haiku-20240307",
@@ -1041,19 +824,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.5,
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "economical"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       }
     ],
     "last_updated": "2026-02-16"
@@ -1074,18 +851,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 8192,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4",
@@ -1101,18 +872,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 8192,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-3.5-turbo",
@@ -1127,19 +892,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 1.07,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5.2-codex",
@@ -1154,19 +913,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 11.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-tts-2025-12-15",
@@ -1182,18 +935,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-realtime-mini-2025-12-15",
@@ -1209,18 +956,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-audio-mini-2025-12-15",
@@ -1237,18 +978,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "chatgpt-image-latest",
@@ -1259,23 +994,17 @@
             "text"
           ],
           "output": [
-            "vision"
+            "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-3.5-turbo-instruct",
@@ -1290,19 +1019,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 20.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-3.5-turbo-instruct-0914",
@@ -1318,18 +1041,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4-1106-preview",
@@ -1337,8 +1054,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -1346,18 +1062,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-3.5-turbo-1106",
@@ -1372,19 +1082,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 13.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4-0125-preview",
@@ -1392,8 +1096,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -1401,18 +1104,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4-turbo-preview",
@@ -1420,8 +1117,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -1429,18 +1125,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-3.5-turbo-0125",
@@ -1456,18 +1146,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4-turbo",
@@ -1475,8 +1159,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -1484,18 +1167,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4-turbo-2024-04-09",
@@ -1503,8 +1180,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -1512,18 +1188,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o",
@@ -1539,19 +1209,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4o-2024-05-13",
@@ -1567,19 +1231,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 200.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-mini-2024-07-18",
@@ -1595,19 +1253,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 4.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4o-mini",
@@ -1623,19 +1275,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.8,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4o-2024-08-06",
@@ -1651,19 +1297,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 200.0,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "chatgpt-4o-latest",
@@ -1680,18 +1320,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-audio-preview",
@@ -1709,19 +1343,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-realtime-preview",
@@ -1737,19 +1365,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-realtime-preview-2024-12-17",
@@ -1766,18 +1388,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-audio-preview-2024-12-17",
@@ -1796,18 +1412,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-realtime-preview-2024-12-17",
@@ -1824,18 +1434,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-audio-preview-2024-12-17",
@@ -1854,18 +1458,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-realtime-preview",
@@ -1882,18 +1480,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-audio-preview",
@@ -1912,18 +1504,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-2024-11-20",
@@ -1940,18 +1526,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4o-search-preview-2025-03-11",
@@ -1968,18 +1548,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-search-preview",
@@ -1995,19 +1569,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-mini-search-preview-2025-03-11",
@@ -2024,18 +1592,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-mini-search-preview",
@@ -2051,19 +1613,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.8,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-transcribe",
@@ -2079,19 +1635,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 2000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-transcribe",
@@ -2108,18 +1658,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 2000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-tts",
@@ -2135,18 +1679,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4.1-2025-04-14",
@@ -2154,27 +1692,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 32768,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4.1",
@@ -2182,27 +1713,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 32768,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4.1-mini-2025-04-14",
@@ -2210,27 +1734,20 @@
         "context_window": 256000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4.1-mini",
@@ -2238,27 +1755,20 @@
         "context_window": 256000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4.1-nano-2025-04-14",
@@ -2266,27 +1776,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-4.1-nano",
@@ -2294,27 +1797,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-image-1",
@@ -2325,23 +1821,17 @@
             "text"
           ],
           "output": [
-            "vision"
+            "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-realtime-preview-2025-06-03",
@@ -2358,18 +1848,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-audio-preview-2025-06-03",
@@ -2388,18 +1872,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-transcribe-diarize",
@@ -2416,18 +1894,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 2000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-chat-latest",
@@ -2435,27 +1907,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-5-2025-08-07",
@@ -2463,27 +1928,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5",
@@ -2491,27 +1949,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5-mini-2025-08-07",
@@ -2519,27 +1970,20 @@
         "context_window": 256000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5-mini",
@@ -2547,27 +1991,20 @@
         "context_window": 256000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 32768,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5-nano-2025-08-07",
@@ -2575,27 +2012,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5-nano",
@@ -2603,27 +2033,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 0.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-audio-2025-08-28",
@@ -2640,18 +2063,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-realtime",
@@ -2666,19 +2083,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 53.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-realtime-2025-08-28",
@@ -2694,18 +2105,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-audio",
@@ -2722,18 +2127,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-codex",
@@ -2748,19 +2147,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-image-1-mini",
@@ -2771,23 +2164,17 @@
             "text"
           ],
           "output": [
-            "vision"
+            "text"
           ]
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-pro-2025-10-06",
@@ -2795,8 +2182,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -2804,18 +2190,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 272000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-pro",
@@ -2823,8 +2203,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -2832,18 +2211,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 272000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-audio-mini",
@@ -2860,18 +2233,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-audio-mini-2025-10-06",
@@ -2888,18 +2255,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-search-api",
@@ -2914,19 +2275,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-realtime-mini",
@@ -2941,19 +2296,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 3.2,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-realtime-mini-2025-10-06",
@@ -2969,18 +2318,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 4096,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5-search-api-2025-10-14",
@@ -2996,18 +2339,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5.1-chat-latest",
@@ -3015,27 +2352,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       },
       {
         "id": "gpt-5.1-2025-11-13",
@@ -3043,8 +2373,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -3052,18 +2381,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-5.1",
@@ -3071,27 +2394,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-5.1-codex",
@@ -3106,19 +2422,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5.1-codex-mini",
@@ -3133,19 +2443,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 3.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5.1-codex-max",
@@ -3160,19 +2464,13 @@
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 16.67,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-image-1.5",
@@ -3183,23 +2481,17 @@
             "text"
           ],
           "output": [
-            "vision"
+            "text"
           ]
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5.2-2025-12-11",
@@ -3207,8 +2499,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -3216,18 +2507,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-5.2",
@@ -3235,27 +2520,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 23.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "thinking_style": "effort"
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": true
       },
       {
         "id": "gpt-5.2-pro-2025-12-11",
@@ -3263,8 +2541,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -3272,18 +2549,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5.2-pro",
@@ -3291,8 +2562,7 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
@@ -3300,18 +2570,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 128000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-5.2-chat-latest",
@@ -3319,27 +2583,20 @@
         "context_window": 128000,
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "score": 23.33,
+          "source": "estimated",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "max_output_tokens": 16384,
+        "supports_structured_json": false
       },
       {
         "id": "gpt-4o-mini-transcribe-2025-12-15",
@@ -3356,18 +2613,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 2000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-transcribe-2025-03-20",
@@ -3384,18 +2635,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "max_output_tokens": 2000,
+        "supports_structured_json": null
       },
       {
         "id": "gpt-4o-mini-tts-2025-03-20",
@@ -3411,18 +2656,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "thinking_style": null
-        }
+        "supports_structured_json": null
       },
       {
         "id": "gpt-3.5-turbo-16k",
@@ -3438,18 +2677,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "default",
-          "updated": "",
+          "source": "failed",
+          "updated": "2026-02-14",
           "tier": "standard"
         },
         "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": true,
-          "thinking": false,
-          "web_search": true,
-          "thinking_style": null
-        }
+        "supports_structured_json": false
       }
     ],
     "last_updated": "2026-02-16"

@@ -1,0 +1,12 @@
+{
+  "_comment": "MINIMAL overrides only. Do NOT add values here that can be discovered dynamically via API calls, probes, or AI estimation. Results are persisted in model_catalog.json. See DEVELOPMENT.md for the policy on static model data.",
+  "cost_anchor": {
+    "model_id": "gemini-2.5-flash",
+    "provider": "gemini",
+    "cost_score": 1.0,
+    "pricing": {
+      "input_per_1m_tokens": 0.075,
+      "output_per_1m_tokens": 0.30
+    }
+  }
+}

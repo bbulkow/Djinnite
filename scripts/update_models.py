@@ -30,66 +30,19 @@ from djinnite.ai_providers.claude_provider import ClaudeProvider
 from djinnite.ai_providers.openai_provider import OpenAIProvider
 
 # ============================================================================
-# KNOWN OUTPUT TOKEN LIMITS
+# POLICY: NO STATIC MODEL DATA IN PYTHON
 # ============================================================================
-# These are authoritative max output token values for well-known models.
-# Used when the provider API doesn't expose the limit directly.
-# Source: Official provider documentation.
-
-KNOWN_OUTPUT_LIMITS = {
-    # --- Anthropic Claude ---
-    # Claude 3 family
-    "claude-3-haiku-20240307": 4096,
-    "claude-3-5-haiku-20241022": 8192,
-    "claude-3-5-sonnet-20241022": 8192,
-    "claude-3-7-sonnet-20250219": 8192,  # 64K with extended thinking, but default is 8192
-    # Claude 4 family
-    "claude-sonnet-4-20250514": 16384,
-    "claude-opus-4-20250514": 16384,
-    "claude-opus-4-1-20250805": 16384,
-    "claude-sonnet-4-5-20250929": 16384,
-    "claude-haiku-4-5-20251001": 8192,
-    "claude-opus-4-5-20251101": 16384,
-    "claude-opus-4-6": 16384,
-    
-    # --- OpenAI ---
-    # GPT-3.5 family
-    "gpt-3.5-turbo": 4096,
-    "gpt-3.5-turbo-0125": 4096,
-    "gpt-3.5-turbo-1106": 4096,
-    "gpt-3.5-turbo-16k": 4096,
-    "gpt-3.5-turbo-instruct": 4096,
-    "gpt-3.5-turbo-instruct-0914": 4096,
-    # GPT-4 family
-    "gpt-4": 8192,
-    "gpt-4-0613": 8192,
-    "gpt-4-turbo": 4096,
-    "gpt-4-turbo-preview": 4096,
-    "gpt-4-turbo-2024-04-09": 4096,
-    "gpt-4-0125-preview": 4096,
-    "gpt-4-1106-preview": 4096,
-    # GPT-4o family
-    "gpt-4o": 16384,
-    "gpt-4o-2024-05-13": 4096,
-    "gpt-4o-2024-08-06": 16384,
-    "gpt-4o-2024-11-20": 16384,
-    "gpt-4o-mini": 16384,
-    "gpt-4o-mini-2024-07-18": 16384,
-    "gpt-4o-audio-preview": 16384,
-    "gpt-4o-search-preview": 16384,
-    "gpt-4o-mini-search-preview": 16384,
-    # GPT-4.1 family
-    "gpt-4.1": 32768,
-    "gpt-4.1-2025-04-14": 32768,
-    "gpt-4.1-mini": 32768,
-    "gpt-4.1-mini-2025-04-14": 32768,
-    "gpt-4.1-nano": 32768,
-    "gpt-4.1-nano-2025-04-14": 32768,
-    # GPT-5 family (estimates based on publicly available info)
-    "gpt-5": 32768,
-    "gpt-5-mini": 32768,
-    "gpt-5-nano": 16384,
-}
+# Model capabilities (output limits, structured JSON support, pricing) MUST
+# be discovered dynamically via:
+#   1. Provider API responses (e.g. Gemini exposes output_token_limit)
+#   2. Live probes (e.g. structured JSON support testing)
+#   3. AI estimation with web search (for values APIs don't expose)
+#   4. Existing model_catalog.json values (persisted between runs)
+#
+# Do NOT add per-model data tables to Python code.  If an un-discoverable
+# override is truly necessary, add it to config/known_model_defaults.json
+# with a comment explaining why dynamic discovery is impossible.
+# ============================================================================
 
 
 # Template for AI-based output limit estimation
@@ -142,9 +95,15 @@ def estimate_modalities_with_ai(
     prompt = MODALITY_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
     
     try:
-        # Create a temporary provider for estimation
+        # Create a temporary provider for estimation.
+        # Use generate() with JSON-requesting system prompt because the
+        # response schema is dynamic (model IDs as keys).
         instance = get_provider(default_provider, p_config.api_key, p_config.default_model)
-        resp = instance.generate_json(prompt)
+        resp = instance.generate(
+            prompt=prompt,
+            system_prompt="You must respond with valid JSON only. No additional text or explanation.",
+            temperature=0.3,
+        )
         content = resp.content.strip()
         # Handle markdown blocks if present
         if content.startswith("```"):
@@ -177,8 +136,15 @@ def estimate_output_limits_with_ai(
     try:
         gemini_config = ai_config.get_provider("gemini")
         gemini_api_key = gemini_config.api_key if gemini_config else None
+        # Use generate() with JSON-requesting system prompt because the
+        # response schema is dynamic (model IDs as keys).
         instance = get_provider(default_provider, p_config.api_key, p_config.default_model, gemini_api_key=gemini_api_key)
-        resp = instance.generate_json(prompt, web_search=True)
+        resp = instance.generate(
+            prompt=prompt,
+            system_prompt="You must respond with valid JSON only. No additional text or explanation.",
+            temperature=0.3,
+            web_search=True,  # Critical: ground with current docs
+        )
         content = resp.content.strip()
         # Handle markdown blocks if present
         if content.startswith("```"):
@@ -199,32 +165,93 @@ def estimate_output_limits_with_ai(
 
 def _resolve_max_output_tokens(model_id: str, api_value: int, existing_value: int) -> int:
     """
-    Resolve the max_output_tokens for a model using the priority:
-    1. API value (if the provider returned it, e.g. Gemini)
-    2. Known output limits table
-    3. Existing catalog value (preserve what we had)
-    4. 0 (unknown)
+    Resolve the max_output_tokens for a model using dynamic sources only:
+    1. Provider API value (e.g. Gemini exposes output_token_limit)
+    2. Existing catalog value (persisted from prior AI estimation runs)
+    3. 0 (unknown — will trigger AI estimation)
     """
-    # 1. API gave us a value
     if api_value and api_value > 0:
         return api_value
-    
-    # 2. Known table
-    if model_id in KNOWN_OUTPUT_LIMITS:
-        return KNOWN_OUTPUT_LIMITS[model_id]
-    
-    # 3. Existing catalog value
     if existing_value and existing_value > 0:
         return existing_value
-    
-    # 4. Unknown
     return 0
+
+
+def _resolve_structured_json_support(
+    model_id: str,
+    existing_value: Optional[bool],
+) -> Optional[bool]:
+    """
+    Resolve supports_structured_json using dynamic sources only:
+    1. Existing catalog value (persisted from prior probe runs)
+    2. None (unknown — will trigger live probe)
+    """
+    if existing_value is not None:
+        return existing_value
+    return None
+
+
+# Provider-specific thinking styles
+THINKING_STYLES = {
+    "gemini": "mode",
+    "claude": "budget",
+    "chatgpt": "effort",
+}
+
+
+def _probe_all_capabilities_for_models(
+    models_to_probe: list[dict],
+    provider_cls,
+    provider_name: str,
+    api_key: str,
+) -> dict[str, dict]:
+    """
+    Probe a list of models to discover ALL capabilities at once.
+    
+    Returns a dict of model_id → {structured_json, temperature, thinking, web_search, thinking_style}.
+    """
+    results: dict[str, dict] = {}
+    for m in models_to_probe:
+        model_id = m["id"]
+        try:
+            instance = provider_cls(api_key=api_key, model=model_id)
+            
+            ssj = instance.probe_structured_json()
+            temp = instance.probe_temperature()
+            think = instance.probe_thinking()
+            # web_search is a Djinnite-level capability — True for all text models
+            ws = True
+            ts = THINKING_STYLES.get(provider_name) if think else None
+            
+            results[model_id] = {
+                "structured_json": ssj,
+                "temperature": temp,
+                "thinking": think,
+                "web_search": ws,
+                "thinking_style": ts,
+            }
+            
+            parts = []
+            parts.append(f"json={'✅' if ssj else '❌' if ssj is False else '❓'}")
+            parts.append(f"temp={'✅' if temp else '❌' if temp is False else '❓'}")
+            parts.append(f"think={'✅' if think else '❌' if think is False else '❓'}")
+            print(f"    {model_id}: {' '.join(parts)}")
+            
+        except Exception as e:
+            results[model_id] = {
+                "structured_json": None, "temperature": None,
+                "thinking": None, "web_search": True, "thinking_style": None,
+            }
+            print(f"    ⚠️ {model_id}: probe skipped ({e})")
+    return results
 
 
 def merge_model_data(
     new_models: list[dict], 
     existing_models: list[dict], 
     provider_instance: BaseAIProvider,
+    provider_cls,
+    api_key: str,
     ai_config
 ) -> list[dict]:
     """Merge new model data with existing, preserving costing, modality, and output limit data."""
@@ -234,6 +261,8 @@ def merge_model_data(
     uncertain_models = []
     # Track models with unknown output limits for AI estimation
     unknown_output_limit_models = []
+    # Track models needing structured JSON probing
+    models_needing_ssj_probe = []
     
     merged = []
     for model in new_models:
@@ -245,10 +274,22 @@ def merge_model_data(
         # Resolve max_output_tokens
         api_output_limit = model.get("max_output_tokens", 0) or 0
         existing_output_limit = 0
+        existing_ssj = None
         
         if model_id in existing_by_id:
             existing = existing_by_id[model_id]
             existing_output_limit = existing.get("max_output_tokens", 0) or 0
+            # Preserve existing capabilities.structured_json value
+            # Support both new dict format and old flat format
+            raw_caps = existing.get("capabilities")
+            if isinstance(raw_caps, dict):
+                raw_ssj = raw_caps.get("structured_json")
+            else:
+                raw_ssj = existing.get("supports_structured_json")
+            if raw_ssj is True:
+                existing_ssj = True
+            elif raw_ssj is False:
+                existing_ssj = False
             
             # Preserve existing structure if it's already structured
             if "modalities" in existing and isinstance(existing["modalities"], dict):
@@ -287,10 +328,44 @@ def merge_model_data(
         # Queue for AI estimation if still unknown
         if resolved_output == 0:
             unknown_output_limit_models.append(model)
+        
+        # Resolve capabilities from existing catalog
+        ssj = _resolve_structured_json_support(model_id, existing_ssj)
+        # Preserve existing capabilities or initialize fresh
+        existing_caps = {}
+        if model_id in existing_by_id:
+            raw_caps = existing_by_id[model_id].get("capabilities")
+            if isinstance(raw_caps, dict):
+                existing_caps = raw_caps
+        model["capabilities"] = {
+            "structured_json": ssj,
+            "temperature": existing_caps.get("temperature"),
+            "thinking": existing_caps.get("thinking"),
+            "web_search": existing_caps.get("web_search"),
+            "thinking_style": existing_caps.get("thinking_style"),
+        }
+        
+        # Queue for probing if any capability is still unknown
+        needs_probe = (ssj is None or model["capabilities"]["temperature"] is None
+                       or model["capabilities"]["thinking"] is None)
+        if needs_probe:
+            input_mods = model.get("modalities", {})
+            if isinstance(input_mods, dict):
+                has_text = "text" in input_mods.get("input", [])
+            else:
+                has_text = True
+            # Only probe text-capable, non-specialized models
+            is_specialized = any(x in model_id.lower() for x in [
+                "tts", "embedding", "realtime", "image", "transcribe",
+                "audio", "robotics", "computer-use"
+            ])
+            if has_text and not is_specialized:
+                models_needing_ssj_probe.append(model)
             
         merged.append(model)
         if "cost_tier" in model: del model["cost_tier"]
-        if "capabilities" in model: del model["capabilities"]
+        # Remove old flat supports_structured_json if present (migrated to capabilities dict)
+        if "supports_structured_json" in model: del model["supports_structured_json"]
     
     # 2. AI Estimation Fallback for uncertain new models (modalities)
     if uncertain_models and ai_config.get_provider(ai_config.default_provider):
@@ -309,6 +384,22 @@ def merge_model_data(
         for model in unknown_output_limit_models:
             if model["id"] in limit_estimates:
                 model["max_output_tokens"] = limit_estimates[model["id"]]
+    
+    # 4. Live probe ALL capabilities on models that need it
+    if models_needing_ssj_probe:
+        print(f"  🔍 Probing {len(models_needing_ssj_probe)} models for all capabilities...")
+        probe_results = _probe_all_capabilities_for_models(
+            models_needing_ssj_probe, provider_cls,
+            provider_instance.PROVIDER_NAME, api_key,
+        )
+        for model in models_needing_ssj_probe:
+            if model["id"] in probe_results:
+                probed = probe_results[model["id"]]
+                # Merge probe results into capabilities (probe wins over None)
+                caps = model["capabilities"]
+                for key in ["structured_json", "temperature", "thinking", "web_search", "thinking_style"]:
+                    if probed.get(key) is not None:
+                        caps[key] = probed[key]
     
     return merged
 
@@ -349,7 +440,10 @@ def update_models():
             new_list = instance.list_models()
             if new_list:
                 existing_list = catalog.get(name, {}).get("models", [])
-                merged = merge_model_data(new_list, existing_list, instance, ai_config)
+                merged = merge_model_data(
+                    new_list, existing_list, instance,
+                    provider_cls, p_config.api_key, ai_config
+                )
                 
                 catalog[name] = {
                     "models": merged,

@@ -9,7 +9,7 @@ import json
 import urllib.request
 import urllib.error
 import base64
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
     BaseAIProvider,
@@ -98,10 +98,20 @@ class ClaudeProvider(BaseAIProvider):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        web_search: bool = False,
     ) -> AIResponse:
         """
         Generate a response using Claude.
         """
+        # If web search requested, delegate to native web search method
+        if web_search and _supports_native_web_search(self.model):
+            return self._generate_with_web_search(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens or 8192,
+            )
+
         try:
             parts = self._normalize_input(prompt)
             claude_content = self._map_parts(parts)
@@ -329,23 +339,45 @@ class ClaudeProvider(BaseAIProvider):
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
+        schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        force: bool = False,
     ) -> AIResponse:
         """
-        Generate a JSON response using Claude.
+        Generates structured JSON using Anthropic's **Constraint Decoding** (``output_config``).
+
+        [AGENT NOTE]: Uses ``output_config`` with ``json_schema`` to enforce Guaranteed
+        Structure at the API level.  The output is mathematically constrained to the
+        supplied schema — no post-hoc parsing or validation needed.
+
+        Args:
+            prompt: The user prompt (str or list of multimodal parts).
+            schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
+            system_prompt: Optional system instruction.
+            temperature: Sampling temperature (default 0.3).
+            max_tokens: Maximum tokens to generate.
+            web_search: If True, enable native Claude web search (4.5+ models).
+
+        Returns:
+            AIResponse whose ``content`` is schema-conforming JSON.
         """
+        if schema is None:
+            raise ValueError(
+                "schema is required for generate_json(). "
+                "Use generate() for freeform text responses."
+            )
+        if not force:
+            self._check_capability("structured_json")
+        json_schema = self._normalize_schema(schema)
+
         # Claude requires max_tokens. Use the caller's value if provided,
         # otherwise default to 8192. Callers should check
         # ModelInfo.max_output_tokens from the catalog for their model.
         if max_tokens is None:
             max_tokens = 8192
-        
-        json_system = "You must respond with valid JSON only. No additional text or explanation."
-        if system_prompt:
-            json_system = f"{system_prompt}\n\n{json_system}"
         
         if web_search:
             if not _supports_native_web_search(self.model):
@@ -353,6 +385,12 @@ class ClaudeProvider(BaseAIProvider):
                     f"Web search not supported for model '{self.model}'.",
                     provider=self.PROVIDER_NAME
                 )
+            # Web search path uses raw HTTP; include schema guidance in
+            # the system prompt since the beta endpoint may not support
+            # output_config yet.
+            json_system = "You must respond with valid JSON only. No additional text or explanation."
+            if system_prompt:
+                json_system = f"{system_prompt}\n\n{json_system}"
             return self._generate_with_web_search(
                 prompt=prompt,
                 system_prompt=json_system,
@@ -360,12 +398,93 @@ class ClaudeProvider(BaseAIProvider):
                 max_tokens=max_tokens,
             )
         
-        return self.generate(
-            prompt=prompt,
-            system_prompt=json_system,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        try:
+            parts = self._normalize_input(prompt)
+            claude_content = self._map_parts(parts)
+            
+            kwargs = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": [{"role": "user", "content": claude_content}],
+                # Anthropic Constraint Decoding via output_config.format
+                "output_config": {
+                    "format": {
+                        "type": "json_schema",
+                        "schema": json_schema,
+                    }
+                },
+            }
+            
+            if system_prompt:
+                kwargs["system"] = system_prompt
+            
+            response = self._client.messages.create(**kwargs)
+            
+            # Extract content
+            content = ""
+            output_parts = []
+            if response.content:
+                for block in response.content:
+                    if hasattr(block, 'text'):
+                        content += block.text
+                        output_parts.append({"type": "text", "text": block.text})
+            
+            # Extract usage info
+            usage = {}
+            if response.usage:
+                usage = {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                }
+            
+            # Detect output truncation
+            stop_reason = getattr(response, 'stop_reason', None)
+            is_truncated = (stop_reason == "max_tokens")
+            
+            ai_response = AIResponse(
+                content=content,
+                model=self.model,
+                provider=self.PROVIDER_NAME,
+                usage=usage,
+                parts=output_parts,
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=stop_reason,
+            )
+            
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"JSON output truncated: model hit max output token limit "
+                    f"(stop_reason='max_tokens', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except (AIOutputTruncatedError, AIContextLengthError):
+            raise
+        except AIProviderError:
+            raise
+        except Exception as e:
+            error_message = str(e).lower()
+            error_type = type(e).__name__
+            
+            if ("too many" in error_message and "token" in error_message) or \
+               ("context" in error_message and "length" in error_message) or \
+               ("prompt is too long" in error_message):
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e
+                )
+            
+            raise AIProviderError(
+                f"JSON generation failed: {e}",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
     
     def is_available(self) -> bool:
         """Check if Claude is available."""
@@ -415,6 +534,66 @@ class ClaudeProvider(BaseAIProvider):
         except Exception as e:
             print(f"Error listing Claude models: {e}")
             return []
+
+    def probe_temperature(self) -> Optional[bool]:
+        """Probe whether this Claude model accepts temperature. (All Claude models do.)"""
+        try:
+            self._client.messages.create(
+                model=self.model, max_tokens=10, temperature=0.5,
+                messages=[{"role": "user", "content": "Say hi."}],
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "timeout" in err:
+                return None
+            return False
+
+    def probe_thinking(self) -> Optional[bool]:
+        """Probe whether this Claude model supports extended thinking."""
+        try:
+            self._client.messages.create(
+                model=self.model, max_tokens=1024,
+                messages=[{"role": "user", "content": "Say hi."}],
+                thinking={"type": "adaptive", "budget_tokens": 1024},
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "timeout" in err:
+                return None
+            return False
+
+    def probe_structured_json(self) -> Optional[bool]:
+        """Probe whether this Claude model supports output_config JSON schema mode."""
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+            "additionalProperties": False,
+        }
+        try:
+            self._client.messages.create(
+                model=self.model,
+                max_tokens=50,
+                temperature=0,
+                messages=[{"role": "user", "content": "Return the number 1."}],
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": _PROBE_SCHEMA,
+                    }
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
+            if status == 400 or "not supported" in err or "invalid" in err or "output_config" in err:
+                return False
+            if status in (401, 403, 429) or "rate" in err or "quota" in err:
+                return None
+            return None
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for Claude models."""

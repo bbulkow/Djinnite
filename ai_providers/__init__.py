@@ -86,6 +86,10 @@ def get_provider(
     """
     Factory function to create an AI provider instance.
     
+    Automatically loads the model catalog and passes ``model_info`` to the
+    provider for pre-flight capability checks.  If the catalog is not
+    available (e.g., first run), the provider operates without validation.
+    
     Args:
         provider_name: Name of the provider (gemini, claude, chatgpt)
         api_key: API key for the provider
@@ -115,13 +119,24 @@ def get_provider(
                 provider=provider_name
             )
     
+    # Auto-load model_info from catalog for pre-flight capability checks.
+    # Silently skip if catalog doesn't exist (bootstrap / first run).
+    model_info = None
+    if model and MODEL_CATALOG_PATH.exists():
+        try:
+            from djinnite.config_loader import load_model_catalog
+            catalog = load_model_catalog(MODEL_CATALOG_PATH)
+            model_info = catalog.get_model(provider_name, model)
+        except Exception:
+            pass  # Catalog unreadable — provider operates without validation
+    
     provider_class = PROVIDERS[provider_name]
     
     # OpenAI needs Gemini API key for web search capability
     if provider_name == "chatgpt" and gemini_api_key:
-        return provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key, **kwargs)
+        return provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key, model_info=model_info, **kwargs)
     
-    return provider_class(api_key=api_key, model=model, **kwargs)
+    return provider_class(api_key=api_key, model=model, model_info=model_info, **kwargs)
 
 
 def list_available_providers() -> list[str]:

@@ -79,9 +79,29 @@ Designed from day one for **AI agents and automated systems**:
 - **Request/response logging** for debugging agent conversations
 
 ```python
-# Ideal for agents: structured JSON responses
+# Ideal for agents: structured JSON with Guaranteed Schema Enforcement
+schema = {
+    "type": "object",
+    "properties": {
+        "entities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "type": {"type": "string"}
+                },
+                "required": ["name", "type"],
+                "additionalProperties": False
+            }
+        }
+    },
+    "required": ["entities"],
+    "additionalProperties": False
+}
 response = provider.generate_json(
     "Extract entities from this text and return as JSON",
+    schema=schema,
     temperature=0.1  # Low temperature for consistent agent behavior
 )
 ```
@@ -134,8 +154,17 @@ Get current information across all providers:
 
 ```python
 # Web search works across providers that support it
+headlines_schema = {
+    "type": "object",
+    "properties": {
+        "headlines": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["headlines"],
+    "additionalProperties": False
+}
 response = provider.generate_json(
     "What are today's top tech news headlines?",
+    schema=headlines_schema,
     web_search=True  # Automatic provider-specific implementation
 )
 ```
@@ -322,22 +351,53 @@ except AIProviderError as e:
 
 ## 🛠 Advanced Usage
 
-### JSON Generation
+### JSON Generation (Schema-Enforced)
 
-Optimized for structured outputs and agent communication:
+**Strict Constraint Decoding** — guaranteed structure, not "best-effort" JSON:
 
 ```python
-# JSON mode with lower temperature for consistency
+# Define the schema (dict or Pydantic BaseModel)
+resume_schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "role": {"type": "string"},
+        "skills": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["name", "role", "skills"],
+    "additionalProperties": False
+}
+
+# generate_json() uses provider-native Constraint Decoding
 response = provider.generate_json(
     prompt="Extract the name, role, and skills from this resume: ...",
-    system_prompt="You are a resume parsing expert. Return valid JSON.",
+    schema=resume_schema,
+    system_prompt="You are a resume parsing expert.",
     temperature=0.1,  # Lower temperature for deterministic output
     max_tokens=1000
 )
 
-# Parse the structured response
+# Parse the guaranteed-structure response
 import json
 data = json.loads(response.content)
+# data is guaranteed to have "name", "role", "skills" keys
+```
+
+Or use a **Pydantic BaseModel** for type-safe schema definition:
+
+```python
+from pydantic import BaseModel
+
+class ResumeData(BaseModel):
+    name: str
+    role: str
+    skills: list[str]
+
+response = provider.generate_json(
+    prompt="Extract the name, role, and skills from this resume: ...",
+    schema=ResumeData,
+)
+data = ResumeData.model_validate_json(response.content)
 ```
 
 ### Web Search & Grounding
@@ -348,8 +408,20 @@ Access real-time information across providers:
 # OpenAI with web search via Gemini
 provider = get_provider("chatgpt", openai_key, "gpt-4o", gemini_api_key=gemini_key)
 
+news_schema = {
+    "type": "object",
+    "properties": {
+        "headlines": {
+            "type": "array",
+            "items": {"type": "object", "properties": {"title": {"type": "string"}, "summary": {"type": "string"}}, "required": ["title", "summary"], "additionalProperties": False}
+        }
+    },
+    "required": ["headlines"],
+    "additionalProperties": False
+}
 response = provider.generate_json(
     "What are the latest developments in quantum computing this week?",
+    schema=news_schema,
     web_search=True  # Enables real-time information
 )
 ```
@@ -475,6 +547,9 @@ djinnite/
 
 ### 🗓️ Future Roadmap (Agentic Tasks)
 
+- [ ] **Agentic Codex / Artifact Interface**: Support OpenAI Codex and similar agentic models that use artifact-based output systems rather than pure streaming. These models (gpt-5-codex, gpt-5.1-codex, etc.) require a different interaction paradigm than chat completions.
+- [ ] **Thinking Abstraction**: Unified `thinking` parameter across providers (Claude `budget`, OpenAI `reasoning_effort`, Gemini `thinking_mode`). The model catalog already records `capabilities.thinking` and `capabilities.thinking_style` — the provider abstraction layer needs to map the unified parameter to provider-native APIs.
+- [ ] **Temperature-Aware Generation**: Use `capabilities.temperature` from the catalog to automatically omit temperature for reasoning models that reject it, instead of forcing callers to handle the error.
 - [ ] **Modality-Aware Web Search Discovery**: Refine `discover_modalities` to identify models with native "tools" for web search.
 - [ ] **Training Horizon Probe**: Implement a script to automatically verify training data cutoffs for all models in the catalog.
 
@@ -487,8 +562,9 @@ class BaseAIProvider(ABC):
     def generate(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None, 
                  temperature: float = 0.7, max_tokens: Optional[int] = None) -> AIResponse
     
-    def generate_json(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None,
-                      temperature: float = 0.3, max_tokens: Optional[int] = None,
+    def generate_json(self, prompt: Union[str, List[Dict]], schema: Union[Dict, Type],
+                      system_prompt: Optional[str] = None, temperature: float = 0.3,
+                      max_tokens: Optional[int] = None,
                       web_search: bool = False) -> AIResponse
     
     def is_available(self) -> bool

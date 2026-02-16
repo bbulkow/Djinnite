@@ -102,6 +102,30 @@ class Modalities:
 
 
 @dataclass
+class ModelCapabilities:
+    """
+    Model capability flags — tri-state booleans discovered by probing.
+    
+    True  = confirmed supported
+    False = confirmed NOT supported
+    None  = unknown (not yet probed or inconclusive)
+    
+    Attributes:
+        structured_json: Schema-enforced JSON output (Constraint Decoding).
+        temperature: Whether the model accepts temperature parameter.
+        thinking: Whether the model supports extended thinking/reasoning.
+        web_search: Whether web search/grounding is available via Djinnite.
+        thinking_style: Provider-native thinking param style
+                        ("budget" for Claude, "effort" for OpenAI, "mode" for Gemini).
+    """
+    structured_json: Optional[bool] = None
+    temperature: Optional[bool] = None
+    thinking: Optional[bool] = None
+    web_search: Optional[bool] = None
+    thinking_style: Optional[str] = None
+
+
+@dataclass
 class ModelInfo:
     """Information about a single AI model.
     
@@ -112,7 +136,8 @@ class ModelInfo:
         max_output_tokens: Maximum output tokens the model can generate.
             Callers should use this to set appropriate max_tokens values
             and avoid truncation. A value of 0 means unknown.
-        capabilities: Legacy field for backward compatibility
+        capabilities: Model capability flags (structured_json, temperature,
+            thinking, web_search) — tri-state booleans discovered by probing.
         modalities: Input/output modality capabilities
         costing: Cost scoring information
     """
@@ -120,9 +145,14 @@ class ModelInfo:
     name: str
     context_window: int
     max_output_tokens: int = 0
-    capabilities: list[str] = field(default_factory=list)
+    capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
     modalities: Modalities = field(default_factory=Modalities)
     costing: ModelCosting = field(default_factory=ModelCosting)
+
+    @property
+    def supports_structured_json(self) -> Optional[bool]:
+        """Convenience accessor for backward compatibility."""
+        return self.capabilities.structured_json
 
 
 @dataclass
@@ -277,12 +307,29 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 caps = model_data.get("capabilities", ["text"])
                 modalities = Modalities(input=caps, output=["text"])
             
+            # Load capabilities — support both new dict format and old flat format
+            raw_caps = model_data.get("capabilities")
+            if isinstance(raw_caps, dict):
+                # New format: capabilities dict with tri-state booleans
+                caps = ModelCapabilities(
+                    structured_json=raw_caps.get("structured_json"),
+                    temperature=raw_caps.get("temperature"),
+                    thinking=raw_caps.get("thinking"),
+                    web_search=raw_caps.get("web_search"),
+                    thinking_style=raw_caps.get("thinking_style"),
+                )
+            else:
+                # Old format: migrate from flat supports_structured_json field
+                raw_ssj = model_data.get("supports_structured_json")
+                ssj = True if raw_ssj is True else (False if raw_ssj is False else None)
+                caps = ModelCapabilities(structured_json=ssj)
+
             models.append(ModelInfo(
                 id=model_data["id"],
                 name=model_data["name"],
                 context_window=model_data.get("context_window", 0),
                 max_output_tokens=model_data.get("max_output_tokens", 0),
-                capabilities=model_data.get("capabilities", []),
+                capabilities=caps,
                 modalities=modalities,
                 costing=costing
             ))
@@ -313,6 +360,7 @@ __all__ = [
     "AIConfig",
     "ProviderConfig",
     "ModelInfo",
+    "ModelCapabilities",
     "ModelCatalog",
     "Modalities",
     "load_ai_config",

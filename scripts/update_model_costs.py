@@ -4,9 +4,8 @@ Update Model Costs Script
 Uses the AI abstraction layer to estimate and update cost_score values
 for models in config/model_catalog.json.
 
-The anchor model is Gemini 2.5 Flash (cost_score = 1.0).
-- Gemini models: Calculate from API pricing data where available
-- Other providers: Use AI to estimate based on published pricing
+The anchor model is defined in config/known_model_defaults.json (default: Gemini 2.5 Flash, cost_score = 1.0).
+All non-anchor models are estimated dynamically via AI with web search.
 
 By default, this script updates all models in the catalog that are not
 manually overridden.
@@ -36,13 +35,32 @@ from djinnite.prompts import COST_ESTIMATION_CONFIG
 
 
 # ============================================================================
-# ANCHOR CONFIGURATION
+# ANCHOR CONFIGURATION (loaded from config/known_model_defaults.json)
+# ============================================================================
+# The cost anchor is the ONLY static model data we maintain.  It defines
+# the reference point for all relative cost scores.  Everything else is
+# discovered dynamically via AI estimation.
+#
+# POLICY: Do NOT add per-model pricing tables to Python code.
+# See DEVELOPMENT.md for the full policy on static model data.
 # ============================================================================
 
-# The anchor model - all costs are relative to this
-ANCHOR_MODEL_ID = "gemini-2.5-flash"
-ANCHOR_PROVIDER = "gemini"
-ANCHOR_COST_SCORE = 1.0
+def _load_anchor_config() -> dict:
+    """Load cost anchor from config/known_model_defaults.json."""
+    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+    if defaults_path.exists():
+        with open(defaults_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("cost_anchor", {})
+    return {}
+
+_anchor = _load_anchor_config()
+ANCHOR_MODEL_ID = _anchor.get("model_id", "gemini-2.5-flash")
+ANCHOR_PROVIDER = _anchor.get("provider", "gemini")
+ANCHOR_COST_SCORE = _anchor.get("cost_score", 1.0)
+_anchor_pricing = _anchor.get("pricing", {})
+ANCHOR_INPUT_PRICE = _anchor_pricing.get("input_per_1m_tokens", 0.075)
+ANCHOR_OUTPUT_PRICE = _anchor_pricing.get("output_per_1m_tokens", 0.30)
 
 # Default cost scores by tier (used as TEMPORARY fallback only when estimation fails)
 # These are NOT used as success - they indicate the model needs manual review
@@ -50,21 +68,6 @@ TIER_DEFAULTS = {
     "economical": 0.5,
     "standard": 1.0,
     "premium": 10.0,
-}
-
-# Known Gemini pricing ($ per 1M tokens) - fallback when API doesn't provide pricing
-# Source: https://ai.google.dev/pricing
-GEMINI_KNOWN_PRICES = {
-    "gemini-3-flash": {"input": 0.05, "output": 0.20},
-    "gemini-3-pro": {"input": 1.00, "output": 4.00},
-    "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
-    "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
-    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-    "gemini-2.0-flash-lite": {"input": 0.075, "output": 0.30},
-    "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
-    # Lite variants typically same as flash
-    "gemini-2.5-flash-lite": {"input": 0.075, "output": 0.30},
 }
 
 # NOTE: Prompts are externalized in djinnite/prompts/__init__.py
@@ -80,51 +83,15 @@ def calculate_cost_score(input_price: float, output_price: float) -> float:
     Calculate cost_score from input/output prices ($ per 1M tokens).
     
     Uses weighted average: 25% input, 75% output (typical extraction pattern).
-    Anchor: gemini-2.5-flash ($0.075 input, $0.30 output) = 1.0
+    Anchor pricing is loaded from config/known_model_defaults.json.
     """
     # Anchor effective price ($ per 1M tokens, weighted)
-    anchor_effective = (0.075 * 0.25) + (0.30 * 0.75)  # = 0.24375
+    anchor_effective = (ANCHOR_INPUT_PRICE * 0.25) + (ANCHOR_OUTPUT_PRICE * 0.75)
     
     # Model effective price
     model_effective = (input_price * 0.25) + (output_price * 0.75)
     
     return model_effective / anchor_effective
-
-
-def calculate_gemini_cost(model_id: str, api_key: str = None) -> Optional[tuple[float, str]]:
-    """
-    Calculate cost_score for a Gemini model.
-    
-    Uses known prices table FIRST (fast), only falls back to API if needed.
-    
-    Returns:
-        Tuple of (cost_score, source) or None if pricing unavailable.
-        source is "api" or "known_prices"
-    """
-    input_price = None
-    output_price = None
-    source = None
-    
-    # Check known prices table FIRST
-    if model_id in GEMINI_KNOWN_PRICES:
-        prices = GEMINI_KNOWN_PRICES[model_id]
-        input_price = prices["input"]
-        output_price = prices["output"]
-        source = "known_prices"
-    else:
-        # Try to match base model (e.g., gemini-2.5-flash-001 -> gemini-2.5-flash)
-        for known_id, prices in GEMINI_KNOWN_PRICES.items():
-            if model_id.startswith(known_id):
-                input_price = prices["input"]
-                output_price = prices["output"]
-                source = "known_prices"
-                break
-    
-    if input_price is not None and output_price is not None:
-        cost_score = calculate_cost_score(input_price, output_price)
-        return (cost_score, source)
-    
-    return None
 
 
 # Provider company names for clearer prompts
@@ -187,12 +154,16 @@ def estimate_costs_with_ai(
     
     try:
         provider = get_provider(estimator_provider, api_key, estimator_model, gemini_api_key=gemini_api_key)
-        response = provider.generate_json(
+        # Use generate() with JSON-requesting system prompt because the
+        # response schema is dynamic (model IDs as keys).  Strict schema
+        # enforcement via generate_json() requires a fixed schema.
+        json_system = system_prompt or ""
+        json_system += "\n\nYou must respond with valid JSON only. No additional text or explanation."
+        response = provider.generate(
             prompt=prompt,
-            system_prompt=system_prompt,
+            system_prompt=json_system.strip(),
             temperature=temperature,
             max_tokens=max_tokens,
-            web_search=web_search
         )
         
         raw_response = response.content
@@ -375,19 +346,7 @@ def update_model_costs(
                 stats["updated" if has_cost else "new"] += 1
                 continue
             
-            # For Gemini, try to calculate from known prices
-            if provider_name == "gemini" and provider_api_key:
-                result = calculate_gemini_cost(model_id, provider_api_key)
-                if result is not None:
-                    cost_score, source = result
-                    costing["score"] = round(cost_score, 2)
-                    costing["source"] = source
-                    costing["updated"] = today
-                    print(f"  ✓ {model_id}: {cost_score:.2f} ({source})")
-                    stats["updated" if has_cost else "new"] += 1
-                    continue
-            
-            # Queue for AI estimation (non-Gemini models, or Gemini without known price)
+            # Queue for AI estimation (all non-anchor models)
             models_needing_estimation.append({
                 "id": model_id,
                 "provider": provider_name,

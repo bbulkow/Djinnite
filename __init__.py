@@ -4,7 +4,7 @@ Djinnite AI Abstraction Layer
 Standardized, multimodal interface for Gemini, Claude, and OpenAI.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from .ai_providers import (
     get_provider,

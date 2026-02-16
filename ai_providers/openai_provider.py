@@ -5,7 +5,7 @@ Wraps the OpenAI SDK.
 Supports web search via Gemini's native Google Search grounding.
 """
 
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
     BaseAIProvider,
@@ -29,7 +29,7 @@ class OpenAIProvider(BaseAIProvider):
     
     PROVIDER_NAME = "chatgpt"
     
-    def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None):
+    def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None, model_info=None):
         """
         Initialize the OpenAI provider.
         
@@ -37,9 +37,10 @@ class OpenAIProvider(BaseAIProvider):
             api_key: OpenAI API key
             model: Model ID to use
             gemini_api_key: Optional Gemini API key for web search capability
+            model_info: Optional ModelInfo from catalog for pre-flight checks
         """
         self._gemini_api_key = gemini_api_key
-        super().__init__(api_key, model)
+        super().__init__(api_key, model, model_info=model_info)
     
     def _initialize_client(self) -> None:
         """Initialize the OpenAI client."""
@@ -92,11 +93,21 @@ class OpenAIProvider(BaseAIProvider):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        web_search: bool = False,
     ) -> AIResponse:
         """
         Generate a response using OpenAI.
         """
         try:
+            # If web search requested, get current info from Gemini first
+            if web_search:
+                if self._gemini_api_key:
+                    search_results = self._search_with_gemini(str(prompt))
+                    if isinstance(prompt, str):
+                        prompt = f"Based on web search results: {search_results}\n\n{prompt}"
+                    else:
+                        prompt.insert(0, {"type": "text", "text": f"Web search results: {search_results}"})
+
             parts = self._normalize_input(prompt)
             openai_content = self._map_parts(parts)
 
@@ -229,18 +240,40 @@ class OpenAIProvider(BaseAIProvider):
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
+        schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        force: bool = False,
     ) -> AIResponse:
         """
-        Generate a JSON response using OpenAI.
+        Generates structured JSON using OpenAI's **Strict Mode** (Constraint Decoding).
+
+        [AGENT NOTE]: Uses ``response_format`` with ``json_schema`` and ``strict=True``.
+        The output is **guaranteed** to conform to the supplied schema.  Use this for
+        all programmatic tasks where Guaranteed Structure is required.
+
+        Args:
+            prompt: The user prompt (str or list of multimodal parts).
+            schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
+            system_prompt: Optional system instruction.
+            temperature: Sampling temperature (default 0.3).
+            max_tokens: Maximum tokens to generate.
+            web_search: If True, augment the prompt with Gemini web search results.
+
+        Returns:
+            AIResponse whose ``content`` is schema-conforming JSON.
         """
-        # Pass through the caller's max_tokens value without capping.
-        # Callers should check ModelInfo.max_output_tokens from the catalog
-        # to pass the right value for their model.
-        
+        if schema is None:
+            raise ValueError(
+                "schema is required for generate_json(). "
+                "Use generate() for freeform text responses."
+            )
+        if not force:
+            self._check_capability("structured_json")
+        json_schema = self._normalize_schema(schema)
+
         try:
             # If web search requested, get current info from Gemini first
             if web_search:
@@ -268,11 +301,19 @@ class OpenAIProvider(BaseAIProvider):
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": openai_content})
             
+            # Use strict JSON Schema mode (Constraint Decoding)
             kwargs = {
                 "model": self.model,
                 "messages": messages,
                 "temperature": temperature,
-                "response_format": {"type": "json_object"},  # Enable JSON mode
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "strict": True,
+                        "schema": json_schema,
+                    }
+                },
             }
             if max_tokens:
                 kwargs["max_tokens"] = max_tokens
@@ -315,14 +356,21 @@ class OpenAIProvider(BaseAIProvider):
         except AIProviderError:
             raise  # Re-raise all our own errors (including truncation/context)
         except Exception as e:
-            # Only fall back to plain generate() for JSON-mode-specific failures
-            # (e.g. model doesn't support response_format). Truncation and
-            # context errors are already re-raised above.
-            return self.generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens
+            error_message = str(e).lower()
+            
+            # Detect context length exceeded
+            error_code = getattr(e, 'code', None) or ''
+            if str(error_code) == 'context_length_exceeded' or 'context_length_exceeded' in error_message:
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e
+                )
+            
+            raise AIProviderError(
+                f"JSON generation failed: {e}",
+                provider=self.PROVIDER_NAME,
+                original_error=e
             )
     
     def is_available(self) -> bool:
@@ -372,6 +420,120 @@ class OpenAIProvider(BaseAIProvider):
         except Exception as e:
             print(f"Error listing OpenAI models: {e}")
             return []
+
+    def probe_temperature(self) -> Optional[bool]:
+        """Probe whether this OpenAI model accepts temperature."""
+        try:
+            self._client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "Say hi."}],
+                temperature=0.5,
+                max_completion_tokens=10,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, 'status_code', None)
+            if status == 429 or "rate" in err or "timeout" in err:
+                return None
+            if "unsupported_parameter" in err and "temperature" in err:
+                return False
+            # Try with max_tokens for older models
+            try:
+                self._client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Say hi."}],
+                    temperature=0.5,
+                    max_tokens=10,
+                )
+                return True
+            except Exception as e2:
+                err2 = str(e2).lower()
+                if "unsupported_parameter" in err2 and "temperature" in err2:
+                    return False
+                if "rate" in err2 or "timeout" in err2:
+                    return None
+                return False
+
+    def probe_thinking(self) -> Optional[bool]:
+        """Probe whether this OpenAI model supports reasoning_effort."""
+        try:
+            self._client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "Say hi."}],
+                reasoning_effort="low",
+                max_completion_tokens=100,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, 'status_code', None)
+            if status == 429 or "rate" in err or "timeout" in err:
+                return None
+            # Try with max_tokens for older models
+            try:
+                self._client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Say hi."}],
+                    reasoning_effort="low",
+                    max_tokens=100,
+                )
+                return True
+            except Exception:
+                return False
+
+    def probe_structured_json(self) -> Optional[bool]:
+        """
+        Probe whether this OpenAI model supports strict JSON schema mode.
+        
+        Returns True (supported), False (not supported or model incompatible),
+        or None ONLY for transient errors (rate limit, timeout).
+        """
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+            "additionalProperties": False,
+        }
+        # Newer OpenAI models (GPT-5+) require max_completion_tokens
+        # instead of max_tokens. Try the newer param first, fall back
+        # to the older one if it fails with a param-name error.
+        last_error = None
+        for token_param in ["max_completion_tokens", "max_tokens"]:
+            try:
+                # NOTE: Do NOT send temperature — reasoning models (o3/codex)
+                # reject it, which would give a false negative for SSJ support.
+                kwargs = {
+                    "model": self.model,
+                    "messages": [{"role": "user", "content": "Return the number 1."}],
+                    token_param: 50,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "probe",
+                            "strict": True,
+                            "schema": _PROBE_SCHEMA,
+                        }
+                    },
+                }
+                self._client.chat.completions.create(**kwargs)
+                return True
+            except Exception as e:
+                last_error = e
+                err = str(e).lower()
+                status = getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
+                # If the error is specifically about the token param name, try the other
+                if "unsupported_parameter" in err and ("max_tokens" in err or "max_completion_tokens" in err):
+                    continue
+                # Rate limit / timeout → genuinely inconclusive (transient)
+                if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
+                    return None
+                # ALL other errors → model doesn't support this → False
+                # (includes: 400 bad request, 404 not found, 403 permission,
+                #  unsupported temperature, unsupported response_format, etc.)
+                return False
+        # Both param names hit unsupported_parameter errors → model is incompatible
+        return False
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for OpenAI models."""

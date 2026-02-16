@@ -39,9 +39,9 @@ from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCat
 # Provider factory
 get_provider(provider_name, api_key, model, **kwargs) -> BaseAIProvider
 
-# Generation
-BaseAIProvider.generate(prompt: str | list, ...) -> AIResponse
-BaseAIProvider.generate_json(prompt: str | list, ...) -> AIResponse
+# Generation (two distinct methods)
+BaseAIProvider.generate(prompt: str | list, ...) -> AIResponse          # Freeform text
+BaseAIProvider.generate_json(prompt: str | list, schema: dict | type, ...) -> AIResponse  # Schema-enforced JSON
 
 # Discovery
 load_ai_config() -> AIConfig
@@ -113,10 +113,10 @@ single response. Callers **should** use this value when setting `max_tokens` on
 `generate()` / `generate_json()` to avoid truncation. A value of `0` means the
 limit is unknown — callers should use a conservative default.
 
-The field is populated by `update_models.py` from three sources (in priority order):
+The field is populated by `update_models.py` dynamically (in priority order):
 1. **Provider API** — Gemini exposes `output_token_limit` directly
-2. **Known values table** — Authoritative values for well-known Claude/OpenAI models
-3. **AI estimation** — Web search-powered estimation for unknown models
+2. **Existing catalog value** — Persisted from prior estimation runs
+3. **AI estimation** — Web search-powered estimation for new/unknown models
 
 ---
 
@@ -138,7 +138,7 @@ get_provider(provider_name: str, api_key: str, model: Optional[str], gemini_api_
 
 BaseAIProvider.generate(prompt: str, system_prompt: Optional[str], temperature: float, max_tokens: Optional[int]) -> AIResponse
 
-BaseAIProvider.generate_json(prompt: str, system_prompt: Optional[str], temperature: float, max_tokens: Optional[int], web_search: bool) -> AIResponse
+BaseAIProvider.generate_json(prompt: str, schema: Union[Dict, Type], system_prompt: Optional[str], temperature: float, max_tokens: Optional[int], web_search: bool, force: bool) -> AIResponse
 
 load_ai_config(config_path: Optional[Path]) -> AIConfig
 load_model_catalog(catalog_path: Optional[Path]) -> ModelCatalog
@@ -151,6 +151,18 @@ LLMLogger.log_response(request_id, response_content, success, error, usage, pars
 ---
 
 ## Rules for Changes
+
+### ⛔ No Static Model Data in Python Code
+
+Model capabilities (output token limits, structured JSON support, pricing, modalities) **must be discovered dynamically** via:
+1. **Provider API responses** (e.g. Gemini exposes `output_token_limit`)
+2. **Live probes** (e.g. structured JSON support testing)
+3. **AI estimation with web search** (for values APIs don't expose)
+4. **Existing `model_catalog.json` values** (persisted between runs)
+
+Do **NOT** add per-model data tables (dicts, lists of model IDs with hardcoded values) to Python code. The model catalog is the database — it is populated dynamically by `update_models.py` and persists between runs.
+
+If a truly un-discoverable override is needed (e.g. the cost anchor reference point), place it in `config/known_model_defaults.json` with a comment explaining why dynamic discovery is impossible. This file should remain **minimal**.
 
 ### ✅ Safe Changes (Go Ahead)
 
@@ -232,11 +244,25 @@ This works both when djinnite is a subdirectory and when it's a git submodule.
 2. Subclass `BaseAIProvider` and implement all abstract methods
 3. Register in `djinnite/ai_providers/__init__.py` → `PROVIDERS` dict
 4. Add SDK dependency to `pyproject.toml` and `requirements.txt`
-5. Test with `python -m djinnite.scripts.validate_ai`
+5. Test with `uv run python -m djinnite.scripts.validate_ai`
 
-## Running Scripts
+## Running Python Commands
 
-IMPORTANT: Always use `uv run` to ensure all provider SDK dependencies are correctly loaded.
+⚠️ **CRITICAL FOR AI AGENTS AND DEVELOPERS:** This project uses **`uv`** for dependency
+management. **ALL** Python commands — scripts, one-liners, imports, validation — **MUST**
+be executed via `uv run`. Never use bare `python` or `python -c` directly.
+
+```
+✅ CORRECT:   uv run python -m djinnite.scripts.validate_ai
+✅ CORRECT:   uv run python -c "from djinnite.config_loader import ..."
+❌ WRONG:     python -m djinnite.scripts.validate_ai
+❌ WRONG:     python -c "from config_loader import ..."
+```
+
+**Why:** Bare `python` may resolve to a system interpreter that lacks the project's
+virtual environment and SDK dependencies (`google-genai`, `anthropic`, `openai`).
+The `uv run` prefix ensures the correct venv, Python version, and all dependencies
+are loaded — even for quick ad-hoc checks. There is **no exception** to this rule.
 
 ```bash
 # From the host project root:

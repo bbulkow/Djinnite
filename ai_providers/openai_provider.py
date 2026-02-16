@@ -5,6 +5,9 @@ Wraps the OpenAI SDK.
 Supports web search via Gemini's native Google Search grounding.
 """
 
+import copy
+import json as _json
+
 from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
@@ -200,6 +203,79 @@ class OpenAIProvider(BaseAIProvider):
                     original_error=e
                 )
     
+    # ------------------------------------------------------------------
+    # Schema normalization for OpenAI strict mode
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _add_additional_properties_false(schema: Dict) -> None:
+        """
+        Recursively add ``additionalProperties: false`` to every object
+        node in the JSON Schema tree.  Mutates *schema* in-place.
+
+        OpenAI strict mode requires this on **all** object definitions.
+        """
+        if not isinstance(schema, dict):
+            return
+        # If this node is (or could be) an object, inject the field
+        if schema.get("type") == "object" or "properties" in schema:
+            schema["additionalProperties"] = False
+        # Recurse into properties
+        for prop_schema in (schema.get("properties") or {}).values():
+            OpenAIProvider._add_additional_properties_false(prop_schema)
+        # Recurse into array items
+        items = schema.get("items")
+        if isinstance(items, dict):
+            OpenAIProvider._add_additional_properties_false(items)
+        # Recurse into combinators
+        for combinator in ("anyOf", "oneOf", "allOf"):
+            for branch in (schema.get(combinator) or []):
+                OpenAIProvider._add_additional_properties_false(branch)
+        # Recurse into $defs
+        for def_schema in (schema.get("$defs") or {}).values():
+            OpenAIProvider._add_additional_properties_false(def_schema)
+
+    def _prepare_schema_for_provider(self, schema: Dict) -> Dict:
+        """
+        OpenAI-specific schema transformation.
+
+        1. Deep-copies the schema to avoid mutating the caller's dict.
+        2. Recursively adds ``additionalProperties: false`` to every object.
+        3. If the top-level type is ``"array"``, wraps it in an object
+           envelope (``{"type": "object", "properties": {"items": ...}}``)
+           because OpenAI strict mode requires top-level ``type: "object"``.
+           The wrapping is recorded so ``generate_json`` can transparently
+           unwrap the response.
+
+        Returns:
+            ``(schema_dict, was_array_wrapped)`` — but since the base
+            signature returns a single dict, we stash the wrap flag on
+            ``self._openai_array_wrapped`` for ``generate_json`` to read.
+        """
+        schema = copy.deepcopy(schema)
+
+        # Strip $defs-level keys that OpenAI doesn't understand (e.g. "title")
+        # but keep $defs themselves — OpenAI supports $ref.
+
+        # Wrap top-level arrays in an object envelope
+        self._openai_array_wrapped = False
+        if schema.get("type") == "array":
+            schema = {
+                "type": "object",
+                "properties": {
+                    "items": schema,
+                },
+                "required": ["items"],
+            }
+            self._openai_array_wrapped = True
+
+        # Add additionalProperties: false to every object node
+        self._add_additional_properties_false(schema)
+
+        return schema
+
+    # ------------------------------------------------------------------
+
     def _search_with_gemini(self, query: str) -> str:
         """
         Perform a web search using Gemini's native Google Search grounding.
@@ -273,6 +349,8 @@ class OpenAIProvider(BaseAIProvider):
         if not force:
             self._check_capability("structured_json")
         json_schema = self._normalize_schema(schema)
+        json_schema = self._validate_caller_schema(json_schema)
+        json_schema = self._prepare_schema_for_provider(json_schema)
 
         try:
             # If web search requested, get current info from Gemini first
@@ -322,6 +400,14 @@ class OpenAIProvider(BaseAIProvider):
             
             content = response.choices[0].message.content
             finish_reason = response.choices[0].finish_reason
+            
+            # Transparently unwrap array envelope if we wrapped it
+            if getattr(self, '_openai_array_wrapped', False) and content:
+                try:
+                    parsed = _json.loads(content)
+                    content = _json.dumps(parsed["items"])
+                except (KeyError, _json.JSONDecodeError):
+                    pass  # Best-effort; return raw content if unwrap fails
             
             usage = {}
             if response.usage:

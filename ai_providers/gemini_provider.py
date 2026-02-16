@@ -4,6 +4,8 @@ Google Gemini AI Provider
 Wraps the Google Gen AI SDK (google-genai) for Gemini models.
 """
 
+import copy
+
 from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
@@ -257,6 +259,23 @@ class GeminiProvider(BaseAIProvider):
                     original_error=e
                 )
     
+    # ------------------------------------------------------------------
+    # Schema normalization for Gemini
+    # ------------------------------------------------------------------
+
+    def _prepare_schema_for_provider(self, schema: Dict) -> Dict:
+        """
+        Gemini-specific schema transformation.
+
+        Gemini **rejects** ``additionalProperties`` entirely (HTTP 400).
+        This method defensively strips it from the entire schema tree.
+        (The caller-contract validation should have already ensured it's
+        absent, but defense-in-depth is prudent.)
+        """
+        return self._strip_additional_properties(schema)
+
+    # ------------------------------------------------------------------
+
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
@@ -293,6 +312,8 @@ class GeminiProvider(BaseAIProvider):
         if not force:
             self._check_capability("structured_json")
         json_schema = self._normalize_schema(schema)
+        json_schema = self._validate_caller_schema(json_schema)
+        json_schema = self._prepare_schema_for_provider(json_schema)
 
         try:
             from google.genai import types

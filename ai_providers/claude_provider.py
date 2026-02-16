@@ -372,6 +372,8 @@ class ClaudeProvider(BaseAIProvider):
         if not force:
             self._check_capability("structured_json")
         json_schema = self._normalize_schema(schema)
+        json_schema = self._validate_caller_schema(json_schema)
+        json_schema = self._prepare_schema_for_provider(json_schema)
 
         # Claude requires max_tokens. Use the caller's value if provided,
         # otherwise default to 8192. Callers should check
@@ -566,11 +568,14 @@ class ClaudeProvider(BaseAIProvider):
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Claude model supports output_config JSON schema mode."""
+        # NOTE: Probe schemas are internal (bypass the caller validation
+        # pipeline) and talk directly to the provider API.  Claude is
+        # neutral on additionalProperties so we omit it for consistency
+        # with the Djinnite caller contract.
         _PROBE_SCHEMA = {
             "type": "object",
             "properties": {"value": {"type": "integer"}},
             "required": ["value"],
-            "additionalProperties": False,
         }
         try:
             self._client.messages.create(

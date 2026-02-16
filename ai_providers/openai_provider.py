@@ -207,34 +207,6 @@ class OpenAIProvider(BaseAIProvider):
     # Schema normalization for OpenAI strict mode
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _add_additional_properties_false(schema: Dict) -> None:
-        """
-        Recursively add ``additionalProperties: false`` to every object
-        node in the JSON Schema tree.  Mutates *schema* in-place.
-
-        OpenAI strict mode requires this on **all** object definitions.
-        """
-        if not isinstance(schema, dict):
-            return
-        # If this node is (or could be) an object, inject the field
-        if schema.get("type") == "object" or "properties" in schema:
-            schema["additionalProperties"] = False
-        # Recurse into properties
-        for prop_schema in (schema.get("properties") or {}).values():
-            OpenAIProvider._add_additional_properties_false(prop_schema)
-        # Recurse into array items
-        items = schema.get("items")
-        if isinstance(items, dict):
-            OpenAIProvider._add_additional_properties_false(items)
-        # Recurse into combinators
-        for combinator in ("anyOf", "oneOf", "allOf"):
-            for branch in (schema.get(combinator) or []):
-                OpenAIProvider._add_additional_properties_false(branch)
-        # Recurse into $defs
-        for def_schema in (schema.get("$defs") or {}).values():
-            OpenAIProvider._add_additional_properties_false(def_schema)
-
     def _prepare_schema_for_provider(self, schema: Dict) -> Dict:
         """
         OpenAI-specific schema transformation.

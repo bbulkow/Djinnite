@@ -336,6 +336,28 @@ class ClaudeProvider(BaseAIProvider):
         except Exception as e:
             raise AIProviderError(f"Web search generation failed: {e}", provider=self.PROVIDER_NAME, original_error=e)
     
+    # ------------------------------------------------------------------
+    # Schema normalization for Claude strict mode
+    # ------------------------------------------------------------------
+
+    def _prepare_schema_for_provider(self, schema: Dict) -> Dict:
+        """
+        Claude-specific schema transformation.
+
+        Claude's ``output_config`` JSON schema mode requires explicit
+        ``additionalProperties: false`` on all object nodes (same as OpenAI).
+        Unlike OpenAI, Claude accepts top-level arrays — no wrapping needed.
+
+        1. Deep-copies the schema to avoid mutating the caller's dict.
+        2. Recursively adds ``additionalProperties: false`` to every object.
+        """
+        import copy
+        schema = copy.deepcopy(schema)
+        self._add_additional_properties_false(schema)
+        return schema
+
+    # ------------------------------------------------------------------
+
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
@@ -569,13 +591,13 @@ class ClaudeProvider(BaseAIProvider):
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Claude model supports output_config JSON schema mode."""
         # NOTE: Probe schemas are internal (bypass the caller validation
-        # pipeline) and talk directly to the provider API.  Claude is
-        # neutral on additionalProperties so we omit it for consistency
-        # with the Djinnite caller contract.
+        # pipeline) and talk directly to the provider API.  Claude requires
+        # additionalProperties: false for strict mode.
         _PROBE_SCHEMA = {
             "type": "object",
             "properties": {"value": {"type": "integer"}},
             "required": ["value"],
+            "additionalProperties": False,
         }
         try:
             self._client.messages.create(

@@ -341,6 +341,35 @@ class BaseAIProvider(ABC):
         return False
 
     @staticmethod
+    def _add_additional_properties_false(schema: Dict) -> None:
+        """
+        Recursively add ``additionalProperties: false`` to every object
+        node in the JSON Schema tree.  Mutates *schema* in-place.
+
+        Used by OpenAI and Claude providers which both require explicit
+        ``additionalProperties: false`` for strict/constrained JSON mode.
+        """
+        if not isinstance(schema, dict):
+            return
+        # If this node is (or could be) an object, inject the field
+        if schema.get("type") == "object" or "properties" in schema:
+            schema["additionalProperties"] = False
+        # Recurse into properties
+        for prop_schema in (schema.get("properties") or {}).values():
+            BaseAIProvider._add_additional_properties_false(prop_schema)
+        # Recurse into array items
+        items = schema.get("items")
+        if isinstance(items, dict):
+            BaseAIProvider._add_additional_properties_false(items)
+        # Recurse into combinators
+        for combinator in ("anyOf", "oneOf", "allOf"):
+            for branch in (schema.get(combinator) or []):
+                BaseAIProvider._add_additional_properties_false(branch)
+        # Recurse into $defs
+        for def_schema in (schema.get("$defs") or {}).values():
+            BaseAIProvider._add_additional_properties_false(def_schema)
+
+    @staticmethod
     def _strip_additional_properties(schema: Dict) -> Dict:
         """
         Return a deep copy of *schema* with every ``additionalProperties``

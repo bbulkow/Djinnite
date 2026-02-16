@@ -5,10 +5,9 @@ These tests verify the Djinnite caller contract:
   - Callers must NOT include ``additionalProperties`` in schemas.
   - Djinnite adds/removes it per-provider automatically.
   - Pydantic-generated schemas are silently cleaned.
-  - OpenAI gets ``additionalProperties: false`` injected on all objects.
-  - OpenAI wraps top-level arrays in an object envelope.
+  - OpenAI gets ``additionalProperties: false`` injected + array wrapping.
+  - Claude gets ``additionalProperties: false`` injected (no array wrapping).
   - Gemini gets ``additionalProperties`` stripped defensively.
-  - Claude passes through unchanged.
 
 No API keys or network calls required — pure unit tests.
 """
@@ -20,6 +19,7 @@ import pytest
 from ai_providers.base_provider import BaseAIProvider
 from ai_providers.openai_provider import OpenAIProvider
 from ai_providers.gemini_provider import GeminiProvider
+from ai_providers.claude_provider import ClaudeProvider
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +45,39 @@ class _FakeProvider(BaseAIProvider):
 
 def _make_fake():
     return _FakeProvider(api_key="fake-key", model="fake-model")
+
+
+def _make_openai():
+    """Create an OpenAI provider without actually connecting."""
+    orig_init = OpenAIProvider._initialize_client
+    OpenAIProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
+    try:
+        prov = OpenAIProvider(api_key="fake", model="gpt-4o")
+    finally:
+        OpenAIProvider._initialize_client = orig_init
+    return prov
+
+
+def _make_gemini():
+    """Create a Gemini provider without actually connecting."""
+    orig_init = GeminiProvider._initialize_client
+    GeminiProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
+    try:
+        prov = GeminiProvider(api_key="fake", model="gemini-2.5-flash")
+    finally:
+        GeminiProvider._initialize_client = orig_init
+    return prov
+
+
+def _make_claude():
+    """Create a Claude provider without actually connecting."""
+    orig_init = ClaudeProvider._initialize_client
+    ClaudeProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
+    try:
+        prov = ClaudeProvider(api_key="fake", model="claude-haiku-4-5-20251001")
+    finally:
+        ClaudeProvider._initialize_client = orig_init
+    return prov
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +161,59 @@ class TestSchemaContainsAdditionalProperties:
             ]
         }
         assert BaseAIProvider._schema_contains_additional_properties(schema) is True
+
+
+# ---------------------------------------------------------------------------
+# _add_additional_properties_false  (now on BaseAIProvider)
+# ---------------------------------------------------------------------------
+
+class TestAddAdditionalPropertiesFalse:
+    def test_adds_to_simple_object(self):
+        schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+        BaseAIProvider._add_additional_properties_false(schema)
+        assert schema["additionalProperties"] is False
+
+    def test_adds_recursively(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "child": {
+                    "type": "object",
+                    "properties": {"y": {"type": "integer"}},
+                }
+            },
+        }
+        BaseAIProvider._add_additional_properties_false(schema)
+        assert schema["additionalProperties"] is False
+        assert schema["properties"]["child"]["additionalProperties"] is False
+
+    def test_adds_to_array_items(self):
+        schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"v": {"type": "integer"}},
+            },
+        }
+        BaseAIProvider._add_additional_properties_false(schema)
+        assert schema["items"]["additionalProperties"] is False
+
+    def test_adds_to_defs(self):
+        schema = {
+            "$defs": {
+                "Inner": {
+                    "type": "object",
+                    "properties": {"v": {"type": "integer"}},
+                }
+            },
+        }
+        BaseAIProvider._add_additional_properties_false(schema)
+        assert schema["$defs"]["Inner"]["additionalProperties"] is False
+
+    def test_skips_non_objects(self):
+        schema = {"type": "string"}
+        BaseAIProvider._add_additional_properties_false(schema)
+        assert "additionalProperties" not in schema
 
 
 # ---------------------------------------------------------------------------
@@ -256,19 +342,8 @@ class TestValidateCallerSchema:
 # ---------------------------------------------------------------------------
 
 class TestOpenAIPrepareSchema:
-    def _make_openai(self):
-        """Create an OpenAI provider without actually connecting."""
-        # Monkey-patch to avoid needing the openai package
-        orig_init = OpenAIProvider._initialize_client
-        OpenAIProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
-        try:
-            prov = OpenAIProvider(api_key="fake", model="gpt-4o")
-        finally:
-            OpenAIProvider._initialize_client = orig_init
-        return prov
-
     def test_adds_additional_properties_to_simple_object(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {"x": {"type": "string"}},
@@ -279,7 +354,7 @@ class TestOpenAIPrepareSchema:
         assert prov._openai_array_wrapped is False
 
     def test_adds_additional_properties_recursively(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {
@@ -296,7 +371,7 @@ class TestOpenAIPrepareSchema:
         assert result["properties"]["child"]["additionalProperties"] is False
 
     def test_adds_to_array_items(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {
@@ -315,7 +390,7 @@ class TestOpenAIPrepareSchema:
         assert result["properties"]["list"]["items"]["additionalProperties"] is False
 
     def test_wraps_top_level_array(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "array",
             "items": {
@@ -335,7 +410,7 @@ class TestOpenAIPrepareSchema:
         assert prov._openai_array_wrapped is True
 
     def test_does_not_wrap_top_level_object(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {"x": {"type": "integer"}},
@@ -347,7 +422,7 @@ class TestOpenAIPrepareSchema:
         assert prov._openai_array_wrapped is False
 
     def test_does_not_mutate_original(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {"x": {"type": "string"}},
@@ -358,7 +433,7 @@ class TestOpenAIPrepareSchema:
         assert schema == original  # No mutation
 
     def test_adds_to_defs(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {"ref": {"$ref": "#/$defs/Inner"}},
@@ -375,7 +450,7 @@ class TestOpenAIPrepareSchema:
         assert result["$defs"]["Inner"]["additionalProperties"] is False
 
     def test_adds_to_anyof_branches(self):
-        prov = self._make_openai()
+        prov = _make_openai()
         schema = {
             "type": "object",
             "properties": {
@@ -394,22 +469,90 @@ class TestOpenAIPrepareSchema:
 
 
 # ---------------------------------------------------------------------------
+# Claude: _prepare_schema_for_provider
+# ---------------------------------------------------------------------------
+
+class TestClaudePrepareSchema:
+    def test_adds_additional_properties_to_simple_object(self):
+        prov = _make_claude()
+        schema = {
+            "type": "object",
+            "properties": {"x": {"type": "string"}},
+            "required": ["x"],
+        }
+        result = prov._prepare_schema_for_provider(schema)
+        assert result["additionalProperties"] is False
+
+    def test_adds_additional_properties_recursively(self):
+        prov = _make_claude()
+        schema = {
+            "type": "object",
+            "properties": {
+                "child": {
+                    "type": "object",
+                    "properties": {"y": {"type": "integer"}},
+                    "required": ["y"],
+                }
+            },
+            "required": ["child"],
+        }
+        result = prov._prepare_schema_for_provider(schema)
+        assert result["additionalProperties"] is False
+        assert result["properties"]["child"]["additionalProperties"] is False
+
+    def test_does_not_wrap_top_level_array(self):
+        """Claude accepts top-level arrays — no wrapping needed."""
+        prov = _make_claude()
+        schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+        }
+        result = prov._prepare_schema_for_provider(schema)
+        # Should remain an array (no wrapping)
+        assert result["type"] == "array"
+        # But items' object should have additionalProperties
+        assert result["items"]["additionalProperties"] is False
+
+    def test_does_not_mutate_original(self):
+        prov = _make_claude()
+        schema = {
+            "type": "object",
+            "properties": {"x": {"type": "string"}},
+            "required": ["x"],
+        }
+        original = copy.deepcopy(schema)
+        prov._prepare_schema_for_provider(schema)
+        assert schema == original  # No mutation
+
+    def test_adds_to_defs(self):
+        prov = _make_claude()
+        schema = {
+            "type": "object",
+            "properties": {"ref": {"$ref": "#/$defs/Inner"}},
+            "required": ["ref"],
+            "$defs": {
+                "Inner": {
+                    "type": "object",
+                    "properties": {"v": {"type": "integer"}},
+                    "required": ["v"],
+                }
+            },
+        }
+        result = prov._prepare_schema_for_provider(schema)
+        assert result["$defs"]["Inner"]["additionalProperties"] is False
+
+
+# ---------------------------------------------------------------------------
 # Gemini: _prepare_schema_for_provider
 # ---------------------------------------------------------------------------
 
 class TestGeminiPrepareSchema:
-    def _make_gemini(self):
-        """Create a Gemini provider without actually connecting."""
-        orig_init = GeminiProvider._initialize_client
-        GeminiProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
-        try:
-            prov = GeminiProvider(api_key="fake", model="gemini-2.5-flash")
-        finally:
-            GeminiProvider._initialize_client = orig_init
-        return prov
-
     def test_strips_additional_properties(self):
-        prov = self._make_gemini()
+        prov = _make_gemini()
         schema = {
             "type": "object",
             "properties": {
@@ -426,7 +569,7 @@ class TestGeminiPrepareSchema:
         assert "additionalProperties" not in result["properties"]["child"]
 
     def test_clean_schema_passes_through(self):
-        prov = self._make_gemini()
+        prov = _make_gemini()
         schema = {
             "type": "object",
             "properties": {"x": {"type": "string"}},
@@ -436,7 +579,7 @@ class TestGeminiPrepareSchema:
         assert result == schema
 
     def test_does_not_mutate_original(self):
-        prov = self._make_gemini()
+        prov = _make_gemini()
         schema = {
             "type": "object",
             "properties": {"x": {"type": "string"}},
@@ -448,7 +591,7 @@ class TestGeminiPrepareSchema:
 
 
 # ---------------------------------------------------------------------------
-# Base (Claude): _prepare_schema_for_provider  — pass-through
+# Base: _prepare_schema_for_provider  — pass-through (default)
 # ---------------------------------------------------------------------------
 
 class TestBasePrepareSchema:
@@ -469,24 +612,6 @@ class TestBasePrepareSchema:
 
 class TestEndToEndPipeline:
     """Simulate what generate_json does: normalize → validate → prepare."""
-
-    def _make_openai(self):
-        orig_init = OpenAIProvider._initialize_client
-        OpenAIProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
-        try:
-            prov = OpenAIProvider(api_key="fake", model="gpt-4o")
-        finally:
-            OpenAIProvider._initialize_client = orig_init
-        return prov
-
-    def _make_gemini(self):
-        orig_init = GeminiProvider._initialize_client
-        GeminiProvider._initialize_client = lambda self: setattr(self, '_client', 'fake')
-        try:
-            prov = GeminiProvider(api_key="fake", model="gemini-2.5-flash")
-        finally:
-            GeminiProvider._initialize_client = orig_init
-        return prov
 
     def test_same_schema_works_for_all_providers(self):
         """A single clean schema should pass validation for all providers."""
@@ -509,7 +634,7 @@ class TestEndToEndPipeline:
             "required": ["name", "items"],
         }
 
-        for make_fn in [self._make_openai, self._make_gemini, _make_fake]:
+        for make_fn in [_make_openai, _make_gemini, _make_claude, _make_fake]:
             prov = make_fn()
             validated = prov._validate_caller_schema(copy.deepcopy(schema))
             prepared = prov._prepare_schema_for_provider(validated)
@@ -518,11 +643,15 @@ class TestEndToEndPipeline:
                 # OpenAI: all objects have additionalProperties: false
                 assert prepared["additionalProperties"] is False
                 assert prepared["properties"]["items"]["items"]["additionalProperties"] is False
+            elif prov.PROVIDER_NAME == "claude":
+                # Claude: all objects have additionalProperties: false
+                assert prepared["additionalProperties"] is False
+                assert prepared["properties"]["items"]["items"]["additionalProperties"] is False
             elif prov.PROVIDER_NAME == "gemini":
                 # Gemini: no additionalProperties anywhere
                 assert not BaseAIProvider._schema_contains_additional_properties(prepared)
             else:
-                # Claude/fake: unchanged
+                # Fake/base: unchanged
                 assert not BaseAIProvider._schema_contains_additional_properties(prepared)
 
     def test_array_schema_works_across_providers(self):
@@ -539,23 +668,27 @@ class TestEndToEndPipeline:
             },
         }
 
-        for make_fn in [self._make_openai, self._make_gemini, _make_fake]:
+        for make_fn in [_make_openai, _make_gemini, _make_claude, _make_fake]:
             prov = make_fn()
             validated = prov._validate_caller_schema(copy.deepcopy(schema))
             prepared = prov._prepare_schema_for_provider(validated)
 
             if prov.PROVIDER_NAME == "chatgpt":
-                # Should be wrapped in an object
+                # OpenAI: Should be wrapped in an object
                 assert prepared["type"] == "object"
                 assert "items" in prepared["properties"]
                 inner_items = prepared["properties"]["items"]["items"]
                 assert inner_items["additionalProperties"] is False
+            elif prov.PROVIDER_NAME == "claude":
+                # Claude: array stays, but items get additionalProperties
+                assert prepared["type"] == "array"
+                assert prepared["items"]["additionalProperties"] is False
             elif prov.PROVIDER_NAME == "gemini":
-                # Should remain an array, no additionalProperties
+                # Gemini: Should remain an array, no additionalProperties
                 assert prepared["type"] == "array"
                 assert not BaseAIProvider._schema_contains_additional_properties(prepared)
             else:
-                # Pass-through
+                # Fake/base: Pass-through
                 assert prepared["type"] == "array"
 
     def test_schema_with_additional_properties_rejected_for_all(self):
@@ -566,7 +699,7 @@ class TestEndToEndPipeline:
             "additionalProperties": False,
         }
 
-        for make_fn in [self._make_openai, self._make_gemini, _make_fake]:
+        for make_fn in [_make_openai, _make_gemini, _make_claude, _make_fake]:
             prov = make_fn()
             with pytest.raises(ValueError, match="additionalProperties"):
                 prov._validate_caller_schema(bad_schema)

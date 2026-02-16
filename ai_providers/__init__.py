@@ -9,7 +9,17 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from .base_provider import BaseAIProvider, AIResponse, AIProviderError, DjinniteModalityError
+from .base_provider import (
+    BaseAIProvider,
+    AIResponse,
+    AIProviderError,
+    AIOutputTruncatedError,
+    AIContextLengthError,
+    AIRateLimitError,
+    AIAuthenticationError,
+    AIModelNotFoundError,
+    DjinniteModalityError,
+)
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
@@ -123,6 +133,11 @@ __all__ = [
     "BaseAIProvider",
     "AIResponse",
     "AIProviderError",
+    "AIOutputTruncatedError",
+    "AIContextLengthError",
+    "AIRateLimitError",
+    "AIAuthenticationError",
+    "AIModelNotFoundError",
     "DjinniteModalityError",
     "GeminiProvider",
     "ClaudeProvider",

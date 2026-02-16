@@ -130,11 +130,12 @@ Djinnite/
 Load your configuration and initialize providers using the built-in loader:
 
 ```python
-from djinnite.config_loader import load_ai_config
+from djinnite.config_loader import load_ai_config, load_model_catalog
 from djinnite.ai_providers import get_provider
 
-# 1. Load configuration from your project's config/ directory
+# 1. Load configuration and model catalog
 config = load_ai_config()
+catalog = load_model_catalog()
 
 # 2. Get the right provider and model for a specific use case
 # (Defined in your ai_config.json)
@@ -148,9 +149,145 @@ provider = get_provider(
     model_id
 )
 
-# 4. Use the provider
-response = provider.generate("Hello!")
+# 4. Use the provider — check max_output_tokens to avoid truncation
+model_info = catalog.get_model(provider_name, model_id)
+max_out = model_info.max_output_tokens if model_info else None
+
+response = provider.generate("Hello!", max_tokens=max_out)
 ```
+
+### Output Token Limits
+
+Every model has a maximum number of output tokens it can generate. This is stored in
+`ModelInfo.max_output_tokens` in the model catalog. **You should always pass this value
+as `max_tokens`** to avoid silent truncation or unnecessarily low defaults.
+
+```python
+from djinnite.config_loader import load_model_catalog
+
+catalog = load_model_catalog()
+model_info = catalog.get_model("claude", "claude-sonnet-4-20250514")
+
+if model_info:
+    print(f"Max output: {model_info.max_output_tokens}")  # e.g. 16384
+    response = provider.generate(prompt, max_tokens=model_info.max_output_tokens)
+```
+
+The `max_output_tokens` field is populated automatically by `update_models.py`:
+- **Gemini**: Read directly from the API (`output_token_limit`)
+- **Claude & OpenAI**: Looked up from a known values table, with AI-powered web search estimation as a fallback
+
+A value of `0` means the limit is unknown — use a conservative default (e.g., 4096).
+
+### Error Handling Contract
+
+Every call to `generate()` or `generate_json()` may raise specific exceptions that callers **must** handle to avoid acting on incomplete or invalid data. These exceptions map directly to the HTTP-level failures from the underlying provider APIs.
+
+#### Exception Hierarchy
+
+All exceptions inherit from `AIProviderError` (which inherits from `Exception`):
+
+```
+AIProviderError                  # Base class — catches everything
+├── AIOutputTruncatedError       # Output hit max token limit (HTTP 200, partial content)
+├── AIContextLengthError         # Input too long for model (HTTP 400)
+├── AIRateLimitError             # Rate limit / quota exceeded (HTTP 429)
+├── AIAuthenticationError        # Invalid API key (HTTP 401)
+├── AIModelNotFoundError         # Model doesn't exist (HTTP 404)
+└── DjinniteModalityError        # Unsupported modality (client-side, no HTTP call)
+```
+
+#### The Two Critical Failure Modes
+
+There are two failure modes that **will cause data corruption** if not handled:
+
+| Failure | HTTP Status | What Happens | How Djinnite Signals It |
+|---|---|---|---|
+| **Output Truncated** | **200 OK** ✅ | The API returns a *partial* response because the model hit its max output token limit. The content is incomplete but looks valid. | Raises `AIOutputTruncatedError` with `e.partial_response` containing the incomplete `AIResponse` |
+| **Context Too Long** | **400 Bad Request** ❌ | The API rejects the request because the input prompt exceeds the model's context window. No content is generated. | Raises `AIContextLengthError` |
+
+**⚠️ The output truncation case is especially dangerous** because the underlying API returns HTTP 200 — it looks like a success. The provider SDKs do *not* raise an exception. Without Djinnite's check, your code would silently receive partial JSON, partial code, or partial analysis and try to act on it.
+
+#### Provider-Specific Detection
+
+Djinnite normalizes these provider-specific signals into the unified exception hierarchy:
+
+| Feature | OpenAI (GPT-4o/o1) | Anthropic (Claude 3.5/3.7) | Gemini (Pro/Flash) |
+|---|---|---|---|
+| **Output Limit Param** | `max_tokens` (legacy) / `max_completion_tokens` (o1+) | `max_tokens` (strictly required) | `maxOutputTokens` |
+| **Context Error** | 400, `code: context_length_exceeded` | 400, `type: invalid_request_error` | 400, `INVALID_ARGUMENT` |
+| **Truncation Flag** | `finish_reason: "length"` | `stop_reason: "max_tokens"` | `finishReason: "MAX_TOKENS"` |
+
+#### Required Error Handling Pattern
+
+```python
+from djinnite import (
+    get_provider,
+    AIOutputTruncatedError,
+    AIContextLengthError,
+    AIRateLimitError,
+    AIProviderError,
+)
+
+provider = get_provider("gemini", api_key, model)
+
+try:
+    response = provider.generate(prompt, max_tokens=2000)
+    # If we get here, the response is complete
+    process(response.content)
+
+except AIOutputTruncatedError as e:
+    # The model ran out of output tokens. The response is INCOMPLETE.
+    # e.partial_response contains the truncated AIResponse:
+    #   - e.partial_response.content  (partial text)
+    #   - e.partial_response.usage    (token counts)
+    #   - e.partial_response.truncated == True
+    #   - e.partial_response.finish_reason (provider-native reason)
+    log.error(f"Output truncated after {e.partial_response.output_tokens} tokens")
+    # Option A: Retry with higher max_tokens
+    # Option B: Raise to caller
+    # Option C: Use partial content if appropriate
+    raise
+
+except AIContextLengthError as e:
+    # The input prompt was too long for the model.
+    # No content was generated. Shorten the prompt or use a bigger model.
+    log.error(f"Prompt too long: {e}")
+    raise
+
+except AIRateLimitError:
+    # Rate limited — implement backoff or try another provider
+    time.sleep(60)
+    
+except AIProviderError as e:
+    # Catch-all for other provider errors
+    log.error(f"Provider {e.provider} failed: {e}")
+    raise
+```
+
+#### AIResponse Fields
+
+On a successful (non-truncated) response, `AIResponse` includes:
+
+```python
+response.content        # Complete generated text
+response.truncated      # False (always False on success)
+response.finish_reason  # Provider-native reason: "stop", "end_turn", "STOP"
+response.usage          # {"input_tokens": N, "output_tokens": N}
+response.model          # Model ID used
+response.provider       # Provider name
+```
+
+On a truncated response (available via `e.partial_response`):
+
+```python
+e.partial_response.content        # INCOMPLETE generated text
+e.partial_response.truncated      # True
+e.partial_response.finish_reason  # "length" (OpenAI), "max_tokens" (Claude), "MAX_TOKENS" (Gemini)
+e.partial_response.usage          # Token counts (how many were actually generated)
+```
+
+---
 
 ### Using Maintenance Scripts with Custom Configs
 If you are hosting your configuration outside the `djinnite/` directory (which is recommended for security), you can still use the maintenance scripts by pointing them to your project's config files. 

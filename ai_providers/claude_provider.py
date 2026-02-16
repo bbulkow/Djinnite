@@ -18,6 +18,8 @@ from .base_provider import (
     AIRateLimitError,
     AIAuthenticationError,
     AIModelNotFoundError,
+    AIOutputTruncatedError,
+    AIContextLengthError,
 )
 
 
@@ -104,9 +106,12 @@ class ClaudeProvider(BaseAIProvider):
             parts = self._normalize_input(prompt)
             claude_content = self._map_parts(parts)
             
-            # Claude requires max_tokens to be specified
+            # Claude requires max_tokens to be specified.
+            # Use a reasonable default if caller didn't provide one.
+            # Callers should check ModelInfo.max_output_tokens from the catalog
+            # to pass the right value for their model.
             if max_tokens is None:
-                max_tokens = 4096
+                max_tokens = 8192
             
             # Build request kwargs
             kwargs = {
@@ -139,20 +144,51 @@ class ClaudeProvider(BaseAIProvider):
                     "output_tokens": response.usage.output_tokens,
                 }
             
-            return AIResponse(
+            # Detect output truncation: Anthropic returns stop_reason="max_tokens"
+            # when the output was cut short due to the max_tokens limit.
+            # This is an HTTP 200 response — the SDK does NOT raise an exception.
+            stop_reason = getattr(response, 'stop_reason', None)
+            is_truncated = (stop_reason == "max_tokens")
+            
+            ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
                 parts=output_parts,
-                raw_response=response
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=stop_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"Output truncated: model hit max output token limit "
+                    f"(stop_reason='max_tokens', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except (AIOutputTruncatedError, AIContextLengthError):
+            raise  # Never swallow our own semantic errors
         except Exception as e:
             error_message = str(e).lower()
             error_type = type(e).__name__
             
-            if "authentication" in error_message or "api_key" in error_message or "AuthenticationError" in error_type:
+            # Detect context length exceeded: Anthropic SDK raises
+            # anthropic.BadRequestError (HTTP 400) with type="invalid_request_error"
+            # when the input exceeds the model's context window.
+            if ("too many" in error_message and "token" in error_message) or \
+               ("context" in error_message and "length" in error_message) or \
+               ("prompt is too long" in error_message):
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e
+                )
+            elif "authentication" in error_message or "api_key" in error_message or "AuthenticationError" in error_type:
                 raise AIAuthenticationError(
                     "Invalid API key or authentication failed",
                     provider=self.PROVIDER_NAME,
@@ -238,18 +274,45 @@ class ClaudeProvider(BaseAIProvider):
                 "output_tokens": usage_data.get('output_tokens', 0),
             }
             
-            return AIResponse(
+            # Detect output truncation in raw HTTP response
+            stop_reason = result.get('stop_reason')
+            is_truncated = (stop_reason == "max_tokens")
+            
+            ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
                 parts=output_parts,
-                raw_response=result
+                raw_response=result,
+                truncated=is_truncated,
+                finish_reason=stop_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"Output truncated: model hit max output token limit "
+                    f"(stop_reason='max_tokens', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except (AIOutputTruncatedError, AIContextLengthError):
+            raise  # Never swallow our own semantic errors
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
-            if e.code == 400 and "beta" in error_body.lower():
+            error_body_lower = error_body.lower()
+            # Detect context length exceeded in raw HTTP 400 responses
+            if e.code == 400 and ("too many" in error_body_lower and "token" in error_body_lower) or \
+               ("context" in error_body_lower and "length" in error_body_lower) or \
+               ("prompt is too long" in error_body_lower):
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {error_body}",
+                    provider=self.PROVIDER_NAME,
+                )
+            elif e.code == 400 and "beta" in error_body_lower:
                 raise AIProviderError(
                     f"Web search not available for model '{self.model}'.",
                     provider=self.PROVIDER_NAME
@@ -274,10 +337,11 @@ class ClaudeProvider(BaseAIProvider):
         """
         Generate a JSON response using Claude.
         """
-        if max_tokens is not None and max_tokens > 8192:
+        # Claude requires max_tokens. Use the caller's value if provided,
+        # otherwise default to 8192. Callers should check
+        # ModelInfo.max_output_tokens from the catalog for their model.
+        if max_tokens is None:
             max_tokens = 8192
-        elif max_tokens is None:
-            max_tokens = 4096
         
         json_system = "You must respond with valid JSON only. No additional text or explanation."
         if system_prompt:

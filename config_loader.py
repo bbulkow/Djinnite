@@ -103,10 +103,23 @@ class Modalities:
 
 @dataclass
 class ModelInfo:
-    """Information about a single AI model."""
+    """Information about a single AI model.
+    
+    Attributes:
+        id: The model ID (e.g. "gemini-2.5-flash", "claude-sonnet-4-20250514")
+        name: Human-readable display name
+        context_window: Maximum input token count (context window size)
+        max_output_tokens: Maximum output tokens the model can generate.
+            Callers should use this to set appropriate max_tokens values
+            and avoid truncation. A value of 0 means unknown.
+        capabilities: Legacy field for backward compatibility
+        modalities: Input/output modality capabilities
+        costing: Cost scoring information
+    """
     id: str
     name: str
     context_window: int
+    max_output_tokens: int = 0
     capabilities: list[str] = field(default_factory=list)
     modalities: Modalities = field(default_factory=Modalities)
     costing: ModelCosting = field(default_factory=ModelCosting)
@@ -268,6 +281,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 id=model_data["id"],
                 name=model_data["name"],
                 context_window=model_data.get("context_window", 0),
+                max_output_tokens=model_data.get("max_output_tokens", 0),
                 capabilities=model_data.get("capabilities", []),
                 modalities=modalities,
                 costing=costing

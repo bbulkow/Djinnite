@@ -260,6 +260,8 @@ response.input_tokens  # Tokens in prompt
 response.output_tokens # Tokens in response
 response.total_tokens  # Combined total
 response.raw_response  # Original provider response
+response.truncated     # True if output was cut short by token limit
+response.finish_reason # Provider-native stop reason (e.g. "stop", "length", "max_tokens")
 ```
 
 ### Multimodal Schema
@@ -278,13 +280,32 @@ Djinnite uses a standardized "Part" schema for all multimodal inputs:
 
 ### Error Handling
 
-Comprehensive exception hierarchy for robust applications:
+Comprehensive exception hierarchy for robust applications. Djinnite **never silently returns partial data** — if the model output is truncated or the context is too long, you get a specific exception.
 
 ```python
-from djinnite.ai_providers import AIProviderError, AIRateLimitError, AIAuthenticationError, DjinniteModalityError
+from djinnite import (
+    AIProviderError,          # Base class for all provider errors
+    AIOutputTruncatedError,   # Output hit max token limit (HTTP 200 with partial content!)
+    AIContextLengthError,     # Input too long for model (HTTP 400)
+    AIRateLimitError,         # Rate limit exceeded (HTTP 429)
+    AIAuthenticationError,    # Bad API key (HTTP 401)
+    AIModelNotFoundError,     # Model doesn't exist (HTTP 404)
+    DjinniteModalityError,    # Unsupported modality (client-side check)
+)
 
 try:
-    response = provider.generate(multimodal_prompt)
+    response = provider.generate(prompt, max_tokens=500)
+except AIOutputTruncatedError as e:
+    # CRITICAL: The model's output was cut short by the token limit.
+    # The API returned HTTP 200 but the response is incomplete!
+    # The partial content is available for inspection:
+    print(f"Truncated! Got {e.partial_response.output_tokens} tokens")
+    print(f"Partial content: {e.partial_response.content[:100]}...")
+    # Retry with higher max_tokens, or raise to the caller
+except AIContextLengthError as e:
+    # The input prompt was too long for the model's context window.
+    # The API returned HTTP 400. Shorten the prompt or use a bigger model.
+    print(f"Prompt too long: {e}")
 except DjinniteModalityError as e:
     # Model doesn't support one of the requested modalities (e.g. video)
     print(f"Unsupported: {e.requested_modalities}")
@@ -292,7 +313,7 @@ except AIRateLimitError:
     # Switch to different provider or implement backoff
     pass
 except AIProviderError as e:
-    # General provider error
+    # General provider error (catches all the above too)
     print(f"Provider {e.provider} failed: {e}")
 ```
 

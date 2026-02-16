@@ -11,8 +11,13 @@ from .ai_providers import (
     BaseAIProvider,
     AIResponse,
     AIProviderError,
+    AIOutputTruncatedError,
+    AIContextLengthError,
+    AIRateLimitError,
+    AIAuthenticationError,
+    AIModelNotFoundError,
+    DjinniteModalityError,
 )
-from .ai_providers.base_provider import DjinniteModalityError
 from .config_loader import load_ai_config, load_model_catalog
 
 __all__ = [
@@ -20,6 +25,11 @@ __all__ = [
     "BaseAIProvider",
     "AIResponse",
     "AIProviderError",
+    "AIOutputTruncatedError",
+    "AIContextLengthError",
+    "AIRateLimitError",
+    "AIAuthenticationError",
+    "AIModelNotFoundError",
     "DjinniteModalityError",
     "load_ai_config",
     "load_model_catalog",

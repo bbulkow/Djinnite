@@ -14,6 +14,8 @@ from .base_provider import (
     AIRateLimitError,
     AIAuthenticationError,
     AIModelNotFoundError,
+    AIOutputTruncatedError,
+    AIContextLengthError,
 )
 
 
@@ -114,6 +116,7 @@ class OpenAIProvider(BaseAIProvider):
             response = self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content
+            finish_reason = response.choices[0].finish_reason
             
             usage = {}
             if response.usage:
@@ -122,18 +125,46 @@ class OpenAIProvider(BaseAIProvider):
                     "output_tokens": response.usage.completion_tokens,
                 }
             
-            return AIResponse(
+            # Detect output truncation: OpenAI returns finish_reason="length"
+            # when the output was cut short due to max_tokens.
+            # This is an HTTP 200 response — the SDK does NOT raise an exception.
+            is_truncated = (finish_reason == "length")
+            
+            ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
-                raw_response=response
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=finish_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"Output truncated: model hit max output token limit "
+                    f"(finish_reason='length', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except (AIOutputTruncatedError, AIContextLengthError):
+            raise  # Never swallow our own semantic errors
         except Exception as e:
             error_message = str(e).lower()
             
-            if "api_key" in error_message or "auth" in error_message:
+            # Detect context length exceeded: OpenAI SDK raises
+            # openai.BadRequestError (HTTP 400) with code="context_length_exceeded"
+            error_code = getattr(e, 'code', None) or ''
+            if str(error_code) == 'context_length_exceeded' or 'context_length_exceeded' in error_message:
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e
+                )
+            elif "api_key" in error_message or "auth" in error_message:
                 raise AIAuthenticationError(
                     "Invalid API key or authentication failed",
                     provider=self.PROVIDER_NAME,
@@ -206,8 +237,9 @@ class OpenAIProvider(BaseAIProvider):
         """
         Generate a JSON response using OpenAI.
         """
-        if max_tokens is not None and max_tokens > 16384:
-            max_tokens = 16384
+        # Pass through the caller's max_tokens value without capping.
+        # Callers should check ModelInfo.max_output_tokens from the catalog
+        # to pass the right value for their model.
         
         try:
             # If web search requested, get current info from Gemini first
@@ -248,6 +280,7 @@ class OpenAIProvider(BaseAIProvider):
             response = self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content
+            finish_reason = response.choices[0].finish_reason
             
             usage = {}
             if response.usage:
@@ -256,17 +289,35 @@ class OpenAIProvider(BaseAIProvider):
                     "output_tokens": response.usage.completion_tokens,
                 }
             
-            return AIResponse(
+            # Detect output truncation — same check as generate()
+            is_truncated = (finish_reason == "length")
+            
+            ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
-                raw_response=response
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=finish_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"JSON output truncated: model hit max output token limit "
+                    f"(finish_reason='length', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
         except AIProviderError:
-            raise  # Re-raise our own errors
+            raise  # Re-raise all our own errors (including truncation/context)
         except Exception as e:
+            # Only fall back to plain generate() for JSON-mode-specific failures
+            # (e.g. model doesn't support response_format). Truncation and
+            # context errors are already re-raised above.
             return self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,

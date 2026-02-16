@@ -17,6 +17,20 @@ class AIResponse:
     
     Provides a consistent interface regardless of which provider
     generated the response.
+    
+    Attributes:
+        content: The generated text content.
+        model: The model ID that produced the response.
+        provider: The provider name (e.g. "gemini", "claude", "chatgpt").
+        usage: Token usage dict with keys "input_tokens" and "output_tokens".
+        parts: Multimodal output parts (interleaved text, images, etc.).
+        raw_response: The original provider SDK response object.
+        truncated: True if the output was cut short due to the max output
+            token limit. When True, ``content`` contains only partial output
+            and an ``AIOutputTruncatedError`` will normally be raised so
+            callers cannot accidentally act on incomplete data.
+        finish_reason: The provider-native finish/stop reason string
+            (e.g. "stop", "length", "max_tokens", "MAX_TOKENS").
     """
     content: str
     model: str
@@ -24,6 +38,8 @@ class AIResponse:
     usage: dict[str, int] = field(default_factory=dict)
     parts: List[Dict] = field(default_factory=list)  # Multimodal output parts
     raw_response: Any = None
+    truncated: bool = False
+    finish_reason: Optional[str] = None
     
     @property
     def input_tokens(self) -> int:
@@ -62,6 +78,51 @@ class AIAuthenticationError(AIProviderError):
 
 class AIModelNotFoundError(AIProviderError):
     """Raised when the requested model is not available."""
+    pass
+
+
+class AIOutputTruncatedError(AIProviderError):
+    """
+    Raised when the API returned HTTP 200 OK but the model's output was
+    truncated because it hit the maximum output token limit.
+
+    The partial response is attached so callers can inspect what was
+    generated and the token-usage metadata.
+
+    Provider-specific truncation indicators:
+        - OpenAI:    finish_reason == "length"
+        - Anthropic: stop_reason  == "max_tokens"
+        - Gemini:    finishReason == "MAX_TOKENS"
+
+    Attributes:
+        partial_response: The incomplete AIResponse containing whatever
+            content the model produced before hitting the limit.
+    """
+    def __init__(
+        self,
+        message: str,
+        provider: str,
+        partial_response: 'AIResponse',
+        original_error: Optional[Exception] = None,
+    ):
+        self.partial_response = partial_response
+        super().__init__(message, provider, original_error)
+
+
+class AIContextLengthError(AIProviderError):
+    """
+    Raised when the API returned HTTP 400 Bad Request because the input
+    prompt (plus any expected output reservation) exceeds the model's
+    context window.
+
+    Provider-specific error indicators:
+        - OpenAI:    400 Bad Request, code: "context_length_exceeded"
+        - Anthropic: 400 Bad Request, type: "invalid_request_error"
+        - Gemini:    400 INVALID_ARGUMENT
+
+    The consumer should shorten the prompt, reduce max_tokens, or switch
+    to a model with a larger context window.
+    """
     pass
 
 

@@ -19,6 +19,16 @@ These are the **only** stable import paths and signatures that consuming project
 from djinnite import get_provider, load_ai_config, load_model_catalog
 from djinnite import BaseAIProvider, AIResponse, AIProviderError, DjinniteModalityError
 
+# Error Hierarchy (all subclass AIProviderError)
+from djinnite import (
+    AIOutputTruncatedError,   # Output hit max token limit (HTTP 200, partial content)
+    AIContextLengthError,     # Input exceeds context window (HTTP 400)
+    AIRateLimitError,         # Rate limit / quota exceeded (HTTP 429)
+    AIAuthenticationError,    # Invalid API key (HTTP 401)
+    AIModelNotFoundError,     # Model does not exist (HTTP 404)
+    DjinniteModalityError,    # Unsupported modality requested (client-side)
+)
+
 # Configuration Types
 from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCatalog
 ```
@@ -38,6 +48,77 @@ load_ai_config() -> AIConfig
 load_model_catalog() -> ModelCatalog
 ModelCatalog.find_models(input_modality, output_modality) -> list[tuple[str, ModelInfo]]
 ```
+
+### Error Contract
+
+Every call to `generate()` or `generate_json()` can raise the following exceptions.
+Consumers **must** handle at least `AIOutputTruncatedError` and `AIContextLengthError`
+to avoid acting on incomplete data.
+
+| Exception | HTTP Status | When | Data Available |
+|---|---|---|---|
+| `AIOutputTruncatedError` | 200 OK | Model output was cut short by the max output token limit | `e.partial_response` — the incomplete `AIResponse` with `truncated=True`, usage info, and partial content |
+| `AIContextLengthError` | 400 Bad Request | Input prompt exceeds the model's context window | Standard error info |
+| `AIRateLimitError` | 429 | Rate limit or quota exceeded | Standard error info |
+| `AIAuthenticationError` | 401 | Invalid or missing API key | Standard error info |
+| `AIModelNotFoundError` | 404 | Requested model doesn't exist | Standard error info |
+| `DjinniteModalityError` | N/A (client) | Prompt contains unsupported modalities | `e.requested_modalities`, `e.supported_modalities` |
+
+All exceptions inherit from `AIProviderError`, which itself inherits from `Exception`.
+Every `AIProviderError` carries `e.provider` (str) and `e.original_error` (Optional[Exception]).
+
+### AIResponse Fields
+
+```python
+@dataclass
+class AIResponse:
+    content: str                          # Generated text
+    model: str                            # Model ID
+    provider: str                         # Provider name
+    usage: dict[str, int]                 # {"input_tokens": N, "output_tokens": N}
+    parts: list[dict]                     # Multimodal output parts
+    raw_response: Any                     # Original SDK response
+    truncated: bool = False               # True if output was cut short
+    finish_reason: Optional[str] = None   # Provider-native stop reason
+```
+
+The `truncated` and `finish_reason` fields are **always populated** — even when
+`AIOutputTruncatedError` is raised, the partial `AIResponse` on the exception
+will have `truncated=True` and the provider-native finish reason.
+
+Provider-specific `finish_reason` values:
+
+| Provider | Normal Completion | Truncated |
+|---|---|---|
+| OpenAI | `"stop"` | `"length"` |
+| Anthropic | `"end_turn"` | `"max_tokens"` |
+| Gemini | `"STOP"` | `"MAX_TOKENS"` |
+
+### ModelInfo Fields
+
+```python
+@dataclass
+class ModelInfo:
+    id: str                               # Model ID (e.g. "gemini-2.5-flash")
+    name: str                             # Human-readable display name
+    context_window: int                   # Max input tokens (context window)
+    max_output_tokens: int = 0            # Max output tokens (0 = unknown)
+    capabilities: list[str]               # Legacy field
+    modalities: Modalities                # Input/output modality capabilities
+    costing: ModelCosting                 # Cost scoring information
+```
+
+**`max_output_tokens`** is the maximum number of tokens a model can generate in a
+single response. Callers **should** use this value when setting `max_tokens` on
+`generate()` / `generate_json()` to avoid truncation. A value of `0` means the
+limit is unknown — callers should use a conservative default.
+
+The field is populated by `update_models.py` from three sources (in priority order):
+1. **Provider API** — Gemini exposes `output_token_limit` directly
+2. **Known values table** — Authoritative values for well-known Claude/OpenAI models
+3. **AI estimation** — Web search-powered estimation for unknown models
+
+---
 
 ## 🛠 INTERNAL IMPLEMENTATION (Do Not Depend On)
 

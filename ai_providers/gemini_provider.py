@@ -13,6 +13,8 @@ from .base_provider import (
     AIRateLimitError,
     AIAuthenticationError,
     AIModelNotFoundError,
+    AIOutputTruncatedError,
+    AIContextLengthError,
 )
 
 
@@ -154,11 +156,19 @@ class GeminiProvider(BaseAIProvider):
                     "output_tokens": getattr(metadata, 'candidates_token_count', 0),
                 }
             
-            # Extract parts and text
+            # Extract parts, text, and finish reason from the candidate
             output_parts = []
             text_content = ""
+            finish_reason = None
             if response.candidates:
                 candidate = response.candidates[0]
+                # Gemini returns finish_reason as an enum or string.
+                # The value "MAX_TOKENS" indicates output truncation.
+                raw_finish = getattr(candidate, 'finish_reason', None)
+                # Normalize: the SDK may return an enum (e.g. FinishReason.MAX_TOKENS)
+                # or a string. Convert to string for consistent comparison.
+                finish_reason = str(raw_finish) if raw_finish is not None else None
+                
                 if candidate.content and candidate.content.parts:
                     for part in candidate.content.parts:
                         if hasattr(part, 'text') and part.text:
@@ -174,20 +184,48 @@ class GeminiProvider(BaseAIProvider):
             if not text_content and hasattr(response, 'text'):
                 text_content = response.text
 
-            return AIResponse(
+            # Detect output truncation: Gemini returns finishReason=MAX_TOKENS
+            # when the output was cut short due to maxOutputTokens.
+            # This is an HTTP 200 response — the SDK does NOT raise an exception.
+            is_truncated = (finish_reason is not None and "MAX_TOKENS" in finish_reason.upper())
+            
+            ai_response = AIResponse(
                 content=text_content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
                 parts=output_parts,
-                raw_response=response
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=finish_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"Output truncated: model hit max output token limit "
+                    f"(finishReason='{finish_reason}', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except (AIOutputTruncatedError, AIContextLengthError):
+            raise  # Never swallow our own semantic errors
         except Exception as e:
             error_message = str(e).lower()
             
+            # Detect context length exceeded: Gemini SDK raises exceptions
+            # with HTTP 400 INVALID_ARGUMENT when input exceeds context window.
+            if "invalid_argument" in error_message and \
+               ("token" in error_message or "context" in error_message or "too long" in error_message):
+                raise AIContextLengthError(
+                    f"Input context too long for model '{self.model}': {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e
+                )
             # Check for specific error types
-            if "api_key" in error_message or "authentication" in error_message:
+            elif "api_key" in error_message or "authentication" in error_message:
                 raise AIAuthenticationError(
                     "Invalid API key or authentication failed",
                     provider=self.PROVIDER_NAME,
@@ -253,11 +291,15 @@ class GeminiProvider(BaseAIProvider):
                 config=config
             )
             
-            # Extract text from candidates
+            # Extract text, parts, and finish reason from candidates
             text_content = ""
             output_parts = []
+            finish_reason = None
             if response.candidates:
                 candidate = response.candidates[0]
+                raw_finish = getattr(candidate, 'finish_reason', None)
+                finish_reason = str(raw_finish) if raw_finish is not None else None
+                
                 if candidate.content and candidate.content.parts:
                     for part in candidate.content.parts:
                         if hasattr(part, 'text') and part.text:
@@ -277,15 +319,32 @@ class GeminiProvider(BaseAIProvider):
                     "output_tokens": getattr(metadata, 'candidates_token_count', 0),
                 }
             
-            return AIResponse(
+            # Detect output truncation — same check as generate()
+            is_truncated = (finish_reason is not None and "MAX_TOKENS" in finish_reason.upper())
+            
+            ai_response = AIResponse(
                 content=text_content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
                 parts=output_parts,
-                raw_response=response
+                raw_response=response,
+                truncated=is_truncated,
+                finish_reason=finish_reason,
             )
             
+            if is_truncated:
+                raise AIOutputTruncatedError(
+                    f"JSON output truncated: model hit max output token limit "
+                    f"(finishReason='{finish_reason}', output_tokens={usage.get('output_tokens', '?')})",
+                    provider=self.PROVIDER_NAME,
+                    partial_response=ai_response,
+                )
+            
+            return ai_response
+            
+        except AIProviderError:
+            raise  # Re-raise all our own errors (including truncation/context)
         except Exception as e:
             if web_search:
                 raise AIProviderError(
@@ -293,6 +352,9 @@ class GeminiProvider(BaseAIProvider):
                     provider=self.PROVIDER_NAME,
                     original_error=e
                 )
+            # Only fall back to plain generate() for JSON-mode-specific failures
+            # (e.g. response_mime_type not supported). Truncation and
+            # context errors are already re-raised above.
             return self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -313,7 +375,11 @@ class GeminiProvider(BaseAIProvider):
             return False
 
     def list_models(self) -> list[dict]:
-        """List available models from Gemini."""
+        """List available models from Gemini.
+        
+        Extracts both input_token_limit (context_window) and
+        output_token_limit (max_output_tokens) from the API when available.
+        """
         if not self.api_key:
             return []
             
@@ -333,10 +399,14 @@ class GeminiProvider(BaseAIProvider):
                 if any(x in model_id.lower() for x in ["vision", "flash", "pro"]):
                     modalities.extend(["vision", "audio", "video"])
                 
+                # Extract output token limit from API (Gemini exposes this)
+                max_output = getattr(model, "output_token_limit", 0) or 0
+                
                 models_list.append({
                     "id": model_id,
                     "name": getattr(model, "display_name", model_id),
                     "context_window": getattr(model, "input_token_limit", 0),
+                    "max_output_tokens": max_output,
                     "modalities": modalities,
                     "cost_tier": "standard"
                 })

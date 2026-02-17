@@ -1,4 +1,14 @@
-I# Djinnite Development Guide
+# Djinnite Development Guide
+
+## ⚠️ CRITICAL: UV REQUIRED
+
+**This project uses `uv` for dependency management.**
+ALL Python commands must be executed via `uv run` to ensure the correct environment and dependencies (including `google-genai`, `anthropic`, `openai`) are loaded.
+
+```bash
+✅ CORRECT:   uv run python -m djinnite.scripts.update_models
+❌ WRONG:     python -m djinnite.scripts.update_models
+```
 
 ## ⚠️ This is a Shared Package — Breaking Changes Affect Multiple Projects
 

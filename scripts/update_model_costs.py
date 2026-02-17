@@ -23,15 +23,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Support direct execution (adds project root to path)
-_project_root = str(Path(__file__).parent.parent.parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
-from djinnite.config_loader import load_ai_config, CONFIG_DIR
-from djinnite.ai_providers import get_provider
-from djinnite.llm_logger import LLMLogger
-from djinnite.prompts import COST_ESTIMATION_CONFIG
+try:
+    from djinnite.config_loader import load_ai_config, CONFIG_DIR
+    from djinnite.ai_providers import get_provider
+    from djinnite.llm_logger import LLMLogger
+    from djinnite.prompts import COST_ESTIMATION_CONFIG
+except ImportError:
+    # Fallback for direct execution when package is not installed
+    # Adds the project root (one level up from scripts/) to sys.path
+    # to allow importing modules as if they were local
+    import sys
+    _project_root = str(Path(__file__).resolve().parent.parent)
+    if _project_root not in sys.path:
+        sys.path.insert(0, _project_root)
+    
+    from config_loader import load_ai_config, CONFIG_DIR
+    from ai_providers import get_provider
+    from llm_logger import LLMLogger
+    from prompts import COST_ESTIMATION_CONFIG
 
 
 # ============================================================================
@@ -102,6 +111,30 @@ PROVIDER_COMPANIES = {
 }
 
 
+def calculate_gemini_cost_heuristic(model_id: str) -> float:
+    """
+    Algorithmic cost estimation for Gemini models relative to gemini-2.5-flash (score=1.0).
+    Based on standard pricing tiers.
+    """
+    model_id = model_id.lower()
+    
+    # Base multipliers (relative to Flash)
+    if "pro" in model_id:
+        multiplier = 4.0  # Pro is typically ~4x Flash pricing
+    elif "flash-lite" in model_id or "flash-8b" in model_id:
+        multiplier = 0.5  # Lite versions are typically half price
+    elif "flash" in model_id:
+        multiplier = 1.0  # Other Flash models assumed similar
+    elif "nano" in model_id:
+        multiplier = 0.1  # Nano is very cheap/on-device (often free, but keep non-zero)
+    elif "embedding" in model_id:
+        multiplier = 0.1  # Embeddings are cheap
+    else:
+        multiplier = 1.0  # Default fallback
+        
+    return multiplier
+
+
 def estimate_costs_with_ai(
     models_to_estimate: list[dict],
     provider_name: str,
@@ -112,7 +145,7 @@ def estimate_costs_with_ai(
     gemini_api_key: Optional[str] = None
 ) -> dict[str, float]:
     """
-    Use AI to estimate cost_scores for models.
+    Use AI to estimate cost_scores for models, with batching support.
     """
     if not models_to_estimate:
         return {}
@@ -121,91 +154,104 @@ def estimate_costs_with_ai(
     if logger is None:
         logger = LLMLogger("cost_estimation")
     
-    # Simple list of model IDs (no redundant JSON structure)
-    model_list = "\n".join(m["id"] for m in models_to_estimate)
-    provider_company = PROVIDER_COMPANIES.get(provider_name, provider_name.title())
+    # BATCHING: Process in chunks of 5 to avoid overloading context/search
+    BATCH_SIZE = 5
+    all_estimates = {}
     
-    # Get prompt config values
-    prompt_template = COST_ESTIMATION_CONFIG["prompt"]
-    system_prompt = COST_ESTIMATION_CONFIG["system_prompt"]
-    temperature = COST_ESTIMATION_CONFIG["temperature"]
-    max_tokens = COST_ESTIMATION_CONFIG["max_tokens"]
-    web_search = COST_ESTIMATION_CONFIG.get("web_search", False)
+    # Break list into batches
+    batches = [models_to_estimate[i:i + BATCH_SIZE] for i in range(0, len(models_to_estimate), BATCH_SIZE)]
     
-    # Render prompt from externalized template
-    prompt = prompt_template.format(
-        anchor_model=ANCHOR_MODEL_ID,
-        anchor_score=ANCHOR_COST_SCORE,
-        provider_name=provider_name,
-        provider_company=provider_company,
-        model_list=model_list
-    )
-    
-    # Log the request BEFORE sending
-    request_id = logger.log_request(
-        prompt=prompt,
-        system_prompt=system_prompt,
-        model=estimator_model,
-        provider=estimator_provider,
-        metadata={"model_count": len(models_to_estimate), "max_tokens": max_tokens}
-    )
-    
-    raw_response = ""
-    
-    try:
-        provider = get_provider(estimator_provider, api_key, estimator_model, gemini_api_key=gemini_api_key)
-        # Use generate() with JSON-requesting system prompt because the
-        # response schema is dynamic (model IDs as keys).  Strict schema
-        # enforcement via generate_json() requires a fixed schema.
-        json_system = system_prompt or ""
-        json_system += "\n\nYou must respond with valid JSON only. No additional text or explanation."
-        response = provider.generate(
+    print(f"  ... Processing {len(models_to_estimate)} models in {len(batches)} batches ...")
+
+    for i, batch in enumerate(batches):
+        batch_ids = [m["id"] for m in batch]
+        # Simple list of model IDs for the prompt
+        model_list = "\n".join(batch_ids)
+        provider_company = PROVIDER_COMPANIES.get(provider_name, provider_name.title())
+        
+        # Get prompt config values
+        prompt_template = COST_ESTIMATION_CONFIG["prompt"]
+        system_prompt = COST_ESTIMATION_CONFIG["system_prompt"]
+        temperature = COST_ESTIMATION_CONFIG["temperature"]
+        max_tokens = COST_ESTIMATION_CONFIG["max_tokens"]
+        web_search = COST_ESTIMATION_CONFIG.get("web_search", False)
+        
+        # Render prompt from externalized template
+        prompt = prompt_template.format(
+            anchor_model=ANCHOR_MODEL_ID,
+            anchor_score=ANCHOR_COST_SCORE,
+            provider_name=provider_name,
+            provider_company=provider_company,
+            model_list=model_list
+        )
+        
+        # Log the request BEFORE sending
+        request_id = logger.log_request(
             prompt=prompt,
-            system_prompt=json_system.strip(),
-            temperature=temperature,
-            max_tokens=max_tokens,
+            system_prompt=system_prompt,
+            model=estimator_model,
+            provider=estimator_provider,
+            metadata={"batch_index": i, "batch_size": len(batch), "max_tokens": max_tokens}
         )
         
-        raw_response = response.content
-        content = raw_response.strip()
+        raw_response = ""
         
-        # Clean up common LLM output issues
-        if content.startswith("```"):
-            lines = content.split("\n")
-            lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            content = "\n".join(lines)
-        
-        start_idx = content.find("{")
-        end_idx = content.rfind("}")
-        if start_idx != -1 and end_idx != -1:
-            content = content[start_idx:end_idx + 1]
-        
-        estimates = json.loads(content)
-        cleaned = {}
-        for model_id, score in estimates.items():
-            if isinstance(score, (int, float)) and score > 0:
-                cleaned[model_id] = float(score)
-        
-        logger.log_response(
-            request_id=request_id,
-            response_content=raw_response,
-            success=True,
-            usage=response.usage if hasattr(response, 'usage') else None,
-            parsed_result=cleaned
-        )
-        
-        return cleaned
-        
-    except Exception as e:
-        logger.log_response(
-            request_id=request_id,
-            response_content=raw_response,
-            success=False,
-            error=str(e)
-        )
-        return {}
+        try:
+            provider = get_provider(estimator_provider, api_key, estimator_model, gemini_api_key=gemini_api_key)
+            # Use generate() with JSON-requesting system prompt because the
+            # response schema is dynamic (model IDs as keys).  Strict schema
+            # enforcement via generate_json() requires a fixed schema.
+            json_system = system_prompt or ""
+            json_system += "\n\nYou must respond with valid JSON only. No additional text or explanation."
+            response = provider.generate(
+                prompt=prompt,
+                system_prompt=json_system.strip(),
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            
+            raw_response = response.content
+            content = raw_response.strip()
+            
+            # Clean up common LLM output issues
+            if content.startswith("```"):
+                lines = content.split("\n")
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                content = "\n".join(lines)
+            
+            start_idx = content.find("{")
+            end_idx = content.rfind("}")
+            if start_idx != -1 and end_idx != -1:
+                content = content[start_idx:end_idx + 1]
+            
+            batch_estimates = json.loads(content)
+            
+            # Merge into main results
+            for model_id, score in batch_estimates.items():
+                if isinstance(score, (int, float)) and score > 0:
+                    all_estimates[model_id] = float(score)
+            
+            logger.log_response(
+                request_id=request_id,
+                response_content=raw_response,
+                success=True,
+                usage=response.usage if hasattr(response, 'usage') else None,
+                parsed_result=batch_estimates
+            )
+            
+        except Exception as e:
+            logger.log_response(
+                request_id=request_id,
+                response_content=raw_response,
+                success=False,
+                error=str(e)
+            )
+            print(f"    ⚠️ Batch {i+1} failed: {e}")
+            # Continue to next batch
+    
+    return all_estimates
 
 
 def get_tier_default(model: dict) -> float:
@@ -320,7 +366,8 @@ def update_model_costs(
                     if f in model: del model[f]
 
             costing = model["costing"]
-            has_cost = costing.get("updated") != ""
+            score = costing.get("score")
+            has_cost = costing.get("updated") != "" and score is not None
             is_manual = costing.get("source") == "manual"
             is_disabled = model.get("disabled", False)
             
@@ -333,7 +380,8 @@ def update_model_costs(
             
             # Skip manual overrides
             if is_manual:
-                print(f"  ⏭️ {model_id}: {costing['score']:.2f} (manual, preserved)")
+                val = f"{score:.2f}" if score is not None else "None"
+                print(f"  ⏭️ {model_id}: {val} (manual, preserved)")
                 stats["unchanged"] += 1
                 continue
             
@@ -346,14 +394,32 @@ def update_model_costs(
                 stats["updated" if has_cost else "new"] += 1
                 continue
             
-            # Queue for AI estimation (all non-anchor models)
-            models_needing_estimation.append({
-                "id": model_id,
-                "provider": provider_name,
-                "name": model.get("name", model_id),
-                "cost_tier": costing.get("tier", "standard"),
-                "_model_ref": model
-            })
+            # Logic: If force=True, we update everything (except manual).
+            # If force=False, we only update if score is None or missing.
+            should_estimate = force or (score is None) or (not has_cost)
+            
+            if should_estimate:
+                # GEMINI ALGORITHMIC OVERRIDE
+                if provider_name == "gemini":
+                    heuristic_score = calculate_gemini_cost_heuristic(model_id)
+                    costing["score"] = heuristic_score
+                    costing["source"] = "algorithmic"
+                    costing["updated"] = today
+                    print(f"  🧮 {model_id}: {heuristic_score:.2f} (algorithmic)")
+                    stats["updated" if has_cost else "new"] += 1
+                    continue
+
+                models_needing_estimation.append({
+                    "id": model_id,
+                    "provider": provider_name,
+                    "name": model.get("name", model_id),
+                    "cost_tier": costing.get("tier", "standard"),
+                    "_model_ref": model
+                })
+            else:
+                val = f"{score:.2f}" if score is not None else "None"
+                print(f"  ⏭️ {model_id}: {val} (skipped)")
+                stats["unchanged"] += 1
         
         if models_needing_estimation and est_api_key:
             print(f"  🤖 Estimating {len(models_needing_estimation)} models with AI...")

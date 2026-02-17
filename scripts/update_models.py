@@ -18,16 +18,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List
 
-# Support direct execution
-_project_root = Path(__file__).resolve().parent.parent.parent
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
-from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities
-from djinnite.ai_providers import get_provider, BaseAIProvider
-from djinnite.ai_providers.gemini_provider import GeminiProvider
-from djinnite.ai_providers.claude_provider import ClaudeProvider
-from djinnite.ai_providers.openai_provider import OpenAIProvider
+try:
+    from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities
+    from djinnite.ai_providers import get_provider, BaseAIProvider
+    from djinnite.ai_providers.gemini_provider import GeminiProvider
+    from djinnite.ai_providers.claude_provider import ClaudeProvider
+    from djinnite.ai_providers.openai_provider import OpenAIProvider
+except ImportError:
+    # Fallback for direct execution
+    import sys
+    _project_root = str(Path(__file__).resolve().parent.parent)
+    if _project_root not in sys.path:
+        sys.path.insert(0, _project_root)
+    
+    from config_loader import load_ai_config, CONFIG_DIR, Modalities
+    from ai_providers import get_provider, BaseAIProvider
+    from ai_providers.gemini_provider import GeminiProvider
+    from ai_providers.claude_provider import ClaudeProvider
+    from ai_providers.openai_provider import OpenAIProvider
 
 # ============================================================================
 # POLICY: NO STATIC MODEL DATA IN PYTHON
@@ -312,10 +320,10 @@ def merge_model_data(
             # New model
             model["modalities"] = discovered
             model["costing"] = {
-                "score": 1.0,
-                "source": "default",
+                "score": None,
+                "source": "",
                 "updated": "",
-                "tier": model.get("cost_tier", "standard")
+                "tier": ""
             }
             # Queue for AI check if it seems too generic
             if discovered["input"] == ["text"] and discovered["output"] == ["text"]:

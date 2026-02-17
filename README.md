@@ -1,5 +1,14 @@
 # Djinnite
 
+> ⚠️ **CRITICAL: UV REQUIRED**
+>
+> This project uses **`uv`** for dependency management. All Python commands **must** be executed via `uv run` to ensure the correct environment and dependencies (like `google-genai`, `anthropic`, `openai`) are loaded.
+>
+> ```bash
+> ✅ uv run python -m djinnite.scripts.update_models
+> ❌ python -m djinnite.scripts.update_models
+> ```
+
 **Lightweight AI abstraction layer for multiple providers (Gemini, Claude, OpenAI)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)

@@ -10,6 +10,27 @@ ALL Python commands must be executed via `uv run` to ensure the correct environm
 ❌ WRONG:     python -m djinnite.scripts.update_models
 ```
 
+## 🔧 Developer Setup
+
+After cloning, install **all** dependencies including dev tools (pytest, pytest-cov):
+
+```bash
+uv sync --extra dev
+```
+
+Without `--extra dev`, only the runtime dependencies are installed. Running
+tests (`uv run python -m pytest`) will fail with "No module named pytest".
+
+The `--extra dev` flag installs everything declared in `[project.optional-dependencies] dev`
+in `pyproject.toml`. You only need to run this once (or after `uv lock --upgrade`).
+
+```bash
+# Quick reference — full setup from scratch:
+uv sync --extra dev                              # Install all deps + dev tools
+uv run python -m djinnite.scripts.validate_ai    # Verify API keys & connectivity
+uv run python -m pytest tests/ -v                # Run unit tests
+```
+
 ## ⚠️ This is a Shared Package — Breaking Changes Affect Multiple Projects
 
 Djinnite is used as a git submodule by multiple projects. Any change to its public API will impact **all** consuming projects when they update the submodule.
@@ -50,14 +71,72 @@ from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCat
 get_provider(provider_name, api_key, model, **kwargs) -> BaseAIProvider
 
 # Generation (two distinct methods)
-BaseAIProvider.generate(prompt: str | list, ...) -> AIResponse          # Freeform text
-BaseAIProvider.generate_json(prompt: str | list, schema: dict | type, ...) -> AIResponse  # Schema-enforced JSON
+BaseAIProvider.generate(prompt, system_prompt, temperature, max_tokens, web_search, thinking) -> AIResponse
+BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_tokens, web_search, force, thinking) -> AIResponse
 
 # Discovery
 load_ai_config() -> AIConfig
 load_model_catalog() -> ModelCatalog
 ModelCatalog.find_models(input_modality, output_modality) -> list[tuple[str, ModelInfo]]
 ```
+
+### Thinking Parameter
+
+The `thinking` parameter on `generate()` and `generate_json()` provides a unified
+interface for controlling model reasoning/thinking across all providers:
+
+```python
+thinking: Union[bool, int, str, None] = None
+```
+
+| Value | Description |
+|---|---|
+| `True` (**recommended**) | Enable thinking at maximum budget |
+| `False` | Explicitly disable thinking |
+| `None` (default) | No thinking requested — standard generation |
+| `int` (e.g. `8192`) | Specific token budget for reasoning |
+| `str` (`"low"`, `"medium"`, `"high"`) | Effort level hint |
+
+Djinnite translates this into the provider-native format automatically:
+
+| Provider | Native Mechanism | Style Values |
+|---|---|---|
+| Claude | `thinking={"type": "adaptive"\|"enabled", "budget_tokens": N}` | `"adaptive"`, `"budget"` |
+| OpenAI | `reasoning_effort="low"\|"medium"\|"high"` | `"effort"` |
+| Gemini | `thinking_config={"thinking_budget": N}` | `"budget"` |
+
+**Temperature conflicts** are handled automatically:
+- Claude forces `temperature=1` when thinking is active (SDK requirement).
+- Claude enforces `max_tokens > budget_tokens` automatically (adjusts upward if needed).
+- OpenAI strips temperature entirely when thinking is active (reasoning models reject it).
+- Models with `capabilities.temperature=false` in the catalog always have temperature omitted.
+
+**Token budget guidance:**
+Token budgets are highly unpredictable — they depend on prompt complexity, model
+version, and task type.  The recommended approach is `thinking=True` (maximum budget
+from the model catalog's `max_output_tokens`).  Only use explicit `int` budgets
+after profiling specific workloads.  Low budgets cause partial/useless reasoning
+that is still charged.
+
+### max_tokens Parameter
+
+The `max_tokens` parameter on `generate()` and `generate_json()` controls the
+maximum number of output tokens the model can generate.
+
+**Auto-resolution:** If the caller passes `max_tokens=None` (the default), Djinnite
+automatically fills it from the model catalog's `max_output_tokens` value.  This
+ensures the model has its full output capacity available and reduces expensive
+truncated responses.
+
+Resolution order:
+1. Caller's explicit value (if provided)
+2. Model catalog `max_output_tokens` (auto-filled from `model_catalog.json`)
+3. Provider SDK default (if no catalog is available)
+
+**Recommendation:** For most use cases, omit `max_tokens` entirely and let Djinnite
+use the model's maximum from the catalog.  Only pass an explicit value when you need
+to constrain output size for cost or latency reasons.  Setting it too low results
+in truncated responses — which are useless but still charged.
 
 ### Error Contract
 

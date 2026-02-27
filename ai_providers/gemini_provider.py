@@ -119,6 +119,39 @@ class GeminiProvider(BaseAIProvider):
             
         return gemini_parts
 
+    def _build_gemini_thinking(
+        self,
+        thinking: Union[bool, int, str, None],
+        max_tokens: Optional[int],
+    ) -> Optional[dict]:
+        """
+        Translate the unified ``thinking`` parameter into Gemini's native
+        ``thinking_config`` format.
+
+        Gemini uses ``thinking_config={"thinking_budget": N}`` where N is
+        a token count.
+
+        Args:
+            thinking: The caller's thinking parameter (already validated).
+            max_tokens: The effective max output tokens for the request.
+
+        Returns:
+            A dict for ``thinking_config``, or ``None`` if not requested.
+        """
+        if thinking is None or thinking is False:
+            return None
+
+        if thinking is True:
+            budget = self._get_max_thinking_budget(max_tokens)
+        elif isinstance(thinking, int):
+            budget = thinking
+        else:
+            # str effort → token budget
+            effective_max = max_tokens or 8192
+            budget = self._effort_to_budget(thinking, effective_max)
+
+        return {"thinking_budget": budget}
+
     def generate(
         self,
         prompt: Union[str, List[Dict]],
@@ -126,24 +159,39 @@ class GeminiProvider(BaseAIProvider):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generate a response using Gemini.
         """
+        # Validate & normalize thinking
+        thinking = self._resolve_thinking(thinking)
+
         try:
             from google.genai import types
 
             parts = self._normalize_input(prompt)
             gemini_parts = self._map_parts(parts)
+
+            # Resolve temperature: strip if catalog says not supported
+            effective_temp = self._resolve_temperature(temperature, thinking is not None)
             
+            # Auto-fill max_tokens from catalog if caller didn't provide one.
+            max_tokens = self._resolve_max_tokens(max_tokens)
+
             # Build configuration
-            config = {
-                "temperature": temperature,
-            }
+            config = {}
+            if effective_temp is not None:
+                config["temperature"] = effective_temp
             if max_tokens:
                 config["max_output_tokens"] = max_tokens
             if system_prompt:
                 config["system_instruction"] = system_prompt
+
+            # Thinking: add thinking_config if requested
+            thinking_config = self._build_gemini_thinking(thinking, max_tokens)
+            if thinking_config is not None:
+                config["thinking_config"] = thinking_config
             
             # Enable Google Search grounding for current information
             if web_search:
@@ -285,6 +333,7 @@ class GeminiProvider(BaseAIProvider):
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generates structured JSON using Gemini's **Constraint Decoding** (``response_schema``).
@@ -300,6 +349,7 @@ class GeminiProvider(BaseAIProvider):
             temperature: Sampling temperature (default 0.3).
             max_tokens: Maximum tokens to generate.
             web_search: If True, enable Google Search grounding for current info.
+            thinking: Optional thinking/reasoning control (same as generate()).
 
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
@@ -315,23 +365,39 @@ class GeminiProvider(BaseAIProvider):
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
 
+        # Validate & normalize thinking
+        thinking = self._resolve_thinking(thinking)
+
         try:
             from google.genai import types
             
             parts = self._normalize_input(prompt)
             gemini_parts = self._map_parts(parts)
 
+            # Resolve temperature: catalog-aware stripping
+            effective_temp = self._resolve_temperature(temperature, thinking is not None)
+
             # Build configuration with schema-enforced JSON output
             config = {
-                "temperature": temperature,
                 "response_mime_type": "application/json",
                 "response_schema": json_schema,
             }
+
+            # Auto-fill max_tokens from catalog if caller didn't provide one.
+            max_tokens = self._resolve_max_tokens(max_tokens)
+
+            if effective_temp is not None:
+                config["temperature"] = effective_temp
             
             if max_tokens:
                 config["max_output_tokens"] = max_tokens
             if system_prompt:
                 config["system_instruction"] = system_prompt
+
+            # Thinking config
+            thinking_config = self._build_gemini_thinking(thinking, max_tokens)
+            if thinking_config is not None:
+                config["thinking_config"] = thinking_config
             
             # Enable Google Search grounding for current information
             if web_search:
@@ -485,6 +551,25 @@ class GeminiProvider(BaseAIProvider):
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Gemini model supports thinking mode."""
+        style = self.probe_thinking_style()
+        if style is None:
+            return False
+        if style == "_inconclusive":
+            return None
+        return True
+
+    def probe_thinking_style(self) -> Optional[str]:
+        """
+        Probe which thinking style this Gemini model supports.
+
+        Gemini uses ``thinking_config`` with ``thinking_budget``
+        (budget-based thinking).
+
+        Returns:
+            ``"budget"``   – model supports thinking_config/thinking_budget
+            ``None``       – model does not support thinking
+            ``"_inconclusive"`` – transient error (rate limit, quota)
+        """
         try:
             self._client.models.generate_content(
                 model=self.model, contents="Say hi.",
@@ -493,12 +578,12 @@ class GeminiProvider(BaseAIProvider):
                     "thinking_config": {"thinking_budget": 1024},
                 },
             )
-            return True
+            return "budget"
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "quota" in err or "429" in err:
-                return None
-            return False
+                return "_inconclusive"
+            return None
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Gemini model supports response_schema JSON mode."""

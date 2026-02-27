@@ -199,14 +199,6 @@ def _resolve_structured_json_support(
     return None
 
 
-# Provider-specific thinking styles
-THINKING_STYLES = {
-    "gemini": "mode",
-    "claude": "budget",
-    "chatgpt": "effort",
-}
-
-
 def _probe_all_capabilities_for_models(
     models_to_probe: list[dict],
     provider_cls,
@@ -215,6 +207,10 @@ def _probe_all_capabilities_for_models(
 ) -> dict[str, dict]:
     """
     Probe a list of models to discover ALL capabilities at once.
+    
+    Uses ``probe_thinking_style()`` for rich thinking detection instead of
+    a static mapping.  The thinking style (``"adaptive"``, ``"budget"``,
+    ``"effort"``, etc.) is discovered dynamically per-model.
     
     Returns a dict of model_id → {structured_json, temperature, thinking, web_search, thinking_style}.
     """
@@ -226,10 +222,22 @@ def _probe_all_capabilities_for_models(
             
             ssj = instance.probe_structured_json()
             temp = instance.probe_temperature()
-            think = instance.probe_thinking()
+
+            # Use probe_thinking_style() for rich detection.
+            # Returns "adaptive", "budget", "effort", None, or "_inconclusive".
+            ts_raw = instance.probe_thinking_style()
+            if ts_raw == "_inconclusive":
+                think = None  # Inconclusive → None (unknown)
+                ts = None
+            elif ts_raw is None:
+                think = False
+                ts = None
+            else:
+                think = True
+                ts = ts_raw
+
             # web_search is a Djinnite-level capability — True for all text models
             ws = True
-            ts = THINKING_STYLES.get(provider_name) if think else None
             
             results[model_id] = {
                 "structured_json": ssj,
@@ -242,7 +250,10 @@ def _probe_all_capabilities_for_models(
             parts = []
             parts.append(f"json={'✅' if ssj else '❌' if ssj is False else '❓'}")
             parts.append(f"temp={'✅' if temp else '❌' if temp is False else '❓'}")
-            parts.append(f"think={'✅' if think else '❌' if think is False else '❓'}")
+            think_label = f"{'✅' if think else '❌' if think is False else '❓'}"
+            if ts:
+                think_label += f"({ts})"
+            parts.append(f"think={think_label}")
             print(f"    {model_id}: {' '.join(parts)}")
             
         except Exception as e:

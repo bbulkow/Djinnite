@@ -191,6 +191,7 @@ class BaseAIProvider(ABC):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generate a freeform text response from the AI model.
@@ -202,6 +203,23 @@ class BaseAIProvider(ABC):
             max_tokens: Maximum tokens to generate (provider default if None)
             web_search: If True, enable web/grounding search for current info
                         (provider support varies).
+            thinking: Optional thinking/reasoning control.
+                If ``True``: enable thinking at maximum budget (recommended).
+                If ``False``: explicitly disable thinking.
+                If ``int``: a specific token budget for internal reasoning.
+                If ``str``: an effort level (``"low"``, ``"medium"``, ``"high"``).
+                If ``None`` (default): no thinking requested.
+                The provider translates this into its native format
+                (Claude ``thinking`` block, OpenAI ``reasoning_effort``,
+                Gemini ``thinking_config``).  Temperature conflicts are
+                handled automatically.
+
+                **Budget guidance:** Token budgets are highly unpredictable —
+                they depend on prompt complexity, model version, and task type.
+                The recommended default is ``thinking=True`` (maximum budget).
+                Only use explicit ``int`` budgets after profiling specific
+                workloads.  Low budgets cause partial/useless reasoning that
+                is still charged.
             
         Returns:
             AIResponse with the generated content
@@ -457,6 +475,178 @@ class BaseAIProvider(ABC):
         """
         return schema
 
+    # ------------------------------------------------------------------
+    # Thinking & Temperature resolution helpers
+    # ------------------------------------------------------------------
+
+    # Mapping from effort strings to approximate fractions of max_tokens,
+    # used when translating a string effort level to a token budget.
+    _EFFORT_FRACTIONS: Dict[str, float] = {
+        "low": 0.25,
+        "medium": 0.50,
+        "high": 0.80,
+    }
+
+    # Generous fallback when max_output_tokens is unknown from catalog.
+    _DEFAULT_THINKING_BUDGET: int = 32768
+
+    def _resolve_thinking(
+        self,
+        thinking: Union[bool, int, str, None],
+    ) -> Union[bool, int, str, None]:
+        """
+        Validate and normalize the caller's ``thinking`` parameter.
+
+        - ``None``  → passthrough (no thinking).
+        - ``False`` → explicitly disable thinking.
+        - ``True``  → enable thinking at maximum budget.
+        - ``int``   → validated positive token budget.
+        - ``str``   → validated effort level (``"low"``, ``"medium"``, ``"high"``).
+
+        Raises ``AIProviderError`` if the catalog says the model does not
+        support thinking (``capabilities.thinking is False``) and the
+        caller requested thinking (``True``, ``int``, or ``str``).
+        Skipped when ``self._model_info`` is ``None`` (no catalog).
+
+        Returns:
+            The validated thinking value, or ``None``/``False``.
+        """
+        if thinking is None or thinking is False:
+            return thinking
+
+        # Pre-flight: catalog says model can't think → reject
+        if self._model_info is not None:
+            cap = self._model_info.capabilities.thinking
+            if cap is False:
+                raise AIProviderError(
+                    f"Model '{self.model}' does not support thinking/reasoning "
+                    f"(capabilities.thinking=false in catalog). "
+                    f"Use a thinking-capable model, or pass thinking=None.",
+                    provider=self.PROVIDER_NAME,
+                )
+
+        # bool True → enable at maximum budget (provider handles the details)
+        if thinking is True:
+            return True
+
+        if isinstance(thinking, int):
+            if thinking <= 0:
+                raise ValueError("thinking token budget must be a positive integer.")
+            return thinking
+        if isinstance(thinking, str):
+            low = thinking.lower()
+            if low not in self._EFFORT_FRACTIONS:
+                raise ValueError(
+                    f"thinking effort must be one of 'low', 'medium', 'high' — "
+                    f"got '{thinking}'."
+                )
+            return low
+        raise TypeError(
+            f"thinking must be bool, int (token budget), str (effort level), or None — "
+            f"got {type(thinking).__name__}."
+        )
+
+    def _resolve_max_tokens(self, max_tokens: Optional[int]) -> Optional[int]:
+        """
+        Resolve the effective ``max_tokens`` for a request.
+
+        If the caller passed ``None``, auto-fill from the model catalog's
+        ``max_output_tokens``.  This prevents expensive incomplete responses
+        and ensures the model has its full output capacity available.
+
+        Resolution order:
+        1. Caller's explicit value (if provided and > 0)
+        2. Model catalog ``max_output_tokens`` (if available and > 0)
+        3. ``None`` (let the provider SDK use its own default)
+
+        Returns:
+            An integer token limit, or ``None`` if unknown.
+        """
+        if max_tokens is not None and max_tokens > 0:
+            return max_tokens
+        if self._model_info and self._model_info.max_output_tokens > 0:
+            return self._model_info.max_output_tokens
+        return None
+
+    def _get_max_thinking_budget(self, max_tokens: Optional[int]) -> int:
+        """
+        Determine the maximum thinking budget for ``thinking=True``.
+
+        Resolution order:
+        1. Model catalog ``max_output_tokens`` (if available and > 0)
+        2. Caller's ``max_tokens`` (if provided)
+        3. ``_DEFAULT_THINKING_BUDGET`` fallback
+
+        Returns:
+            An integer token budget.
+        """
+        if self._model_info and self._model_info.max_output_tokens > 0:
+            return self._model_info.max_output_tokens
+        if max_tokens and max_tokens > 0:
+            return max_tokens
+        return self._DEFAULT_THINKING_BUDGET
+
+    def _resolve_temperature(
+        self,
+        temperature: float,
+        thinking_active: bool,
+    ) -> Optional[float]:
+        """
+        Decide the effective temperature to send to the provider.
+
+        * If the catalog says ``capabilities.temperature is False`` → ``None``
+          (omit temperature entirely to avoid 400 errors).
+        * If ``thinking_active`` is True the provider subclass is responsible
+          for any further override (e.g., Claude forces temperature=1).
+          The base implementation still strips it when the catalog forbids it.
+        * Otherwise → return the caller's value unchanged.
+
+        Returns:
+            The temperature to use, or ``None`` meaning "omit".
+        """
+        if self._model_info is not None:
+            if self._model_info.capabilities.temperature is False:
+                return None
+        return temperature
+
+    def _effort_to_budget(self, effort: str, max_tokens: int) -> int:
+        """
+        Convert a string effort level to a token budget.
+
+        Uses ``_EFFORT_FRACTIONS`` to compute a fraction of *max_tokens*.
+        Ensures a minimum of 1024 tokens.
+
+        Args:
+            effort: ``"low"``, ``"medium"``, or ``"high"``.
+            max_tokens: The max output token limit to base the fraction on.
+
+        Returns:
+            An integer token budget.
+        """
+        frac = self._EFFORT_FRACTIONS.get(effort, 0.50)
+        return max(1024, int(max_tokens * frac))
+
+    @staticmethod
+    def _budget_to_effort(budget: int) -> str:
+        """
+        Convert a token budget integer to an effort level string.
+
+        Thresholds:
+        - ≤ 2048 → ``"low"``
+        - ≤ 16384 → ``"medium"``
+        - > 16384 → ``"high"``
+
+        Returns:
+            ``"low"``, ``"medium"``, or ``"high"``.
+        """
+        if budget <= 2048:
+            return "low"
+        if budget <= 16384:
+            return "medium"
+        return "high"
+
+    # ------------------------------------------------------------------
+
     def _check_capability(self, capability: str) -> None:
         """
         Pre-flight check: raise if the catalog says the model does NOT
@@ -495,6 +685,7 @@ class BaseAIProvider(ABC):
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generates structured JSON **strictly** adhering to the provided ``schema``.
@@ -525,6 +716,8 @@ class BaseAIProvider(ABC):
                         (provider support varies).
             force: If True, skip catalog pre-flight checks. Used by probes
                    and testing. Default False.
+            thinking: Optional thinking/reasoning control (same semantics
+                      as ``generate()``).
 
         Returns:
             AIResponse whose ``content`` is a JSON string that conforms to
@@ -603,6 +796,24 @@ class BaseAIProvider(ABC):
             None  – inconclusive
         """
         return None  # Base: unknown — subclasses override
+
+    def probe_thinking_style(self) -> Optional[str]:
+        """
+        Probe which thinking style the current model supports.
+
+        Performs a multi-tier probe (provider-specific) to determine the
+        most capable thinking mode the model accepts.  Subclasses override
+        with provider-native logic.
+
+        Returns:
+            ``"adaptive"`` – model supports adaptive/self-regulating thinking
+            ``"budget"``   – model supports fixed token-budget thinking
+            ``"effort"``   – model supports effort-level thinking (OpenAI)
+            ``None``       – model does not support thinking, or inconclusive
+        """
+        # Default: fall back to probe_thinking() for a simple yes/no.
+        # Subclasses override with richer detection.
+        return None
 
     def probe_structured_json(self) -> Optional[bool]:
         """

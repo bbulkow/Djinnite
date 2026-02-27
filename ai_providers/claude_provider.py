@@ -92,6 +92,63 @@ class ClaudeProvider(BaseAIProvider):
                 # Claude doesn't support file_uri directly in the same way as Gemini
         return claude_content
     
+    def _build_claude_thinking(
+        self,
+        thinking: Union[bool, int, str, None],
+        max_tokens: int,
+    ) -> tuple[Optional[dict], int]:
+        """
+        Translate the unified ``thinking`` parameter into Claude's native
+        thinking block format and adjust ``max_tokens`` to be valid.
+
+        Claude supports two thinking types:
+        - ``"adaptive"``: model decides when/how much to think, with a
+          budget cap.  Preferred for newest models.
+        - ``"enabled"``: fixed-budget explicit thinking.  For models that
+          support thinking but not adaptive mode.
+
+        The ``thinking_style`` from the model catalog determines which type
+        to use.  If no catalog is available, defaults to ``"adaptive"``
+        (the newer, more capable mode).
+
+        **Invariant enforced:** Claude requires ``max_tokens > budget_tokens``.
+        If the caller's ``max_tokens`` is not large enough, this method
+        automatically adjusts it upward to leave room for output.
+
+        Args:
+            thinking: The caller's thinking parameter (already validated
+                      by ``_resolve_thinking``).
+            max_tokens: The effective max output tokens for the request.
+
+        Returns:
+            A tuple of ``(thinking_block, adjusted_max_tokens)``.
+            ``thinking_block`` is ``None`` if thinking is not requested.
+        """
+        if thinking is None or thinking is False:
+            return None, max_tokens
+
+        # Determine thinking style from catalog, default to adaptive
+        style = "adaptive"
+        if self._model_info and self._model_info.capabilities.thinking_style:
+            style = self._model_info.capabilities.thinking_style
+
+        # Compute budget_tokens
+        if thinking is True:
+            budget = self._get_max_thinking_budget(max_tokens)
+        elif isinstance(thinking, int):
+            budget = thinking
+        else:
+            # str effort level → token budget as fraction of max_tokens
+            budget = self._effort_to_budget(thinking, max_tokens)
+
+        # Invariant: max_tokens must exceed budget_tokens to leave room
+        # for the actual response output.
+        if budget >= max_tokens:
+            max_tokens = budget + max(1024, budget // 4)
+
+        thinking_type = "adaptive" if style == "adaptive" else "enabled"
+        return {"type": thinking_type, "budget_tokens": budget}, max_tokens
+
     def generate(
         self,
         prompt: Union[str, List[Dict]],
@@ -99,10 +156,14 @@ class ClaudeProvider(BaseAIProvider):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generate a response using Claude.
         """
+        # Validate & normalize the thinking parameter
+        thinking = self._resolve_thinking(thinking)
+
         # If web search requested, delegate to native web search method
         if web_search and _supports_native_web_search(self.model):
             return self._generate_with_web_search(
@@ -117,22 +178,36 @@ class ClaudeProvider(BaseAIProvider):
             claude_content = self._map_parts(parts)
             
             # Claude requires max_tokens to be specified.
-            # Use a reasonable default if caller didn't provide one.
-            # Callers should check ModelInfo.max_output_tokens from the catalog
-            # to pass the right value for their model.
-            if max_tokens is None:
-                max_tokens = 8192
+            # Auto-fill from catalog if caller didn't provide one.
+            max_tokens = self._resolve_max_tokens(max_tokens) or 8192
+
+            # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)
+            thinking_active = thinking is not None and thinking is not False
+            thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
             
+            # Resolve temperature: strip if catalog says not supported,
+            # force to 1 when thinking is active (Claude requirement).
+            effective_temp = self._resolve_temperature(temperature, thinking_active)
+            if thinking_active and effective_temp is not None:
+                effective_temp = 1  # Claude requires temperature=1 when thinking is on
+
             # Build request kwargs
             kwargs = {
                 "model": self.model,
                 "max_tokens": max_tokens,
-                "temperature": temperature,
                 "messages": [{"role": "user", "content": claude_content}],
             }
+
+            # Temperature: only include if resolved (not stripped)
+            if effective_temp is not None:
+                kwargs["temperature"] = effective_temp
             
             if system_prompt:
                 kwargs["system"] = system_prompt
+
+            # Thinking: add the provider-native thinking block
+            if thinking_block is not None:
+                kwargs["thinking"] = thinking_block
             
             # Generate response
             response = self._client.messages.create(**kwargs)
@@ -367,6 +442,7 @@ class ClaudeProvider(BaseAIProvider):
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generates structured JSON using Anthropic's **Constraint Decoding** (``output_config``).
@@ -382,6 +458,7 @@ class ClaudeProvider(BaseAIProvider):
             temperature: Sampling temperature (default 0.3).
             max_tokens: Maximum tokens to generate.
             web_search: If True, enable native Claude web search (4.5+ models).
+            thinking: Optional thinking/reasoning control (same as generate()).
 
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
@@ -397,11 +474,8 @@ class ClaudeProvider(BaseAIProvider):
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
 
-        # Claude requires max_tokens. Use the caller's value if provided,
-        # otherwise default to 8192. Callers should check
-        # ModelInfo.max_output_tokens from the catalog for their model.
-        if max_tokens is None:
-            max_tokens = 8192
+        # Claude requires max_tokens. Auto-fill from catalog, fallback to 8192.
+        max_tokens = self._resolve_max_tokens(max_tokens) or 8192
         
         if web_search:
             if not _supports_native_web_search(self.model):
@@ -422,14 +496,25 @@ class ClaudeProvider(BaseAIProvider):
                 max_tokens=max_tokens,
             )
         
+        # Validate & normalize thinking
+        thinking = self._resolve_thinking(thinking)
+
         try:
             parts = self._normalize_input(prompt)
             claude_content = self._map_parts(parts)
+
+            # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)
+            thinking_active = thinking is not None and thinking is not False
+            thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
+
+            # Resolve temperature: strip if catalog forbids, force=1 for thinking
+            effective_temp = self._resolve_temperature(temperature, thinking_active)
+            if thinking_active and effective_temp is not None:
+                effective_temp = 1
             
             kwargs = {
                 "model": self.model,
                 "max_tokens": max_tokens,
-                "temperature": temperature,
                 "messages": [{"role": "user", "content": claude_content}],
                 # Anthropic Constraint Decoding via output_config.format
                 "output_config": {
@@ -439,9 +524,16 @@ class ClaudeProvider(BaseAIProvider):
                     }
                 },
             }
+
+            if effective_temp is not None:
+                kwargs["temperature"] = effective_temp
             
             if system_prompt:
                 kwargs["system"] = system_prompt
+
+            # Thinking block
+            if thinking_block is not None:
+                kwargs["thinking"] = thinking_block
             
             response = self._client.messages.create(**kwargs)
             
@@ -575,18 +667,66 @@ class ClaudeProvider(BaseAIProvider):
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Claude model supports extended thinking."""
+        style = self.probe_thinking_style()
+        if style is None:
+            return False
+        if style == "_inconclusive":
+            return None
+        return True
+
+    def probe_thinking_style(self) -> Optional[str]:
+        """
+        Multi-tier probe to determine which thinking style Claude supports.
+
+        Uses the same invariants as ``_build_claude_thinking()``:
+        - ``temperature=1`` (Claude requires this when thinking is on).
+        - ``max_tokens > budget_tokens`` (room for output after thinking).
+
+        1. Try adaptive thinking (newest models).
+        2. Fall back to enabled/budget thinking (older thinking models).
+        3. Both fail → model doesn't support thinking.
+
+        Returns:
+            ``"adaptive"`` – model supports adaptive thinking
+            ``"budget"``   – model supports fixed-budget thinking only
+            ``None``       – model does not support thinking
+            ``"_inconclusive"`` – transient error (rate limit, timeout)
+        """
+        # Probe budget: small enough to be cheap, but we need max_tokens > budget.
+        _PROBE_BUDGET = 1024
+        _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
+
+        # Tier 1: Try adaptive (newest, preferred)
         try:
             self._client.messages.create(
-                model=self.model, max_tokens=1024,
+                model=self.model,
+                max_tokens=_PROBE_MAX_TOKENS,
+                temperature=1,  # Claude requires temp=1 with thinking
                 messages=[{"role": "user", "content": "Say hi."}],
-                thinking={"type": "adaptive", "budget_tokens": 1024},
+                thinking={"type": "adaptive", "budget_tokens": _PROBE_BUDGET},
             )
-            return True
+            return "adaptive"
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "timeout" in err:
-                return None
-            return False
+                return "_inconclusive"
+            # Adaptive not supported — try budget/enabled
+
+        # Tier 2: Try enabled (fixed budget)
+        try:
+            self._client.messages.create(
+                model=self.model,
+                max_tokens=_PROBE_MAX_TOKENS,
+                temperature=1,  # Claude requires temp=1 with thinking
+                messages=[{"role": "user", "content": "Say hi."}],
+                thinking={"type": "enabled", "budget_tokens": _PROBE_BUDGET},
+            )
+            return "budget"
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "timeout" in err:
+                return "_inconclusive"
+            return None
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Claude model supports output_config JSON schema mode."""

@@ -1,8 +1,9 @@
 """
 OpenAI Provider
 
-Wraps the OpenAI SDK.
-Supports web search via Gemini's native Google Search grounding.
+Wraps the OpenAI SDK using the **Responses API** (the successor to
+Chat Completions).  Supports native web search, structured JSON output,
+and reasoning/thinking — all through a single API surface.
 """
 
 import copy
@@ -24,27 +25,30 @@ from .base_provider import (
 
 class OpenAIProvider(BaseAIProvider):
     """
-    OpenAI provider implementation.
-    
-    Uses the openai SDK.
-    Supports web search by delegating to Gemini's native Google Search.
+    OpenAI provider implementation using the **Responses API**.
+
+    The Responses API is OpenAI's recommended API for all new development
+    (successor to Chat Completions).  It provides native web search,
+    structured output, and reasoning as first-class features.
     """
-    
+
     PROVIDER_NAME = "chatgpt"
-    
+
     def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None, model_info=None):
         """
         Initialize the OpenAI provider.
-        
+
         Args:
             api_key: OpenAI API key
             model: Model ID to use
-            gemini_api_key: Optional Gemini API key for web search capability
+            gemini_api_key: Deprecated — ignored.  Web search now uses
+                OpenAI's native Responses API.  Kept for backward
+                compatibility with existing ``get_provider()`` calls.
             model_info: Optional ModelInfo from catalog for pre-flight checks
         """
-        self._gemini_api_key = gemini_api_key
+        # gemini_api_key accepted but ignored — native web search now
         super().__init__(api_key, model, model_info=model_info)
-    
+
     def _initialize_client(self) -> None:
         """Initialize the OpenAI client."""
         try:
@@ -63,33 +67,123 @@ class OpenAIProvider(BaseAIProvider):
                 original_error=e
             )
 
+    # ------------------------------------------------------------------
+    # Input mapping
+    # ------------------------------------------------------------------
+
     def _map_parts(self, parts: List[Dict]) -> List:
-        """Map internal parts to OpenAI SDK message content."""
+        """Map internal parts to OpenAI Responses API input content."""
         openai_content = []
         for part in parts:
             if part["type"] == "text":
-                openai_content.append({"type": "text", "text": part["text"]})
+                openai_content.append({"type": "input_text", "text": part["text"]})
             elif part["type"] == "image":
                 if "image_data" in part:
-                    # OpenAI supports base64 in data URLs
                     import base64
                     data = part["image_data"]
                     if isinstance(data, bytes):
                         data = base64.b64encode(data).decode("utf-8")
                     mime = part.get("mime_type", "image/jpeg")
                     openai_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime};base64,{data}"}
+                        "type": "input_image",
+                        "image_url": f"data:{mime};base64,{data}",
                     })
                 elif "file_uri" in part:
                     openai_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": part["file_uri"]}
+                        "type": "input_image",
+                        "image_url": part["file_uri"],
                     })
-            # OpenAI's chat completion API (at least currently) primarily supports vision for multimodal
-            # Audio/Video are handled via other endpoints or specifically formatted if supported
         return openai_content
-    
+
+    # ------------------------------------------------------------------
+    # Thinking translation
+    # ------------------------------------------------------------------
+
+    def _build_openai_thinking(
+        self,
+        thinking: Union[bool, int, str, None],
+    ) -> Optional[dict]:
+        """
+        Translate the unified ``thinking`` parameter into the Responses API
+        ``reasoning`` parameter.
+
+        Returns:
+            A dict for the ``reasoning`` kwarg, or ``None``.
+        """
+        if thinking is None or thinking is False:
+            return None
+        if thinking is True:
+            effort = "high"
+        elif isinstance(thinking, str):
+            effort = thinking
+        else:
+            effort = self._budget_to_effort(thinking)
+        return {"effort": effort}
+
+    # ------------------------------------------------------------------
+    # Response parsing helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_text_from_output(output) -> tuple[str, List[Dict]]:
+        """
+        Extract text content and parts from a Responses API output list.
+
+        Returns:
+            (text_content, output_parts)
+        """
+        text_content = ""
+        output_parts = []
+        if output:
+            for item in output:
+                item_type = getattr(item, "type", "")
+                if item_type == "message":
+                    # Message output items contain content blocks
+                    for block in getattr(item, "content", []):
+                        block_type = getattr(block, "type", "")
+                        if block_type == "output_text":
+                            t = getattr(block, "text", "")
+                            text_content += t
+                            output_parts.append({"type": "text", "text": t})
+                elif item_type == "web_search_call":
+                    # Web search tool call — metadata only, not content
+                    pass
+                elif item_type == "reasoning":
+                    # Reasoning output — internal, not returned as content
+                    pass
+        return text_content, output_parts
+
+    @staticmethod
+    def _extract_usage(response) -> dict:
+        """Extract token usage from a Responses API response."""
+        usage = {}
+        if hasattr(response, "usage") and response.usage:
+            usage = {
+                "input_tokens": getattr(response.usage, "input_tokens", 0),
+                "output_tokens": getattr(response.usage, "output_tokens", 0),
+            }
+        return usage
+
+    @staticmethod
+    def _is_truncated(response) -> tuple[bool, Optional[str]]:
+        """
+        Check if a Responses API response was truncated.
+
+        Returns:
+            (is_truncated, finish_reason)
+        """
+        status = getattr(response, "status", "completed")
+        if status == "incomplete":
+            details = getattr(response, "incomplete_details", None)
+            reason = getattr(details, "reason", "unknown") if details else "unknown"
+            return True, reason
+        # Normal completion
+        return False, status
+
+    # ------------------------------------------------------------------
+    # generate()
+    # ------------------------------------------------------------------
+
     def generate(
         self,
         prompt: Union[str, List[Dict]],
@@ -97,119 +191,130 @@ class OpenAIProvider(BaseAIProvider):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
-        Generate a response using OpenAI.
+        Generate a response using OpenAI's Responses API.
         """
-        try:
-            # If web search requested, get current info from Gemini first
-            if web_search:
-                if self._gemini_api_key:
-                    search_results = self._search_with_gemini(str(prompt))
-                    if isinstance(prompt, str):
-                        prompt = f"Based on web search results: {search_results}\n\n{prompt}"
-                    else:
-                        prompt.insert(0, {"type": "text", "text": f"Web search results: {search_results}"})
+        # Validate & normalize thinking
+        thinking = self._resolve_thinking(thinking)
+        thinking_active = thinking is not None and thinking is not False
 
+        try:
             parts = self._normalize_input(prompt)
             openai_content = self._map_parts(parts)
 
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": openai_content})
-            
+            # Build input: either simple string or structured with role
+            if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
+                # Simple text prompt — can use string input
+                api_input = openai_content[0]["text"]
+            else:
+                # Multimodal — use structured input
+                api_input = [{"role": "user", "content": openai_content}]
+
             kwargs = {
                 "model": self.model,
-                "messages": messages,
+                "input": api_input,
             }
 
-            # Temperature: omit if the catalog says the model doesn't support it.
-            # If model_info is None (no catalog), include it.
-            if self._model_info and self._model_info.capabilities.temperature is False:
-                pass  # Omit temperature — model doesn't support it
-            else:
-                kwargs["temperature"] = temperature
+            # System prompt → instructions
+            if system_prompt:
+                kwargs["instructions"] = system_prompt
 
-            if max_tokens:
-                kwargs["max_completion_tokens"] = max_tokens
+            # Temperature: catalog-aware + thinking-aware stripping
+            effective_temp = self._resolve_temperature(temperature, thinking_active)
+            if thinking_active:
+                effective_temp = None  # Reasoning models reject temperature
+            if effective_temp is not None:
+                kwargs["temperature"] = effective_temp
 
-            response = self._client.chat.completions.create(**kwargs)
-            
-            content = response.choices[0].message.content
-            finish_reason = response.choices[0].finish_reason
-            
-            usage = {}
-            if response.usage:
-                usage = {
-                    "input_tokens": response.usage.prompt_tokens,
-                    "output_tokens": response.usage.completion_tokens,
-                }
-            
-            # Detect output truncation: OpenAI returns finish_reason="length"
-            # when the output was cut short due to max_tokens.
-            # This is an HTTP 200 response — the SDK does NOT raise an exception.
-            is_truncated = (finish_reason == "length")
-            
+            # Max tokens
+            resolved_max = self._resolve_max_tokens(max_tokens)
+            if resolved_max:
+                kwargs["max_output_tokens"] = resolved_max
+
+            # Thinking → reasoning parameter
+            reasoning = self._build_openai_thinking(thinking)
+            if reasoning is not None:
+                kwargs["reasoning"] = reasoning
+
+            # Web search → native tool
+            if web_search:
+                kwargs["tools"] = [{"type": "web_search_preview"}]
+
+            # Make the API call
+            response = self._client.responses.create(**kwargs)
+
+            # Parse response
+            content, output_parts = self._extract_text_from_output(response.output)
+            # Fallback: try output_text if our parser didn't find content
+            if not content and hasattr(response, "output_text"):
+                content = response.output_text or ""
+                if content:
+                    output_parts = [{"type": "text", "text": content}]
+
+            usage = self._extract_usage(response)
+            is_truncated, finish_reason = self._is_truncated(response)
+
             ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
             )
-            
+
             if is_truncated:
                 raise AIOutputTruncatedError(
                     f"Output truncated: model hit max output token limit "
-                    f"(finish_reason='length', output_tokens={usage.get('output_tokens', '?')})",
+                    f"(status='incomplete', reason='{finish_reason}', "
+                    f"output_tokens={usage.get('output_tokens', '?')})",
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
                 )
-            
+
             return ai_response
-            
+
         except (AIOutputTruncatedError, AIContextLengthError):
-            raise  # Never swallow our own semantic errors
+            raise
         except Exception as e:
             error_message = str(e).lower()
-            
-            # Detect context length exceeded: OpenAI SDK raises
-            # openai.BadRequestError (HTTP 400) with code="context_length_exceeded"
-            error_code = getattr(e, 'code', None) or ''
-            if str(error_code) == 'context_length_exceeded' or 'context_length_exceeded' in error_message:
+
+            error_code = getattr(e, "code", None) or ""
+            if str(error_code) == "context_length_exceeded" or "context_length_exceeded" in error_message:
                 raise AIContextLengthError(
                     f"Input context too long for model '{self.model}': {e}",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
             elif "api_key" in error_message or "auth" in error_message:
                 raise AIAuthenticationError(
                     "Invalid API key or authentication failed",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
             elif "rate" in error_message or "quota" in error_message:
                 raise AIRateLimitError(
                     "Rate limit exceeded",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
             elif "model" in error_message and "not found" in error_message:
                 raise AIModelNotFoundError(
                     f"Model '{self.model}' not found",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
             else:
                 raise AIProviderError(
                     f"Generation failed: {e}",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
-    
+
     # ------------------------------------------------------------------
     # Schema normalization for OpenAI strict mode
     # ------------------------------------------------------------------
@@ -221,77 +326,26 @@ class OpenAIProvider(BaseAIProvider):
         1. Deep-copies the schema to avoid mutating the caller's dict.
         2. Recursively adds ``additionalProperties: false`` to every object.
         3. If the top-level type is ``"array"``, wraps it in an object
-           envelope (``{"type": "object", "properties": {"items": ...}}``)
-           because OpenAI strict mode requires top-level ``type: "object"``.
-           The wrapping is recorded so ``generate_json`` can transparently
-           unwrap the response.
-
-        Returns:
-            ``(schema_dict, was_array_wrapped)`` — but since the base
-            signature returns a single dict, we stash the wrap flag on
-            ``self._openai_array_wrapped`` for ``generate_json`` to read.
+           envelope because OpenAI strict mode requires top-level ``type: "object"``.
         """
         schema = copy.deepcopy(schema)
 
-        # Strip $defs-level keys that OpenAI doesn't understand (e.g. "title")
-        # but keep $defs themselves — OpenAI supports $ref.
-
-        # Wrap top-level arrays in an object envelope
         self._openai_array_wrapped = False
         if schema.get("type") == "array":
             schema = {
                 "type": "object",
-                "properties": {
-                    "items": schema,
-                },
+                "properties": {"items": schema},
                 "required": ["items"],
             }
             self._openai_array_wrapped = True
 
-        # Add additionalProperties: false to every object node
         self._add_additional_properties_false(schema)
-
         return schema
 
     # ------------------------------------------------------------------
+    # generate_json()
+    # ------------------------------------------------------------------
 
-    def _search_with_gemini(self, query: str) -> str:
-        """
-        Perform a web search using Gemini's native Google Search grounding.
-        """
-        if not self._gemini_api_key:
-            raise AIProviderError(
-                "Web search requires Gemini API key. "
-                "Configure gemini_api_key in OpenAIProvider or use Gemini directly.",
-                provider=self.PROVIDER_NAME
-            )
-        
-        try:
-            from google import genai
-            from google.genai import types
-            
-            client = genai.Client(api_key=self._gemini_api_key)
-            
-            config = {
-                "temperature": 0.3,
-                "tools": [types.Tool(google_search=types.GoogleSearch())],
-            }
-            
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",  # Use fast model for search
-                contents=f"Search the web and provide current information about: {query}",
-                config=config
-            )
-            
-            return response.text
-            
-        except Exception as e:
-            raise AIProviderError(
-                f"Gemini search failed: {e}",
-                provider=self.PROVIDER_NAME,
-                original_error=e
-            )
-    
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
@@ -301,13 +355,11 @@ class OpenAIProvider(BaseAIProvider):
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
+        thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
-        Generates structured JSON using OpenAI's **Strict Mode** (Constraint Decoding).
-
-        [AGENT NOTE]: Uses ``response_format`` with ``json_schema`` and ``strict=True``.
-        The output is **guaranteed** to conform to the supplied schema.  Use this for
-        all programmatic tasks where Guaranteed Structure is required.
+        Generates structured JSON using OpenAI's Responses API with
+        schema-enforced output (``text.format.json_schema``).
 
         Args:
             prompt: The user prompt (str or list of multimodal parts).
@@ -315,7 +367,8 @@ class OpenAIProvider(BaseAIProvider):
             system_prompt: Optional system instruction.
             temperature: Sampling temperature (default 0.3).
             max_tokens: Maximum tokens to generate.
-            web_search: If True, augment the prompt with Gemini web search results.
+            web_search: If True, enable native OpenAI web search.
+            thinking: Optional thinking/reasoning control (same as generate()).
 
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
@@ -331,40 +384,25 @@ class OpenAIProvider(BaseAIProvider):
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
 
+        # Validate & normalize thinking
+        thinking = self._resolve_thinking(thinking)
+        thinking_active = thinking is not None and thinking is not False
+
         try:
-            # If web search requested, get current info from Gemini first
-            if web_search:
-                if not self._gemini_api_key:
-                    raise AIProviderError(
-                        "Web search requires Gemini API key. "
-                        "Pass gemini_api_key to OpenAIProvider constructor.",
-                        provider=self.PROVIDER_NAME
-                    )
-                
-                # Extract search context from Gemini
-                search_results = self._search_with_gemini(str(prompt))
-                
-                # Augment the prompt
-                if isinstance(prompt, str):
-                    prompt = f"Based on web search results: {search_results}\n\n{prompt}"
-                else:
-                    prompt.insert(0, {"type": "text", "text": f"Web search results: {search_results}"})
-            
             parts = self._normalize_input(prompt)
             openai_content = self._map_parts(parts)
 
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": openai_content})
-            
-            # Use strict JSON Schema mode (Constraint Decoding)
+            if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
+                api_input = openai_content[0]["text"]
+            else:
+                api_input = [{"role": "user", "content": openai_content}]
+
             kwargs = {
                 "model": self.model,
-                "messages": messages,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
+                "input": api_input,
+                "text": {
+                    "format": {
+                        "type": "json_schema",
                         "name": "structured_response",
                         "strict": True,
                         "schema": json_schema,
@@ -372,83 +410,97 @@ class OpenAIProvider(BaseAIProvider):
                 },
             }
 
-            # Temperature: omit if the catalog says the model doesn't support it.
-            if self._model_info and self._model_info.capabilities.temperature is False:
-                pass  # Omit temperature — model doesn't support it
-            else:
-                kwargs["temperature"] = temperature
+            if system_prompt:
+                kwargs["instructions"] = system_prompt
 
-            if max_tokens:
-                kwargs["max_completion_tokens"] = max_tokens
-            
-            response = self._client.chat.completions.create(**kwargs)
-            
-            content = response.choices[0].message.content
-            finish_reason = response.choices[0].finish_reason
-            
+            # Temperature
+            effective_temp = self._resolve_temperature(temperature, thinking_active)
+            if thinking_active:
+                effective_temp = None
+            if effective_temp is not None:
+                kwargs["temperature"] = effective_temp
+
+            # Max tokens
+            resolved_max = self._resolve_max_tokens(max_tokens)
+            if resolved_max:
+                kwargs["max_output_tokens"] = resolved_max
+
+            # Thinking
+            reasoning = self._build_openai_thinking(thinking)
+            if reasoning is not None:
+                kwargs["reasoning"] = reasoning
+
+            # Web search
+            if web_search:
+                kwargs["tools"] = [{"type": "web_search_preview"}]
+
+            response = self._client.responses.create(**kwargs)
+
+            # Parse response
+            content, output_parts = self._extract_text_from_output(response.output)
+            if not content and hasattr(response, "output_text"):
+                content = response.output_text or ""
+                if content:
+                    output_parts = [{"type": "text", "text": content}]
+
             # Transparently unwrap array envelope if we wrapped it
-            if getattr(self, '_openai_array_wrapped', False) and content:
+            if getattr(self, "_openai_array_wrapped", False) and content:
                 try:
                     parsed = _json.loads(content)
                     content = _json.dumps(parsed["items"])
                 except (KeyError, _json.JSONDecodeError):
-                    pass  # Best-effort; return raw content if unwrap fails
-            
-            usage = {}
-            if response.usage:
-                usage = {
-                    "input_tokens": response.usage.prompt_tokens,
-                    "output_tokens": response.usage.completion_tokens,
-                }
-            
-            # Detect output truncation — same check as generate()
-            is_truncated = (finish_reason == "length")
-            
+                    pass
+
+            usage = self._extract_usage(response)
+            is_truncated, finish_reason = self._is_truncated(response)
+
             ai_response = AIResponse(
                 content=content,
                 model=self.model,
                 provider=self.PROVIDER_NAME,
                 usage=usage,
+                parts=output_parts,
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
             )
-            
+
             if is_truncated:
                 raise AIOutputTruncatedError(
                     f"JSON output truncated: model hit max output token limit "
-                    f"(finish_reason='length', output_tokens={usage.get('output_tokens', '?')})",
+                    f"(status='incomplete', reason='{finish_reason}', "
+                    f"output_tokens={usage.get('output_tokens', '?')})",
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
                 )
-            
+
             return ai_response
-            
+
         except AIProviderError:
-            raise  # Re-raise all our own errors (including truncation/context)
+            raise
         except Exception as e:
             error_message = str(e).lower()
-            
-            # Detect context length exceeded
-            error_code = getattr(e, 'code', None) or ''
-            if str(error_code) == 'context_length_exceeded' or 'context_length_exceeded' in error_message:
+            error_code = getattr(e, "code", None) or ""
+            if str(error_code) == "context_length_exceeded" or "context_length_exceeded" in error_message:
                 raise AIContextLengthError(
                     f"Input context too long for model '{self.model}': {e}",
                     provider=self.PROVIDER_NAME,
-                    original_error=e
+                    original_error=e,
                 )
-            
             raise AIProviderError(
                 f"JSON generation failed: {e}",
                 provider=self.PROVIDER_NAME,
-                original_error=e
+                original_error=e,
             )
-    
+
+    # ------------------------------------------------------------------
+    # Probes
+    # ------------------------------------------------------------------
+
     def is_available(self) -> bool:
         """Check if OpenAI is available."""
         if not self.api_key:
             return False
-        
         try:
             self._client.models.list()
             return True
@@ -459,34 +511,28 @@ class OpenAIProvider(BaseAIProvider):
         """List available models from OpenAI."""
         if not self.api_key:
             return []
-            
         try:
             models = self._client.models.list()
-            
             models_list = []
             for model in models.data:
                 model_id = model.id
                 if "gpt" not in model_id:
                     continue
-                    
                 context = 128000
                 if "gpt-3.5" in model_id:
                     context = 16000
                 elif "mini" in model_id:
                     context = 256000
-                
                 modalities = ["text"]
                 if any(x in model_id.lower() for x in ["vision", "gpt-4", "4o"]):
                     modalities.append("vision")
-                
                 models_list.append({
                     "id": model_id,
                     "name": model_id,
                     "context_window": context,
                     "modalities": modalities,
-                    "cost_tier": "standard"
+                    "cost_tier": "standard",
                 })
-            
             return models_list
         except Exception as e:
             print(f"Error listing OpenAI models: {e}")
@@ -495,133 +541,99 @@ class OpenAIProvider(BaseAIProvider):
     def probe_temperature(self) -> Optional[bool]:
         """Probe whether this OpenAI model accepts temperature."""
         try:
-            self._client.chat.completions.create(
+            self._client.responses.create(
                 model=self.model,
-                messages=[{"role": "user", "content": "Say hi."}],
+                input="Say hi.",
                 temperature=0.5,
-                max_completion_tokens=10,
+                max_output_tokens=10,
             )
             return True
         except Exception as e:
             err = str(e).lower()
-            status = getattr(e, 'status_code', None)
+            status = getattr(e, "status_code", None)
             if status == 429 or "rate" in err or "timeout" in err:
                 return None
-            if "unsupported_parameter" in err and "temperature" in err:
+            if "temperature" in err and ("unsupported" in err or "not support" in err):
                 return False
-            # Try with max_tokens for older models
-            try:
-                self._client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": "Say hi."}],
-                    temperature=0.5,
-                    max_tokens=10,
-                )
-                return True
-            except Exception as e2:
-                err2 = str(e2).lower()
-                if "unsupported_parameter" in err2 and "temperature" in err2:
-                    return False
-                if "rate" in err2 or "timeout" in err2:
-                    return None
-                return False
+            return False
 
     def probe_thinking(self) -> Optional[bool]:
-        """Probe whether this OpenAI model supports reasoning_effort."""
+        """Probe whether this OpenAI model supports reasoning."""
+        style = self.probe_thinking_style()
+        if style is None:
+            return False
+        if style == "_inconclusive":
+            return None
+        return True
+
+    def probe_thinking_style(self) -> Optional[str]:
+        """
+        Probe which thinking style this OpenAI model supports.
+
+        Returns:
+            ``"effort"``   – model supports reasoning effort
+            ``None``       – model does not support thinking
+            ``"_inconclusive"`` – transient error
+        """
         try:
-            self._client.chat.completions.create(
+            self._client.responses.create(
                 model=self.model,
-                messages=[{"role": "user", "content": "Say hi."}],
-                reasoning_effort="low",
-                max_completion_tokens=100,
+                input="Say hi.",
+                reasoning={"effort": "low"},
+                max_output_tokens=100,
             )
-            return True
+            return "effort"
         except Exception as e:
             err = str(e).lower()
-            status = getattr(e, 'status_code', None)
+            status = getattr(e, "status_code", None)
             if status == 429 or "rate" in err or "timeout" in err:
-                return None
-            # Try with max_tokens for older models
-            try:
-                self._client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": "Say hi."}],
-                    reasoning_effort="low",
-                    max_tokens=100,
-                )
-                return True
-            except Exception:
-                return False
+                return "_inconclusive"
+            return None
 
     def probe_structured_json(self) -> Optional[bool]:
-        """
-        Probe whether this OpenAI model supports strict JSON schema mode.
-        
-        Returns True (supported), False (not supported or model incompatible),
-        or None ONLY for transient errors (rate limit, timeout).
-        """
+        """Probe whether this OpenAI model supports structured JSON output."""
         _PROBE_SCHEMA = {
             "type": "object",
             "properties": {"value": {"type": "integer"}},
             "required": ["value"],
             "additionalProperties": False,
         }
-        # Newer OpenAI models (GPT-5+) require max_completion_tokens
-        # instead of max_tokens. Try the newer param first, fall back
-        # to the older one if it fails with a param-name error.
-        last_error = None
-        for token_param in ["max_completion_tokens", "max_tokens"]:
-            try:
-                # NOTE: Do NOT send temperature — reasoning models (o3/codex)
-                # reject it, which would give a false negative for SSJ support.
-                kwargs = {
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": "Return the number 1."}],
-                    token_param: 50,
-                    "response_format": {
+        try:
+            self._client.responses.create(
+                model=self.model,
+                input="Return the number 1.",
+                text={
+                    "format": {
                         "type": "json_schema",
-                        "json_schema": {
-                            "name": "probe",
-                            "strict": True,
-                            "schema": _PROBE_SCHEMA,
-                        }
-                    },
-                }
-                self._client.chat.completions.create(**kwargs)
-                return True
-            except Exception as e:
-                last_error = e
-                err = str(e).lower()
-                status = getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
-                # If the error is specifically about the token param name, try the other
-                if "unsupported_parameter" in err and ("max_tokens" in err or "max_completion_tokens" in err):
-                    continue
-                # Rate limit / timeout → genuinely inconclusive (transient)
-                if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
-                    return None
-                # ALL other errors → model doesn't support this → False
-                # (includes: 400 bad request, 404 not found, 403 permission,
-                #  unsupported temperature, unsupported response_format, etc.)
-                return False
-        # Both param names hit unsupported_parameter errors → model is incompatible
-        return False
+                        "name": "probe",
+                        "strict": True,
+                        "schema": _PROBE_SCHEMA,
+                    }
+                },
+                max_output_tokens=50,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, "status_code", None) or getattr(e, "http_status", None)
+            if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
+                return None
+            return False
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for OpenAI models."""
         input_modalities = ["text"]
         output_modalities = ["text"]
-        
+
         low_id = model_id.lower()
         if "gpt-4o" in low_id or "vision" in low_id:
             input_modalities.append("vision")
-        
         if "tts" in low_id:
             input_modalities = ["text"]
             output_modalities = ["audio"]
-            
         if "whisper" in low_id or "audio" in low_id:
             input_modalities.append("audio")
             if "preview" in low_id:
                 output_modalities.append("audio")
-        
+
         return {"input": input_modalities, "output": output_modalities}

@@ -53,6 +53,40 @@ except ImportError:
 # ============================================================================
 
 
+def _load_estimator_config() -> dict:
+    """Load Djinnite-internal estimator config from known_model_defaults.json."""
+    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+    if defaults_path.exists():
+        with open(defaults_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("estimator", {})
+    return {}
+
+_estimator_config = _load_estimator_config()
+
+
+def _resolve_estimator(ai_config) -> tuple:
+    """
+    Resolve the estimator provider/model for AI estimation tasks.
+    
+    Priority: 1) known_model_defaults.json  2) ai_config default
+    
+    Returns:
+        (provider_name, model_id, api_key) or (None, None, None)
+    """
+    if _estimator_config.get("model"):
+        est_provider = _estimator_config.get("provider", "gemini")
+        est_model = _estimator_config["model"]
+    else:
+        est_provider = ai_config.default_provider
+        p_config = ai_config.get_provider(est_provider)
+        est_model = p_config.default_model if p_config else None
+
+    p_config = ai_config.get_provider(est_provider)
+    est_api_key = p_config.api_key if p_config else None
+    return est_provider, est_model, est_api_key
+
+
 # Template for AI-based output limit estimation
 OUTPUT_LIMIT_ESTIMATION_PROMPT = """You are an AI model specification expert.
 I need the maximum output token limits for these {provider_company} models.
@@ -93,9 +127,8 @@ def estimate_modalities_with_ai(
     ai_config
 ) -> dict:
     """Use AI to estimate modalities for models that heuristics missed."""
-    default_provider = ai_config.default_provider
-    p_config = ai_config.get_provider(default_provider)
-    if not p_config or not p_config.api_key:
+    est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
+    if not est_api_key:
         return {}
 
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
@@ -103,10 +136,8 @@ def estimate_modalities_with_ai(
     prompt = MODALITY_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
     
     try:
-        # Create a temporary provider for estimation.
-        # Use generate() with JSON-requesting system prompt because the
-        # response schema is dynamic (model IDs as keys).
-        instance = get_provider(default_provider, p_config.api_key, p_config.default_model)
+        # Use the Djinnite-internal estimator model.
+        instance = get_provider(est_provider, est_api_key, est_model)
         resp = instance.generate(
             prompt=prompt,
             system_prompt="You must respond with valid JSON only. No additional text or explanation.",
@@ -132,9 +163,8 @@ def estimate_output_limits_with_ai(
     ai_config
 ) -> dict[str, int]:
     """Use AI with web search to estimate max output token limits for unknown models."""
-    default_provider = ai_config.default_provider
-    p_config = ai_config.get_provider(default_provider)
-    if not p_config or not p_config.api_key:
+    est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
+    if not est_api_key:
         return {}
 
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
@@ -142,11 +172,8 @@ def estimate_output_limits_with_ai(
     prompt = OUTPUT_LIMIT_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
     
     try:
-        gemini_config = ai_config.get_provider("gemini")
-        gemini_api_key = gemini_config.api_key if gemini_config else None
-        # Use generate() with JSON-requesting system prompt because the
-        # response schema is dynamic (model IDs as keys).
-        instance = get_provider(default_provider, p_config.api_key, p_config.default_model, gemini_api_key=gemini_api_key)
+        # Use the Djinnite-internal estimator model with web search.
+        instance = get_provider(est_provider, est_api_key, est_model)
         resp = instance.generate(
             prompt=prompt,
             system_prompt="You must respond with valid JSON only. No additional text or explanation.",

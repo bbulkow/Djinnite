@@ -8,5 +8,10 @@
       "input_per_1m_tokens": 0.075,
       "output_per_1m_tokens": 0.30
     }
+  },
+  "estimator": {
+    "_comment": "Model used by Djinnite maintenance scripts (cost estimation, modality estimation, output limit estimation). Separate from the user's default_model in ai_config.json. Should be a model with good web search integration for current pricing data.",
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview"
   }
 }

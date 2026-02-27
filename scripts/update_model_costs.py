@@ -7,11 +7,12 @@ for models in config/model_catalog.json.
 The anchor model is defined in config/known_model_defaults.json (default: Gemini 2.5 Flash, cost_score = 1.0).
 All non-anchor models are estimated dynamically via AI with web search.
 
-By default, this script updates all models in the catalog that are not
-manually overridden.
+By default, this script only estimates costs for NEW models (those without
+existing cost data).  Use ``--all`` to re-estimate all models.
 
 Usage:
-    python -m djinnite.scripts.update_model_costs           # Update all possible costs
+    python -m djinnite.scripts.update_model_costs           # Estimate only new/unknown models
+    python -m djinnite.scripts.update_model_costs --all     # Re-estimate ALL models
     python -m djinnite.scripts.update_model_costs --dry-run # Show changes without saving
     python -m djinnite.scripts.update_model_costs --estimator gemini-2.5-pro  # Use specific model
 """
@@ -70,6 +71,18 @@ ANCHOR_COST_SCORE = _anchor.get("cost_score", 1.0)
 _anchor_pricing = _anchor.get("pricing", {})
 ANCHOR_INPUT_PRICE = _anchor_pricing.get("input_per_1m_tokens", 0.075)
 ANCHOR_OUTPUT_PRICE = _anchor_pricing.get("output_per_1m_tokens", 0.30)
+
+
+def _load_estimator_config() -> dict:
+    """Load Djinnite-internal estimator config from known_model_defaults.json."""
+    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+    if defaults_path.exists():
+        with open(defaults_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("estimator", {})
+    return {}
+
+_estimator_config = _load_estimator_config()
 
 # Default cost scores by tier (used as TEMPORARY fallback only when estimation fails)
 # These are NOT used as success - they indicate the model needs manual review
@@ -208,6 +221,7 @@ def estimate_costs_with_ai(
                 system_prompt=json_system.strip(),
                 temperature=temperature,
                 max_tokens=max_tokens,
+                web_search=web_search,
             )
             
             raw_response = response.content
@@ -284,7 +298,7 @@ def save_catalog(catalog: dict, catalog_path: Optional[Path] = None) -> None:
 
 
 def update_model_costs(
-    force: bool = True,
+    force: bool = False,
     dry_run: bool = False,
     estimator_model: Optional[str] = None,
     provider_filter: Optional[str] = None,
@@ -293,11 +307,16 @@ def update_model_costs(
 ) -> None:
     """
     Main function to update cost_score values in the model catalog.
-    
-    By default, force=True means it will update all existing models (except manual ones).
+
+    Args:
+        force: If False (default), only estimate models that have no cost
+               data yet (new/unknown models).  If True (``--all``), re-estimate
+               all models except manual overrides.
     """
     print("🔧 Model Cost Updater")
     print("━" * 40)
+    mode = "ALL models (--all)" if force else "NEW/unknown models only"
+    print(f"Mode: {mode}")
     print(f"Anchor: {ANCHOR_MODEL_ID} = {ANCHOR_COST_SCORE}")
     if provider_filter:
         print(f"Provider filter: {provider_filter}")
@@ -306,8 +325,10 @@ def update_model_costs(
     ai_config = load_ai_config(config_path)
     catalog = load_catalog(catalog_path)
     
-    # Determine estimator model
+    # Determine estimator model.
+    # Priority: 1) --estimator CLI flag  2) known_model_defaults.json  3) ai_config default
     if estimator_model:
+        # CLI override
         est_provider, est_model = None, estimator_model
         for prov_name, prov_data in catalog.items():
             model_ids = [m["id"] for m in prov_data.get("models", [])]
@@ -316,9 +337,12 @@ def update_model_costs(
                 break
         if not est_provider:
             est_provider = ai_config.default_provider
-            prov_config = ai_config.get_provider(est_provider)
-            est_model = prov_config.default_model if prov_config else None
+    elif _estimator_config.get("model"):
+        # Djinnite-internal estimator from known_model_defaults.json
+        est_provider = _estimator_config.get("provider", "gemini")
+        est_model = _estimator_config["model"]
     else:
+        # Fallback to user's default provider/model
         est_provider = ai_config.default_provider
         prov_config = ai_config.get_provider(est_provider)
         est_model = prov_config.default_model if prov_config else None
@@ -449,11 +473,13 @@ def update_model_costs(
                     stats["estimated"] += 1
                     stats["updated" if has_prev_cost else "new"] += 1
                 else:
-                    default_score = get_tier_default(model_ref)
-                    costing["score"] = default_score
+                    # Failed estimation → score stays None so the model
+                    # is clearly uncosted and won't be mistaken for a
+                    # cheap model.
+                    costing["score"] = None
                     costing["source"] = "failed"
                     costing["updated"] = today
-                    print(f"  ❌ {model_id}: {default_score:.2f} (FAILED - needs manual review)")
+                    print(f"  ❌ {model_id}: None (FAILED - needs re-estimation or manual review)")
                     stats["failed"] += 1
         
         elif models_needing_estimation:
@@ -461,11 +487,10 @@ def update_model_costs(
             for m in models_needing_estimation:
                 model_ref = m["_model_ref"]
                 costing = model_ref["costing"]
-                default_score = get_tier_default(model_ref)
-                costing["score"] = default_score
+                costing["score"] = None
                 costing["source"] = "failed"
                 costing["updated"] = today
-                print(f"  ❌ {m['id']}: {default_score:.2f} (FAILED - needs manual review)")
+                print(f"  ❌ {m['id']}: None (FAILED - no estimator available)")
                 stats["failed"] += 1
         
         print()
@@ -491,15 +516,19 @@ def update_model_costs(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Update cost_score values for AI models in the catalog."
+        description=(
+            "Update cost_score values for AI models in the catalog. "
+            "By default, only estimates costs for NEW models (those without "
+            "existing cost data). Use --all to re-estimate everything."
+        )
     )
     parser.add_argument(
-        "--no-force",
+        "--all",
         dest="force",
-        action="store_false",
-        help="Only update models without existing cost data"
+        action="store_true",
+        default=False,
+        help="Re-estimate ALL models (default: only new/unknown models)"
     )
-    parser.set_defaults(force=True)
     parser.add_argument(
         "--dry-run", "-n",
         action="store_true",

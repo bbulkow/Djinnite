@@ -91,14 +91,19 @@ Fetch the latest models from Gemini, Claude, and OpenAI APIs:
 ```bash
 uv run python -m djinnite.scripts.update_models
 ```
+*   **NOTE:** this does NOT update model costs. Any new models found will NOT have their costs estimated.
 *   **What it does:** Discovers new models, identifies deprecated ones, and updates context window information.
 *   **Safety:** Preserves your existing manual cost overrides.
 
 ### Update Model Costs
-Perform AI-powered cost estimation for all models:
+Estimate cost scores for models in the catalog:
 ```bash
-uv run python -m djinnite.scripts.update_model_costs
+uv run python -m djinnite.scripts.update_model_costs           # Only new/unknown models
+uv run python -m djinnite.scripts.update_model_costs --all     # Re-estimate ALL models
+uv run python -m djinnite.scripts.update_model_costs --dry-run # Preview without saving
 ```
+*   **Default behavior:** Only estimates costs for **new models** that don't have cost data yet (e.g., after running `update_models` and discovering new models). Existing costs are preserved.
+*   **`--all` flag:** Re-estimates all models from scratch (useful when pricing changes).
 *   **Anchor:** All costs are relative to **Gemini 2.5 Flash** (cost_score = 1.0).
 *   **AI-Powered:** Uses an LLM to analyze pricing for other providers and assign a relative cost score.
 *   **Automatic:** Calculates exact scores for Gemini models based on known pricing.

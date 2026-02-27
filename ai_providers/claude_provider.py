@@ -209,8 +209,13 @@ class ClaudeProvider(BaseAIProvider):
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
             
-            # Generate response
-            response = self._client.messages.create(**kwargs)
+            # Generate response.
+            # Always use streaming — Claude requires it for large max_tokens
+            # values (>~64K) and for long-running thinking requests.
+            # stream.get_final_message() returns the same response object as
+            # messages.create(), so all downstream parsing works unchanged.
+            with self._client.messages.stream(**kwargs) as stream:
+                response = stream.get_final_message()
             
             # Extract content
             content = ""
@@ -535,7 +540,9 @@ class ClaudeProvider(BaseAIProvider):
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
             
-            response = self._client.messages.create(**kwargs)
+            # Always use streaming — same reason as generate().
+            with self._client.messages.stream(**kwargs) as stream:
+                response = stream.get_final_message()
             
             # Extract content
             content = ""

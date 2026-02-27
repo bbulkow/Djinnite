@@ -110,8 +110,15 @@ class OpenAIProvider(BaseAIProvider):
         Returns:
             A dict for the ``reasoning`` kwarg, or ``None``.
         """
-        if thinking is None or thinking is False:
-            return None
+        if thinking is None:
+            return None  # No opinion — let model use its default
+
+        if thinking is False:
+            # Explicitly disable reasoning. GPT-5.x hybrid models support
+            # "none"; older reasoning-only models (o1/o3) will reject this
+            # with an API error — which is correct (can't disable on those).
+            return {"effort": "none"}
+
         if thinking is True:
             effort = "high"
         elif isinstance(thinking, str):

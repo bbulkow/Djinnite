@@ -138,8 +138,13 @@ class GeminiProvider(BaseAIProvider):
         Returns:
             A dict for ``thinking_config``, or ``None`` if not requested.
         """
-        if thinking is None or thinking is False:
-            return None
+        if thinking is None:
+            return None  # No opinion — let model use its default
+
+        if thinking is False:
+            # Explicitly disable thinking. Gemini requires thinking_budget=0
+            # to suppress thinking on models that default to thinking ON.
+            return {"thinking_budget": 0}
 
         if thinking is True:
             budget = self._get_max_thinking_budget(max_tokens)

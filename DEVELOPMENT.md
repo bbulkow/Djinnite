@@ -91,19 +91,28 @@ thinking: Union[bool, int, str, None] = None
 
 | Value | Description |
 |---|---|
-| `True` (**recommended**) | Enable thinking at maximum budget |
-| `False` | Explicitly disable thinking |
-| `None` (default) | No thinking requested — standard generation |
-| `int` (e.g. `8192`) | Specific token budget for reasoning |
-| `str` (`"low"`, `"medium"`, `"high"`) | Effort level hint |
+| `None` (default) | **No opinion** — let the model use its default behavior. Some models default to thinking ON (e.g., Gemini 3 Flash), others default to OFF. |
+| `False` | **Explicitly disable thinking.** Sends a provider-specific "no thinking" signal. Errors on reasoning-only models that cannot disable thinking. |
+| `True` (**recommended**) | **Enable thinking at maximum budget.** |
+| `int` (e.g. `8192`) | Specific token budget for reasoning. |
+| `str` (`"low"`, `"medium"`, `"high"`) | Effort level hint. |
+
+**`None` vs `False`:** These are semantically different. `None` = "I don't care, do whatever
+the model normally does." `False` = "I explicitly do NOT want thinking." If you need
+predictable behavior, always pass `True` or `False` — never rely on `None` for production code.
+
+**Error behavior:** If the caller requests a thinking mode that the model does not
+support (e.g., `thinking=True` on a model with `capabilities.thinking=False`, or
+`thinking=False` on a reasoning-only model like o3), Djinnite raises `AIProviderError`
+rather than silently switching behavior.
 
 Djinnite translates this into the provider-native format automatically:
 
-| Provider | Native Mechanism | Style Values |
-|---|---|---|
-| Claude | `thinking={"type": "adaptive"\|"enabled", "budget_tokens": N}` | `"adaptive"`, `"budget"` |
-| OpenAI | `reasoning_effort="low"\|"medium"\|"high"` | `"effort"` |
-| Gemini | `thinking_config={"thinking_budget": N}` | `"budget"` |
+| Provider | `False` → Explicit Disable | `True`/`int`/`str` → Enable | `None` → |
+|---|---|---|---|
+| **Gemini** | `thinking_config={"thinking_budget": 0}` | `thinking_config={"thinking_budget": N}` | Omit (model default) |
+| **OpenAI** | `reasoning={"effort": "none"}` *(GPT-5.x hybrid models; errors on reasoning-only o1/o3)* | `reasoning={"effort": "low"\|"medium"\|"high"}` | Omit (model default) |
+| **Claude** | Omit `thinking` block *(Anthropic design: thinking is opt-in; omitting = disabled)* | `thinking={"type": "adaptive"\|"enabled", "budget_tokens": N}` | Omit (model default = off) |
 
 **Temperature conflicts** are handled automatically:
 - Claude forces `temperature=1` when thinking is active (SDK requirement).

@@ -158,9 +158,19 @@ class OpenAIProvider(BaseAIProvider):
         """Extract token usage from a Responses API response."""
         usage = {}
         if hasattr(response, "usage") and response.usage:
+            input_t = getattr(response.usage, "input_tokens", 0) or 0
+            output_t = getattr(response.usage, "output_tokens", 0) or 0
+            total_t = getattr(response.usage, "total_tokens", None)
+            # Reasoning/thinking tokens — nested in output_tokens_details
+            thinking_t = None
+            details = getattr(response.usage, "output_tokens_details", None)
+            if details:
+                thinking_t = getattr(details, "reasoning_tokens", None)
             usage = {
-                "input_tokens": getattr(response.usage, "input_tokens", 0),
-                "output_tokens": getattr(response.usage, "output_tokens", 0),
+                "input_tokens": input_t,
+                "output_tokens": output_t,
+                "total_tokens": total_t if total_t is not None else input_t + output_t,
+                "thinking_tokens": thinking_t,  # None if not reported
             }
         return usage
 

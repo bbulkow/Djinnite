@@ -52,8 +52,30 @@ class AIResponse:
         return self.usage.get("output_tokens", 0)
     
     @property
+    def thinking_tokens(self) -> Optional[int]:
+        """
+        Number of tokens used for internal reasoning/thinking.
+
+        Returns ``None`` if the provider did not report thinking tokens
+        (unknown — distinct from 0 which means "confirmed no thinking").
+        When ``None``, ``total_tokens`` is computed from input + output
+        only and may be an undercount.
+        """
+        return self.usage.get("thinking_tokens")
+    
+    @property
     def total_tokens(self) -> int:
-        """Total tokens used (input + output)."""
+        """
+        Total tokens used.
+
+        If ``thinking_tokens`` is available, includes it.  If ``None``
+        (unknown), computed as ``input_tokens + output_tokens`` only.
+        Check ``thinking_tokens is None`` to know if the total is
+        potentially incomplete.
+        """
+        total = self.usage.get("total_tokens")
+        if total is not None:
+            return total
         return self.input_tokens + self.output_tokens
 
 

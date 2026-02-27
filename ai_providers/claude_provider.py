@@ -229,9 +229,16 @@ class ClaudeProvider(BaseAIProvider):
             # Extract usage info
             usage = {}
             if response.usage:
+                input_t = getattr(response.usage, 'input_tokens', 0) or 0
+                output_t = getattr(response.usage, 'output_tokens', 0) or 0
+                # Claude SDK may expose thinking_tokens in newer versions;
+                # None if not available (unknown, not zero).
+                thinking_t = getattr(response.usage, 'thinking_tokens', None)
                 usage = {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
+                    "input_tokens": input_t,
+                    "output_tokens": output_t,
+                    "total_tokens": input_t + output_t,
+                    "thinking_tokens": thinking_t,
                 }
             
             # Detect output truncation: Anthropic returns stop_reason="max_tokens"
@@ -359,9 +366,13 @@ class ClaudeProvider(BaseAIProvider):
                     output_parts.append({"type": "text", "text": text})
             
             usage_data = result.get('usage', {})
+            input_t = usage_data.get('input_tokens', 0)
+            output_t = usage_data.get('output_tokens', 0)
             usage = {
-                "input_tokens": usage_data.get('input_tokens', 0),
-                "output_tokens": usage_data.get('output_tokens', 0),
+                "input_tokens": input_t,
+                "output_tokens": output_t,
+                "total_tokens": input_t + output_t,
+                "thinking_tokens": usage_data.get('thinking_tokens'),  # None if not present
             }
             
             # Detect output truncation in raw HTTP response
@@ -556,9 +567,14 @@ class ClaudeProvider(BaseAIProvider):
             # Extract usage info
             usage = {}
             if response.usage:
+                input_t = getattr(response.usage, 'input_tokens', 0) or 0
+                output_t = getattr(response.usage, 'output_tokens', 0) or 0
+                thinking_t = getattr(response.usage, 'thinking_tokens', None)
                 usage = {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
+                    "input_tokens": input_t,
+                    "output_tokens": output_t,
+                    "total_tokens": input_t + output_t,
+                    "thinking_tokens": thinking_t,
                 }
             
             # Detect output truncation

@@ -164,12 +164,24 @@ class AIResponse:
     content: str                          # Generated text
     model: str                            # Model ID
     provider: str                         # Provider name
-    usage: dict[str, int]                 # {"input_tokens": N, "output_tokens": N}
+    usage: dict[str, int | None]          # Token usage (see below)
     parts: list[dict]                     # Multimodal output parts
     raw_response: Any                     # Original SDK response
     truncated: bool = False               # True if output was cut short
     finish_reason: Optional[str] = None   # Provider-native stop reason
 ```
+
+**Token usage** (`response.usage` dict and convenience properties):
+
+| Key / Property | Type | Description |
+|---|---|---|
+| `input_tokens` | `int` | Input/prompt tokens |
+| `output_tokens` | `int` | Output/completion tokens |
+| `total_tokens` | `int` | Total tokens (from provider or computed) |
+| `thinking_tokens` | `int \| None` | Reasoning/thinking tokens. **`None` = unknown** (distinct from 0 = no thinking) |
+
+Check `response.thinking_tokens is None` to know if `total_tokens` may be
+incomplete (i.e., the provider didn't report thinking tokens separately).
 
 The `truncated` and `finish_reason` fields are **always populated** — even when
 `AIOutputTruncatedError` is raised, the partial `AIResponse` on the exception

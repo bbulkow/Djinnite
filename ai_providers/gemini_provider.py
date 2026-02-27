@@ -208,9 +208,15 @@ class GeminiProvider(BaseAIProvider):
             usage = {}
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
                 metadata = response.usage_metadata
+                input_t = getattr(metadata, 'prompt_token_count', 0) or 0
+                output_t = getattr(metadata, 'candidates_token_count', 0) or 0
+                total_t = getattr(metadata, 'total_token_count', None)
+                thinking_t = getattr(metadata, 'thoughts_token_count', None)
                 usage = {
-                    "input_tokens": getattr(metadata, 'prompt_token_count', 0),
-                    "output_tokens": getattr(metadata, 'candidates_token_count', 0),
+                    "input_tokens": input_t,
+                    "output_tokens": output_t,
+                    "total_tokens": total_t if total_t is not None else input_t + output_t,
+                    "thinking_tokens": thinking_t,  # None if not reported
                 }
             
             # Extract parts, text, and finish reason from the candidate
@@ -433,9 +439,15 @@ class GeminiProvider(BaseAIProvider):
             usage = {}
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
                 metadata = response.usage_metadata
+                input_t = getattr(metadata, 'prompt_token_count', 0) or 0
+                output_t = getattr(metadata, 'candidates_token_count', 0) or 0
+                total_t = getattr(metadata, 'total_token_count', None)
+                thinking_t = getattr(metadata, 'thoughts_token_count', None)
                 usage = {
-                    "input_tokens": getattr(metadata, 'prompt_token_count', 0),
-                    "output_tokens": getattr(metadata, 'candidates_token_count', 0),
+                    "input_tokens": input_t,
+                    "output_tokens": output_t,
+                    "total_tokens": total_t if total_t is not None else input_t + output_t,
+                    "thinking_tokens": thinking_t,
                 }
             
             # Detect output truncation — same check as generate()

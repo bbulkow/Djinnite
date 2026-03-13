@@ -68,12 +68,12 @@ uv run python -m djinnite.scripts.validate_ai
 ```
 
 **If integrated into another project (as a submodule or package):**
-Ensure you have installed the package (e.g., `pip install -e djinnite/`), then run:
+Ensure you have installed the package (e.g., `uv pip install -e djinnite/`), then run:
 ```bash
-python -m djinnite.scripts.validate_ai
+uv run python -m djinnite.scripts.validate_ai
 ```
 
-> **Note for developers:** If you plan to run the test suite (`uv run python -m pytest tests/`),
+> **Note for developers:** If you plan to run the test suite (`uv run pytest tests/`),
 > you must install with `uv sync --extra dev`. Without it, pytest won't be available.
 > See `DEVELOPMENT.md` for the full developer setup guide.
 
@@ -310,13 +310,13 @@ If you are hosting your configuration outside the `djinnite/` directory (which i
 
 ```bash
 # Validate your project's specific config file and connectivity
-python -m djinnite.scripts.validate_ai --config ../config/ai_config.json
+uv run python -m djinnite.scripts.validate_ai --config ../config/ai_config.json
 
 # Update your project's model catalog
-python -m djinnite.scripts.update_models --config ../config/ai_config.json --catalog ../config/model_catalog.json
+uv run python -m djinnite.scripts.update_models --config ../config/ai_config.json --catalog ../config/model_catalog.json
 
 # Estimate costs for your project's models
-python -m djinnite.scripts.update_model_costs --config ../config/ai_config.json --catalog ../config/model_catalog.json
+uv run python -m djinnite.scripts.update_model_costs --config ../config/ai_config.json --catalog ../config/model_catalog.json
 ```
 
 ### Key Principles for Integration

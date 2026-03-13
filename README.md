@@ -205,12 +205,12 @@ To use Djinnite, it is recommended to install it in editable mode so that the `d
 ```bash
 # As a git submodule (recommended for sharing across projects)
 git submodule add https://github.com/bbulkow/Djinnite.git djinnite
-pip install -e djinnite/
+uv pip install -e djinnite/
 
 # Or as a standalone package
 git clone https://github.com/bbulkow/Djinnite.git
 cd Djinnite
-pip install -e .
+uv sync
 ```
 
 ### Basic Usage

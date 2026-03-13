@@ -19,7 +19,7 @@ uv sync --extra dev
 ```
 
 Without `--extra dev`, only the runtime dependencies are installed. Running
-tests (`uv run python -m pytest`) will fail with "No module named pytest".
+tests (`uv run pytest`) will fail with "No module named pytest".
 
 The `--extra dev` flag installs everything declared in `[project.optional-dependencies] dev`
 in `pyproject.toml`. You only need to run this once (or after `uv lock --upgrade`).
@@ -28,7 +28,7 @@ in `pyproject.toml`. You only need to run this once (or after `uv lock --upgrade
 # Quick reference — full setup from scratch:
 uv sync --extra dev                              # Install all deps + dev tools
 uv run python -m djinnite.scripts.validate_ai    # Verify API keys & connectivity
-uv run python -m pytest tests/ -v                # Run unit tests
+uv run pytest tests/ -v                           # Run unit tests
 ```
 
 ## ⚠️ This is a Shared Package — Breaking Changes Affect Multiple Projects

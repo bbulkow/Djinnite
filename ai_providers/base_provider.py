@@ -731,6 +731,17 @@ class BaseAIProvider(ABC):
                 )
             # True or None → allow
 
+        elif capability == "json_with_search":
+            jws = self._model_info.capabilities.json_with_search
+            if jws is False:
+                raise AIProviderError(
+                    f"Model '{self.model}' does not support combining structured "
+                    f"JSON output with web search (json_with_search=false in catalog). "
+                    f"Use a model that supports this combination (e.g. Gemini 3.x), "
+                    f"or pass force=True to bypass.",
+                    provider=self.PROVIDER_NAME,
+                )
+
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],
@@ -890,12 +901,28 @@ class BaseAIProvider(ABC):
         """
         return None  # Base: unknown
 
+    def probe_json_with_search(self) -> Optional[bool]:
+        """
+        Probe whether the current model supports **both** structured JSON
+        output (Constraint Decoding) and web search/grounding combined in
+        a single request.
+
+        Some providers/models support each feature individually but reject
+        the combination (e.g. Gemini 2.x).  This probe tests the combo.
+
+        Returns:
+            True  – both features work together in one request
+            False – the combination is rejected by the provider
+            None  – inconclusive (rate limit, auth error, etc.)
+        """
+        return None  # Base: unknown — subclasses override
+
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """
         Discover input/output modalities for a model based on its ID.
-        
+
         Default implementation assumes text-only.
-        
+
         Returns:
             Dict with 'input' and 'output' keys.
         """

@@ -372,6 +372,8 @@ class GeminiProvider(BaseAIProvider):
             )
         if not force:
             self._check_capability("structured_json")
+            if web_search:
+                self._check_capability("json_with_search")
         json_schema = self._normalize_schema(schema)
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
@@ -628,6 +630,40 @@ class GeminiProvider(BaseAIProvider):
             if "rate" in err or "quota" in err or "429" in err:
                 return None
             return None
+
+    def probe_json_with_search(self) -> Optional[bool]:
+        """Probe whether this Gemini model supports structured JSON + Google Search combined.
+
+        Gemini 2.x rejects this combination (400 INVALID_ARGUMENT:
+        "controlled generation is not supported with Search tool").
+        Gemini 3.x supports it natively.
+        """
+        from google.genai import types
+
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+        }
+        try:
+            self._client.models.generate_content(
+                model=self.model,
+                contents="Return the number 1.",
+                config={
+                    "temperature": 0,
+                    "max_output_tokens": 50,
+                    "response_mime_type": "application/json",
+                    "response_schema": _PROBE_SCHEMA,
+                    "tools": [types.Tool(google_search=types.GoogleSearch())],
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            # Any 400/invalid/not-supported error → confirmed incompatible
+            return False
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for Gemini models."""

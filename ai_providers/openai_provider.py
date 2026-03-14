@@ -356,6 +356,7 @@ class OpenAIProvider(BaseAIProvider):
             }
             self._openai_array_wrapped = True
 
+        self._ensure_required_arrays(schema)
         self._add_additional_properties_false(schema)
         return schema
 

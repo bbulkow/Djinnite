@@ -444,6 +444,7 @@ class ClaudeProvider(BaseAIProvider):
         """
         import copy
         schema = copy.deepcopy(schema)
+        self._ensure_required_arrays(schema)
         self._add_additional_properties_false(schema)
         return schema
 

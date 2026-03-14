@@ -410,6 +410,39 @@ class BaseAIProvider(ABC):
             BaseAIProvider._add_additional_properties_false(def_schema)
 
     @staticmethod
+    def _ensure_required_arrays(schema: Dict) -> None:
+        """
+        Recursively ensure every object node with ``properties`` has a
+        ``required`` array listing ALL property keys.  Mutates *schema*
+        in-place.
+
+        OpenAI strict mode requires ``required`` to include every key in
+        ``properties``.  Claude's grammar compiler has a limit on optional
+        parameters (those NOT in ``required``) — adding all properties to
+        ``required`` avoids hitting that limit.
+        """
+        if not isinstance(schema, dict):
+            return
+        # If this node has properties, ensure required lists all of them
+        props = schema.get("properties")
+        if props:
+            schema["required"] = list(props.keys())
+        # Recurse into properties
+        for prop_schema in (props or {}).values():
+            BaseAIProvider._ensure_required_arrays(prop_schema)
+        # Recurse into array items
+        items = schema.get("items")
+        if isinstance(items, dict):
+            BaseAIProvider._ensure_required_arrays(items)
+        # Recurse into combinators
+        for combinator in ("anyOf", "oneOf", "allOf"):
+            for branch in (schema.get(combinator) or []):
+                BaseAIProvider._ensure_required_arrays(branch)
+        # Recurse into $defs
+        for def_schema in (schema.get("$defs") or {}).values():
+            BaseAIProvider._ensure_required_arrays(def_schema)
+
+    @staticmethod
     def _strip_additional_properties(schema: Dict) -> Dict:
         """
         Return a deep copy of *schema* with every ``additionalProperties``

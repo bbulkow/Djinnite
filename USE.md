@@ -170,6 +170,28 @@ max_out = model_info.max_output_tokens if model_info else None
 response = provider.generate("Hello!", max_tokens=max_out)
 ```
 
+### JSON Schema Normalization
+
+When using `generate_json()`, keep your schemas simple — **do not** include `required` arrays or `additionalProperties` fields. Djinnite automatically adds these per-provider in `_prepare_schema_for_provider`:
+
+- **OpenAI** strict mode requires every `object` to have a `required` array listing all properties and `"additionalProperties": false`.
+- **Claude** has a 24-optional-parameter limit and also needs `"additionalProperties": false`.
+- **Gemini** rejects `additionalProperties` entirely.
+
+Djinnite handles all of this for you. Just define `type`, `properties`, and `description`:
+
+```python
+schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "description": "The item name"},
+        "count": {"type": "integer", "description": "How many"},
+    },
+}
+
+response = provider.generate_json(prompt, schema=schema)
+```
+
 ### Output Token Limits
 
 Every model has a maximum number of output tokens it can generate. This is stored in

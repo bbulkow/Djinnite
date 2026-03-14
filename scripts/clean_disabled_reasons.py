@@ -65,7 +65,7 @@ def clean_disabled_reasons():
     with open(CATALOG_PATH, 'w', encoding='utf-8') as f:
         json.dump(catalog, f, indent=2)
     
-    print(f"\n✅ Updated {updated} disabled_reason values")
+    print(f"\n[OK] Updated {updated} disabled_reason values")
 
 if __name__ == "__main__":
     clean_disabled_reasons()

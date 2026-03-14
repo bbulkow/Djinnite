@@ -154,7 +154,7 @@ def estimate_modalities_with_ai(
         
         return json.loads(content)
     except Exception as e:
-        print(f"  ⚠️ Modality estimation failed: {e}")
+        print(f"  [WARN] Modality estimation failed: {e}")
         return {}
 
 def estimate_output_limits_with_ai(
@@ -194,7 +194,7 @@ def estimate_output_limits_with_ai(
                 cleaned[model_id] = int(limit)
         return cleaned
     except Exception as e:
-        print(f"  ⚠️ Output limit estimation failed: {e}")
+        print(f"  [WARN] Output limit estimation failed: {e}")
         return {}
 
 
@@ -203,7 +203,7 @@ def _resolve_max_output_tokens(model_id: str, api_value: int, existing_value: in
     Resolve the max_output_tokens for a model using dynamic sources only:
     1. Provider API value (e.g. Gemini exposes output_token_limit)
     2. Existing catalog value (persisted from prior AI estimation runs)
-    3. 0 (unknown — will trigger AI estimation)
+    3. 0 (unknown -- will trigger AI estimation)
     """
     if api_value and api_value > 0:
         return api_value
@@ -219,7 +219,7 @@ def _resolve_structured_json_support(
     """
     Resolve supports_structured_json using dynamic sources only:
     1. Existing catalog value (persisted from prior probe runs)
-    2. None (unknown — will trigger live probe)
+    2. None (unknown -- will trigger live probe)
     """
     if existing_value is not None:
         return existing_value
@@ -239,7 +239,7 @@ def _probe_all_capabilities_for_models(
     a static mapping.  The thinking style (``"adaptive"``, ``"budget"``,
     ``"effort"``, etc.) is discovered dynamically per-model.
     
-    Returns a dict of model_id → {structured_json, temperature, thinking, web_search, thinking_style}.
+    Returns a dict of model_id -> {structured_json, temperature, thinking, web_search, thinking_style}.
     """
     results: dict[str, dict] = {}
     for m in models_to_probe:
@@ -254,7 +254,7 @@ def _probe_all_capabilities_for_models(
             # Returns "adaptive", "budget", "effort", None, or "_inconclusive".
             ts_raw = instance.probe_thinking_style()
             if ts_raw == "_inconclusive":
-                think = None  # Inconclusive → None (unknown)
+                think = None  # Inconclusive -> None (unknown)
                 ts = None
             elif ts_raw is None:
                 think = False
@@ -263,7 +263,7 @@ def _probe_all_capabilities_for_models(
                 think = True
                 ts = ts_raw
 
-            # web_search is a Djinnite-level capability — True for all text models
+            # web_search is a Djinnite-level capability -- True for all text models
             ws = True
             
             results[model_id] = {
@@ -275,9 +275,9 @@ def _probe_all_capabilities_for_models(
             }
             
             parts = []
-            parts.append(f"json={'✅' if ssj else '❌' if ssj is False else '❓'}")
-            parts.append(f"temp={'✅' if temp else '❌' if temp is False else '❓'}")
-            think_label = f"{'✅' if think else '❌' if think is False else '❓'}"
+            parts.append(f"json={'[OK]' if ssj else '[FAIL]' if ssj is False else '[?]'}")
+            parts.append(f"temp={'[OK]' if temp else '[FAIL]' if temp is False else '[?]'}")
+            think_label = f"{'[OK]' if think else '[FAIL]' if think is False else '[?]'}"
             if ts:
                 think_label += f"({ts})"
             parts.append(f"think={think_label}")
@@ -288,7 +288,7 @@ def _probe_all_capabilities_for_models(
                 "structured_json": None, "temperature": None,
                 "thinking": None, "web_search": True, "thinking_style": None,
             }
-            print(f"    ⚠️ {model_id}: probe skipped ({e})")
+            print(f"    [WARN] {model_id}: probe skipped ({e})")
     return results
 
 
@@ -349,7 +349,7 @@ def merge_model_data(
                 model["costing"] = existing["costing"]
             else:
                 model["costing"] = {
-                    "score": existing.get("cost_score", 1.0),
+                    "score": existing.get("cost_score"),
                     "source": existing.get("cost_source", "default"),
                     "updated": existing.get("cost_updated", ""),
                     "tier": existing.get("cost_tier", "standard")
@@ -415,7 +415,7 @@ def merge_model_data(
     
     # 2. AI Estimation Fallback for uncertain new models (modalities)
     if uncertain_models and ai_config.get_provider(ai_config.default_provider):
-        print(f"  🤖 Requesting AI estimation for {len(uncertain_models)} uncertain models...")
+        print(f"  [AI] Requesting AI estimation for {len(uncertain_models)} uncertain models...")
         estimates = estimate_modalities_with_ai(uncertain_models, provider_instance.PROVIDER_NAME, ai_config)
         for model in uncertain_models:
             if model["id"] in estimates:
@@ -423,7 +423,7 @@ def merge_model_data(
     
     # 3. AI Estimation Fallback for unknown output limits
     if unknown_output_limit_models and ai_config.get_provider(ai_config.default_provider):
-        print(f"  🤖 Estimating output limits for {len(unknown_output_limit_models)} models with AI...")
+        print(f"  [AI] Estimating output limits for {len(unknown_output_limit_models)} models with AI...")
         limit_estimates = estimate_output_limits_with_ai(
             unknown_output_limit_models, provider_instance.PROVIDER_NAME, ai_config
         )
@@ -433,7 +433,7 @@ def merge_model_data(
     
     # 4. Live probe ALL capabilities on models that need it
     if models_needing_ssj_probe:
-        print(f"  🔍 Probing {len(models_needing_ssj_probe)} models for all capabilities...")
+        print(f"  [CHECK] Probing {len(models_needing_ssj_probe)} models for all capabilities...")
         probe_results = _probe_all_capabilities_for_models(
             models_needing_ssj_probe, provider_cls,
             provider_instance.PROVIDER_NAME, api_key,
@@ -478,7 +478,7 @@ def update_models():
         print(f"\nUpdating {name} models...")
         p_config = ai_config.get_provider(name)
         if not p_config or not p_config.api_key:
-            print(f"  ⚠️ Provider {name} not configured, skipping.")
+            print(f"  [WARN] Provider {name} not configured, skipping.")
             continue
             
         try:
@@ -495,13 +495,31 @@ def update_models():
                     "models": merged,
                     "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 }
-                print(f"✅ Processed {len(merged)} models")
+                print(f"[OK] Processed {len(merged)} models")
         except Exception as e:
-            print(f"❌ Failed: {e}")
+            print(f"[FAIL] Failed: {e}")
 
     with open(catalog_path, 'w', encoding='utf-8') as f:
         json.dump(catalog, f, indent=2)
-    print(f"\n💾 Saved to {catalog_path}")
+    print(f"\n[SAVE] Saved to {catalog_path}")
+
+    # Auto-estimate costs for new/unknown models
+    try:
+        try:
+            from djinnite.scripts.update_model_costs import update_model_costs
+        except ImportError:
+            from scripts.update_model_costs import update_model_costs
+
+        print("\n[TOOL] Estimating costs for new models...")
+        update_model_costs(
+            force=False,
+            dry_run=False,
+            catalog_path=catalog_path,
+            config_path=config_path,
+        )
+    except Exception as e:
+        print(f"[WARN] Cost estimation failed: {e}")
+        print("  Run 'python -m djinnite.scripts.update_model_costs' manually to retry.")
 
 if __name__ == "__main__":
     update_models()

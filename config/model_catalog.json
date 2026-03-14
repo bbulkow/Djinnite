@@ -20,7 +20,7 @@
         "costing": {
           "score": 1.0,
           "source": "anchor",
-          "updated": "2026-02-27",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "capabilities": {
@@ -552,9 +552,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 0.5,
+          "source": "algorithmic",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "capabilities": {
@@ -724,9 +724,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 0.1,
+          "source": "algorithmic",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "capabilities": {
@@ -1102,9 +1102,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 240.0,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 8192,
@@ -1187,9 +1187,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 46.67,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 128000,
@@ -1215,9 +1215,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 42.0,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 16384,
@@ -1245,9 +1245,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 46.67,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 128000,
@@ -1277,9 +1277,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 560.0,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 128000,
@@ -1309,9 +1309,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "",
-          "updated": "",
+          "score": 500.0,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 128000,
@@ -2124,9 +2124,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 32768,
@@ -2152,9 +2152,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 26.67,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 32768,
@@ -2180,9 +2180,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 32768,
@@ -2208,9 +2208,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 5.33,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 32768,
@@ -3289,9 +3289,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 42.0,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 16384,
@@ -3646,9 +3646,9 @@
           ]
         },
         "costing": {
-          "score": null,
-          "source": "failed",
-          "updated": "2026-02-27",
+          "score": 33.33,
+          "source": "estimated",
+          "updated": "2026-03-14",
           "tier": ""
         },
         "max_output_tokens": 16384,

@@ -37,7 +37,7 @@ from djinnite.ai_providers import get_provider
 
 
 # ======================================================================
-# Test schemas — portable (no additionalProperties)
+# Test schemas -- portable (no additionalProperties)
 # ======================================================================
 
 SIMPLE_OBJECT_SCHEMA = {
@@ -160,7 +160,7 @@ def validate_json():
             sys.exit(1)
         provider_names = [args.provider]
 
-    print(f"\nValidating generate_json() — Structured JSON Mode")
+    print(f"\nValidating generate_json() -- Structured JSON Mode")
     print("=" * 70)
 
     total_pass = 0
@@ -170,24 +170,24 @@ def validate_json():
     for provider_name in provider_names:
         # Check provider config
         if provider_name not in config.providers:
-            print(f"\n⚪ {provider_name}: Not configured (skipping)")
+            print(f"\n[ ] {provider_name}: Not configured (skipping)")
             total_skip += 1
             continue
 
         provider_config = config.providers[provider_name]
 
         if not provider_config.enabled:
-            print(f"\n⚪ {provider_name}: Disabled (skipping)")
+            print(f"\n[ ] {provider_name}: Disabled (skipping)")
             total_skip += 1
             continue
 
         if not provider_config.api_key or "your" in provider_config.api_key.lower():
-            print(f"\n⚪ {provider_name}: No API key (skipping)")
+            print(f"\n[ ] {provider_name}: No API key (skipping)")
             total_skip += 1
             continue
 
         model = provider_config.default_model
-        print(f"\n▶ {provider_name} ({model})")
+        print(f"\n> {provider_name} ({model})")
         print("-" * 50)
 
         # Initialize provider
@@ -212,7 +212,7 @@ def validate_json():
                 **provider_kwargs,
             )
         except Exception as e:
-            print(f"  ❌ Init failed: {e}")
+            print(f"  [FAIL] Init failed: {e}")
             total_fail += len(TEST_CASES)
             continue
 
@@ -225,7 +225,7 @@ def validate_json():
                 response = provider.generate_json(
                     prompt=prompt,
                     schema=schema,
-                    # Temperature default (0.3) — the provider will omit it
+                    # Temperature default (0.3) -- the provider will omit it
                     # automatically if the catalog says the model doesn't
                     # support temperature.
                     # Use 4096 to give reasoning models (GPT-5, o-series)
@@ -240,16 +240,16 @@ def validate_json():
                 # Structural validation
                 validator(data)
 
-                print(f"✅  ({response.output_tokens} tokens)")
+                print(f"[OK]  ({response.output_tokens} tokens)")
                 total_pass += 1
 
             except json.JSONDecodeError as e:
-                print(f"❌  Invalid JSON: {e}")
+                print(f"[FAIL]  Invalid JSON: {e}")
                 print(f"    Raw content: {response.content[:200]!r}")
                 total_fail += 1
 
             except AssertionError as e:
-                print(f"❌  Schema mismatch: {e}")
+                print(f"[FAIL]  Schema mismatch: {e}")
                 try:
                     print(f"    Parsed: {json.loads(response.content)}")
                 except Exception:
@@ -259,7 +259,7 @@ def validate_json():
             except Exception as e:
                 err_type = type(e).__name__
                 err_msg = str(e).replace("\n", " ")[:150]
-                print(f"❌  {err_type}: {err_msg}")
+                print(f"[FAIL]  {err_type}: {err_msg}")
                 total_fail += 1
 
     # Summary
@@ -268,16 +268,16 @@ def validate_json():
     print(f"Results: {total_pass}/{total} passed, {total_fail} failed, {total_skip} providers skipped")
 
     if total_fail > 0:
-        print("\n💡 If a provider failed, check:")
+        print("\n[TIP] If a provider failed, check:")
         print("   - API key is valid in config/ai_config.json")
         print("   - Model supports structured JSON (check model_catalog.json)")
         print("   - Network connectivity to the provider API")
         sys.exit(1)
     elif total_pass == 0:
-        print("\n⚠️  No providers were tested. Configure at least one provider in config/ai_config.json")
+        print("\n[WARN]  No providers were tested. Configure at least one provider in config/ai_config.json")
         sys.exit(1)
     else:
-        print("\n✅ All structured JSON tests passed!")
+        print("\n[OK] All structured JSON tests passed!")
 
 
 if __name__ == "__main__":

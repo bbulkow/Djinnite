@@ -47,13 +47,13 @@ def test_model(provider_instance, model_id, model_modalities, test_multimodal=Fa
         try:
             resp = provider_instance.generate("Say 'Djinnite OK'")
             if "OK" in resp.content.upper():
-                print("✅")
+                print("[OK]")
                 results.append(("text", True))
             else:
-                print(f"⚠️  Unexpected response: {resp.content[:20]}...")
+                print(f"[WARN]  Unexpected response: {resp.content[:20]}...")
                 results.append(("text", True))
         except Exception as e:
-            print(f"❌ {e}")
+            print(f"[FAIL] {e}")
             results.append(("text", False))
     else:
         print(f"    - Skipping TEXT (not supported input)")
@@ -69,10 +69,10 @@ def test_model(provider_instance, model_id, model_modalities, test_multimodal=Fa
                     {"type": "image", "image_data": img_data, "mime_type": "image/png"}
                 ]
                 resp = provider_instance.generate(prompt)
-                print(f"✅ ({resp.content[:20]}...)")
+                print(f"[OK] ({resp.content[:20]}...)")
                 results.append(("vision", True))
             except Exception as e:
-                print(f"❌ {e}")
+                print(f"[FAIL] {e}")
                 results.append(("vision", False))
         
         # Audio/Video tests can be added here
@@ -108,12 +108,12 @@ def validate_models():
         
         provider_cls = get_provider_class(p_name)
         if not provider_cls:
-            print(f"  ❌ Unknown provider class for {p_name}")
+            print(f"  [FAIL] Unknown provider class for {p_name}")
             continue
 
         models = catalog.list_models(p_name)
         if not models:
-            print(f"  ⚠️  No models found in catalog for {p_name}")
+            print(f"  [WARN]  No models found in catalog for {p_name}")
             continue
 
         for model in models:
@@ -131,7 +131,7 @@ def validate_models():
                 instance = provider_cls(api_key=p_config.api_key, model=model.id, **kwargs)
                 test_model(instance, model.id, model.modalities, args.multimodal)
             except Exception as e:
-                print(f"    ❌ Initialization failed: {e}")
+                print(f"    [FAIL] Initialization failed: {e}")
 
     print("\n" + "=" * 70)
     print("Validation Complete.")

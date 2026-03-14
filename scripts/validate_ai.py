@@ -46,17 +46,17 @@ def validate_ai():
         # Check raw config directly to distinguish between missing and disabled
         # (config.get_provider returns None for disabled providers)
         if name not in config.providers:
-            print(f"⚪ {name}: Not found in ai_config.json (skipping)")
+            print(f"[ ] {name}: Not found in ai_config.json (skipping)")
             continue
             
         provider_config = config.providers[name]
         
         if not provider_config.enabled:
-            print(f"⚪ {name}: Disabled in config (skipping)")
+            print(f"[ ] {name}: Disabled in config (skipping)")
             continue
             
         if not provider_config.api_key or "your" in provider_config.api_key.lower():
-            print(f"⚠️  {name}: API key is missing or default")
+            print(f"[WARN]  {name}: API key is missing or default")
             fail_count += 1
             continue
             
@@ -78,22 +78,22 @@ def validate_ai():
             
             # Connectivity check (is_available usually does a lightweight check)
             if not provider.is_available():
-                print(f"\r❌ {name}: Connection failed (API unreachable or key invalid)")
+                print(f"\r[FAIL] {name}: Connection failed (API unreachable or key invalid)")
                 fail_count += 1
                 continue
                 
             # Functional Generation Check (The "Unit Test" part)
             try:
                 # Try a small generation to prove auth works.
-                # Use max_tokens=50 instead of 1 — reasoning models (e.g.
+                # Use max_tokens=50 instead of 1 -- reasoning models (e.g.
                 # GPT-5) reject very low values.  Truncation is still OK,
                 # it proves the API accepted the request (HTTP 200).
                 response = provider.generate("Test", max_tokens=50)
-                print(f"\r✅ {name}: Success! (Authenticated & Generating)")
+                print(f"\r[OK] {name}: Success! (Authenticated & Generating)")
                 success_count += 1
             except AIOutputTruncatedError:
-                # Truncation at max_tokens=1 is expected — the API worked!
-                print(f"\r✅ {name}: Success! (Authenticated & Generating)")
+                # Truncation at max_tokens=1 is expected -- the API worked!
+                print(f"\r[OK] {name}: Success! (Authenticated & Generating)")
                 success_count += 1
             except Exception as e:
                 # Clean up error message
@@ -101,28 +101,28 @@ def validate_ai():
                 if hasattr(e, 'message'):
                     error_details += f" | Details: {e.message}"
                 
-                print(f"\r❌ {name}: Generation failed: {error_details}")
+                print(f"\r[FAIL] {name}: Generation failed: {error_details}")
                 
                 # DEBUG: Try to list available models to help user find a valid one
                 try:
                     if hasattr(provider, 'list_models'):
-                        print(f"   ℹ️  Debugging: Checking available models for {name}...")
+                        print(f"   [INFO]  Debugging: Checking available models for {name}...")
                         models = provider.list_models()
                         if models:
                             ids = [m['id'] for m in models]
-                            print(f"   ✅ Available models: {', '.join(ids[:5])}...")
+                            print(f"   [OK] Available models: {', '.join(ids[:5])}...")
                             if model and model not in ids:
-                                print(f"   ⚠️  Configured model '{model}' is NOT in this list.")
+                                print(f"   [WARN]  Configured model '{model}' is NOT in this list.")
                         else:
-                            print("   ⚠️  No models returned by API.")
+                            print("   [WARN]  No models returned by API.")
                 except Exception as list_err:
-                    print(f"   ⚠️  Could not list models: {list_err}")
+                    print(f"   [WARN]  Could not list models: {list_err}")
                 
                 fail_count += 1
                 
         except Exception as e:
             error_details = str(e).replace("\n", " ").strip()
-            print(f"\r❌ {name}: Initialization failed: {error_details}")
+            print(f"\r[FAIL] {name}: Initialization failed: {error_details}")
             fail_count += 1
 
     print("=" * 60)
@@ -130,7 +130,7 @@ def validate_ai():
     
     # If no success at all, or if there were failures, provide help
     if fail_count > 0 or success_count == 0:
-        print("\n💡 TROUBLESHOOTING TIP:")
+        print("\n[TIP] TROUBLESHOOTING TIP:")
         print("   1. Ensure you have copied the config template:")
         print("      (Windows) copy config\\ai_config.example.json config\\ai_config.json")
         print("      (Mac/Linux) cp config/ai_config.example.json config/ai_config.json")

@@ -88,7 +88,7 @@ class AIConfig:
 @dataclass
 class ModelCosting:
     """Cost-related information for an AI model."""
-    score: float = 1.0
+    score: Optional[float] = None
     source: str = "default"
     updated: str = ""
     tier: str = "standard"
@@ -286,7 +286,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
             # Support both old and new costing schema
             costing_data = model_data.get("costing", {})
             costing = ModelCosting(
-                score=costing_data.get("score", model_data.get("cost_score", 1.0)),
+                score=costing_data.get("score", model_data.get("cost_score")),
                 source=costing_data.get("source", model_data.get("cost_source", "default")),
                 updated=costing_data.get("updated", model_data.get("cost_updated", "")),
                 tier=costing_data.get("tier", model_data.get("cost_tier", "standard"))

@@ -262,7 +262,7 @@ def estimate_costs_with_ai(
                 success=False,
                 error=str(e)
             )
-            print(f"    ⚠️ Batch {i+1} failed: {e}")
+            print(f"    [WARN] Batch {i+1} failed: {e}")
             # Continue to next batch
     
     return all_estimates
@@ -283,7 +283,7 @@ def load_catalog(catalog_path: Optional[Path] = None) -> dict:
     """Load the model catalog from disk."""
     path = catalog_path or CONFIG_DIR / "model_catalog.json"
     if not path.exists():
-        print(f"❌ Model catalog not found at {path}. Run 'python -m djinnite.scripts.update_models' first.")
+        print(f"[FAIL] Model catalog not found at {path}. Run 'python -m djinnite.scripts.update_models' first.")
         sys.exit(1)
     
     with open(path, 'r', encoding='utf-8') as f:
@@ -313,8 +313,8 @@ def update_model_costs(
                data yet (new/unknown models).  If True (``--all``), re-estimate
                all models except manual overrides.
     """
-    print("🔧 Model Cost Updater")
-    print("━" * 40)
+    print("[TOOL] Model Cost Updater")
+    print("-" * 40)
     mode = "ALL models (--all)" if force else "NEW/unknown models only"
     print(f"Mode: {mode}")
     print(f"Anchor: {ANCHOR_MODEL_ID} = {ANCHOR_COST_SCORE}")
@@ -367,7 +367,7 @@ def update_model_costs(
         if not models:
             continue
         
-        print(f"📊 {provider_name.upper()} ({len(models)} models)")
+        print(f"{provider_name.upper()} ({len(models)} models)")
         
         provider_config = ai_config.get_provider(provider_name)
         provider_api_key = provider_config.api_key if provider_config else None
@@ -380,7 +380,7 @@ def update_model_costs(
             # Migrate old schema if needed
             if "costing" not in model:
                 model["costing"] = {
-                    "score": model.get("cost_score", 1.0),
+                    "score": model.get("cost_score"),
                     "source": model.get("cost_source", "default"),
                     "updated": model.get("cost_updated", ""),
                     "tier": model.get("cost_tier", "standard")
@@ -398,14 +398,14 @@ def update_model_costs(
             # Skip disabled models
             if is_disabled:
                 reason = model.get("disabled_reason", "unknown")
-                print(f"  🚫 {model_id}: DISABLED ({reason})")
+                print(f"  [DISABLED] {model_id}: DISABLED ({reason})")
                 stats["unchanged"] += 1
                 continue
             
             # Skip manual overrides
             if is_manual:
                 val = f"{score:.2f}" if score is not None else "None"
-                print(f"  ⏭️ {model_id}: {val} (manual, preserved)")
+                print(f"  [SKIP] {model_id}: {val} (manual, preserved)")
                 stats["unchanged"] += 1
                 continue
             
@@ -414,7 +414,7 @@ def update_model_costs(
                 costing["score"] = ANCHOR_COST_SCORE
                 costing["source"] = "anchor"
                 costing["updated"] = today
-                print(f"  ⚓ {model_id}: {ANCHOR_COST_SCORE} (anchor)")
+                print(f"  [ANCHOR] {model_id}: {ANCHOR_COST_SCORE} (anchor)")
                 stats["updated" if has_cost else "new"] += 1
                 continue
             
@@ -429,7 +429,7 @@ def update_model_costs(
                     costing["score"] = heuristic_score
                     costing["source"] = "algorithmic"
                     costing["updated"] = today
-                    print(f"  🧮 {model_id}: {heuristic_score:.2f} (algorithmic)")
+                    print(f"  [CALC] {model_id}: {heuristic_score:.2f} (algorithmic)")
                     stats["updated" if has_cost else "new"] += 1
                     continue
 
@@ -442,11 +442,11 @@ def update_model_costs(
                 })
             else:
                 val = f"{score:.2f}" if score is not None else "None"
-                print(f"  ⏭️ {model_id}: {val} (skipped)")
+                print(f"  [SKIP] {model_id}: {val} (skipped)")
                 stats["unchanged"] += 1
         
         if models_needing_estimation and est_api_key:
-            print(f"  🤖 Estimating {len(models_needing_estimation)} models with AI...")
+            print(f"  [AI] Estimating {len(models_needing_estimation)} models with AI...")
             gemini_config = ai_config.get_provider("gemini")
             gemini_api_key = gemini_config.api_key if gemini_config else None
             
@@ -469,45 +469,45 @@ def update_model_costs(
                     costing["score"] = round(estimates[model_id], 2)
                     costing["source"] = "estimated"
                     costing["updated"] = today
-                    print(f"  ✓ {model_id}: {estimates[model_id]:.2f} (estimated)")
+                    print(f"  [OK] {model_id}: {estimates[model_id]:.2f} (estimated)")
                     stats["estimated"] += 1
                     stats["updated" if has_prev_cost else "new"] += 1
                 else:
-                    # Failed estimation → score stays None so the model
+                    # Failed estimation -> score stays None so the model
                     # is clearly uncosted and won't be mistaken for a
                     # cheap model.
                     costing["score"] = None
                     costing["source"] = "failed"
                     costing["updated"] = today
-                    print(f"  ❌ {model_id}: None (FAILED - needs re-estimation or manual review)")
+                    print(f"  [FAIL] {model_id}: None (FAILED - needs re-estimation or manual review)")
                     stats["failed"] += 1
         
         elif models_needing_estimation:
-            print(f"  ❌ No AI estimator available - marking as FAILED...")
+            print(f"  [FAIL] No AI estimator available - marking as FAILED...")
             for m in models_needing_estimation:
                 model_ref = m["_model_ref"]
                 costing = model_ref["costing"]
                 costing["score"] = None
                 costing["source"] = "failed"
                 costing["updated"] = today
-                print(f"  ❌ {m['id']}: None (FAILED - no estimator available)")
+                print(f"  [FAIL] {m['id']}: None (FAILED - no estimator available)")
                 stats["failed"] += 1
         
         print()
     
-    print("━" * 40)
+    print("-" * 40)
     if dry_run:
-        print("🔍 DRY RUN - No changes saved")
+        print("[CHECK] DRY RUN - No changes saved")
     else:
         save_catalog(catalog, catalog_path)
-        print(f"💾 Saved to {catalog_path or CONFIG_DIR / 'model_catalog.json'}")
+        print(f"[SAVE] Saved to {catalog_path or CONFIG_DIR / 'model_catalog.json'}")
     
     print(f"   Updated: {stats['updated']} models")
     print(f"   New: {stats['new']} models")
     print(f"   Estimated by AI: {stats['estimated']} models")
     print(f"   Unchanged: {stats['unchanged']} models")
     if stats["failed"] > 0:
-        print(f"   ❌ FAILED: {stats['failed']} models (need manual review)")
+        print(f"   [FAIL] FAILED: {stats['failed']} models (need manual review)")
 
 
 # ============================================================================

@@ -265,15 +265,19 @@ def _probe_all_capabilities_for_models(
 
             # web_search is a Djinnite-level capability — True for all text models
             ws = True
-            
+
+            # Probe JSON + search combination (model-specific limitation)
+            jws = instance.probe_json_with_search()
+
             results[model_id] = {
                 "structured_json": ssj,
                 "temperature": temp,
                 "thinking": think,
                 "web_search": ws,
+                "json_with_search": jws,
                 "thinking_style": ts,
             }
-            
+
             parts = []
             parts.append(f"json={'✅' if ssj else '❌' if ssj is False else '❓'}")
             parts.append(f"temp={'✅' if temp else '❌' if temp is False else '❓'}")
@@ -281,12 +285,14 @@ def _probe_all_capabilities_for_models(
             if ts:
                 think_label += f"({ts})"
             parts.append(f"think={think_label}")
+            parts.append(f"json+search={'✅' if jws else '❌' if jws is False else '❓'}")
             print(f"    {model_id}: {' '.join(parts)}")
             
         except Exception as e:
             results[model_id] = {
                 "structured_json": None, "temperature": None,
-                "thinking": None, "web_search": True, "thinking_style": None,
+                "thinking": None, "web_search": True,
+                "json_with_search": None, "thinking_style": None,
             }
             print(f"    ⚠️ {model_id}: probe skipped ({e})")
     return results
@@ -388,12 +394,14 @@ def merge_model_data(
             "temperature": existing_caps.get("temperature"),
             "thinking": existing_caps.get("thinking"),
             "web_search": existing_caps.get("web_search"),
+            "json_with_search": existing_caps.get("json_with_search"),
             "thinking_style": existing_caps.get("thinking_style"),
         }
         
         # Queue for probing if any capability is still unknown
         needs_probe = (ssj is None or model["capabilities"]["temperature"] is None
-                       or model["capabilities"]["thinking"] is None)
+                       or model["capabilities"]["thinking"] is None
+                       or model["capabilities"]["json_with_search"] is None)
         if needs_probe:
             input_mods = model.get("modalities", {})
             if isinstance(input_mods, dict):
@@ -443,7 +451,7 @@ def merge_model_data(
                 probed = probe_results[model["id"]]
                 # Merge probe results into capabilities (probe wins over None)
                 caps = model["capabilities"]
-                for key in ["structured_json", "temperature", "thinking", "web_search", "thinking_style"]:
+                for key in ["structured_json", "temperature", "thinking", "web_search", "json_with_search", "thinking_style"]:
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
     

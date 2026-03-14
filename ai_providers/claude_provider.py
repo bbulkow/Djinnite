@@ -786,6 +786,14 @@ class ClaudeProvider(BaseAIProvider):
                 return None
             return None
 
+    def probe_json_with_search(self) -> Optional[bool]:
+        """Claude handles JSON + web search via system-prompt fallback — always works."""
+        # Claude's generate_json(web_search=True) routes through
+        # _generate_with_web_search() with JSON guidance in the system
+        # prompt.  It doesn't use Constraint Decoding in this path, but
+        # the call succeeds and returns usable JSON.
+        return True
+
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for Claude models."""
         input_modalities = ["text"]

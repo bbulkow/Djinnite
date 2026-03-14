@@ -638,6 +638,37 @@ class OpenAIProvider(BaseAIProvider):
                 return None
             return False
 
+    def probe_json_with_search(self) -> Optional[bool]:
+        """Probe whether this OpenAI model supports structured JSON + web search combined."""
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+            "additionalProperties": False,
+        }
+        try:
+            self._client.responses.create(
+                model=self.model,
+                input="Return the number 1.",
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "probe",
+                        "strict": True,
+                        "schema": _PROBE_SCHEMA,
+                    }
+                },
+                tools=[{"type": "web_search_preview"}],
+                max_output_tokens=50,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, "status_code", None)
+            if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
+                return None
+            return False
+
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for OpenAI models."""
         input_modalities = ["text"]

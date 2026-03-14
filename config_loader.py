@@ -115,6 +115,8 @@ class ModelCapabilities:
         temperature: Whether the model accepts temperature parameter.
         thinking: Whether the model supports extended thinking/reasoning.
         web_search: Whether web search/grounding is available via Djinnite.
+        json_with_search: Whether structured JSON + web search can be combined
+                          in a single request (Gemini 2.x: False, 3.x: True).
         thinking_style: Provider-native thinking param style
                         ("budget" for Claude, "effort" for OpenAI, "mode" for Gemini).
     """
@@ -122,6 +124,7 @@ class ModelCapabilities:
     temperature: Optional[bool] = None
     thinking: Optional[bool] = None
     web_search: Optional[bool] = None
+    json_with_search: Optional[bool] = None
     thinking_style: Optional[str] = None
 
 
@@ -316,6 +319,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                     temperature=raw_caps.get("temperature"),
                     thinking=raw_caps.get("thinking"),
                     web_search=raw_caps.get("web_search"),
+                    json_with_search=raw_caps.get("json_with_search"),
                     thinking_style=raw_caps.get("thinking_style"),
                 )
             else:

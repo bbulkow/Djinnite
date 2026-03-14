@@ -91,9 +91,9 @@ Fetch the latest models from Gemini, Claude, and OpenAI APIs:
 ```bash
 uv run python -m djinnite.scripts.update_models
 ```
-*   **NOTE:** this does NOT update model costs. Any new models found will NOT have their costs estimated.
-*   **What it does:** Discovers new models, identifies deprecated ones, and updates context window information.
-*   **Safety:** Preserves your existing manual cost overrides.
+*   **What it does:** Discovers new models, identifies deprecated ones, updates context window information, and **automatically estimates costs for any new models** found.
+*   **Safety:** Preserves your existing manual cost overrides and existing cost scores. Only new/unknown models are estimated.
+*   **Cost estimation:** After saving the updated catalog, the script automatically runs `update_model_costs` in default mode (new models only). If cost estimation fails, a warning is printed and you can re-run it manually.
 
 ### Update Model Costs
 Estimate cost scores for models in the catalog:

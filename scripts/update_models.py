@@ -137,12 +137,14 @@ def estimate_modalities_with_ai(
     
     try:
         # Use the Djinnite-internal estimator model.
+        print(f"    Querying {est_provider}/{est_model} for {len(models)} models...")
         instance = get_provider(est_provider, est_api_key, est_model)
         resp = instance.generate(
             prompt=prompt,
             system_prompt="You must respond with valid JSON only. No additional text or explanation.",
             temperature=0.3,
         )
+        print(f"    Response received, parsing...")
         content = resp.content.strip()
         # Handle markdown blocks if present
         if content.startswith("```"):
@@ -151,8 +153,10 @@ def estimate_modalities_with_ai(
                 content = "\n".join(lines[1:-1])
             else:
                 content = "\n".join(lines[1:-1])
-        
-        return json.loads(content)
+
+        result = json.loads(content)
+        print(f"    Done. Got modalities for {len(result)} models")
+        return result
     except Exception as e:
         print(f"  [WARN] Modality estimation failed: {e}")
         return {}
@@ -173,6 +177,7 @@ def estimate_output_limits_with_ai(
     
     try:
         # Use the Djinnite-internal estimator model with web search.
+        print(f"    Querying {est_provider}/{est_model} (web search) for {len(models)} models...")
         instance = get_provider(est_provider, est_api_key, est_model)
         resp = instance.generate(
             prompt=prompt,
@@ -180,18 +185,20 @@ def estimate_output_limits_with_ai(
             temperature=0.3,
             web_search=True,  # Critical: ground with current docs
         )
+        print(f"    Response received, parsing...")
         content = resp.content.strip()
         # Handle markdown blocks if present
         if content.startswith("```"):
             lines = content.split("\n")
             content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-        
+
         estimates = json.loads(content)
         # Validate: only keep positive integers
         cleaned = {}
         for model_id, limit in estimates.items():
             if isinstance(limit, (int, float)) and limit > 0:
                 cleaned[model_id] = int(limit)
+        print(f"    Done. Got output limits for {len(cleaned)} models")
         return cleaned
     except Exception as e:
         print(f"  [WARN] Output limit estimation failed: {e}")

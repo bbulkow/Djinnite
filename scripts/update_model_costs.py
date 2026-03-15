@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Optional
 
 try:
-    from djinnite.config_loader import load_ai_config, CONFIG_DIR
+    from djinnite.config_loader import load_ai_config, CONFIG_DIR, _resolve_config_file
     from djinnite.ai_providers import get_provider
     from djinnite.llm_logger import LLMLogger
     from djinnite.prompts import COST_ESTIMATION_CONFIG
@@ -38,7 +38,7 @@ except ImportError:
     if _project_root not in sys.path:
         sys.path.insert(0, _project_root)
     
-    from config_loader import load_ai_config, CONFIG_DIR
+    from config_loader import load_ai_config, CONFIG_DIR, _resolve_config_file
     from ai_providers import get_provider
     from llm_logger import LLMLogger
     from prompts import COST_ESTIMATION_CONFIG
@@ -56,8 +56,8 @@ except ImportError:
 # ============================================================================
 
 def _load_anchor_config() -> dict:
-    """Load cost anchor from config/known_model_defaults.json."""
-    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+    """Load cost anchor from known_model_defaults.json."""
+    defaults_path = _resolve_config_file("known_model_defaults.json")
     if defaults_path.exists():
         with open(defaults_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -75,7 +75,7 @@ ANCHOR_OUTPUT_PRICE = _anchor_pricing.get("output_per_1m_tokens", 0.30)
 
 def _load_estimator_config() -> dict:
     """Load Djinnite-internal estimator config from known_model_defaults.json."""
-    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+    defaults_path = _resolve_config_file("known_model_defaults.json")
     if defaults_path.exists():
         with open(defaults_path, 'r', encoding='utf-8') as f:
             data = json.load(f)

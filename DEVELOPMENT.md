@@ -213,10 +213,27 @@ class ModelInfo:
     name: str                             # Human-readable display name
     context_window: int                   # Max input tokens (context window)
     max_output_tokens: int = 0            # Max output tokens (0 = unknown)
-    capabilities: list[str]               # Legacy field
+    capabilities: ModelCapabilities       # Tri-state capability flags
     modalities: Modalities                # Input/output modality capabilities
     costing: ModelCosting                 # Cost scoring information
+    vision_limits: Optional[VisionLimits] = None  # Image input constraints (None for non-vision models)
 ```
+
+**`vision_limits`** constrains image inputs for vision-capable models. Each field uses a three-value convention:
+- `None` = unknown (fail-open: no validation)
+- `float('inf')` = confirmed unlimited (stored as `"inf"` in JSON)
+- positive number = hard limit (enforced by pre-flight validation)
+
+```python
+@dataclass
+class VisionLimits:
+    max_image_bytes: Optional[float]       # Max bytes per image (e.g. 5242880 for 5 MB)
+    max_dimension_px: Optional[float]      # Max width or height in pixels (e.g. 8000)
+    max_images_per_request: Optional[float] # Max images in a single request
+    supported_formats: list[str]           # e.g. ["jpeg", "png", "gif", "webp"]
+```
+
+Images are validated in `_validate_vision_limits()` (called in every provider's `generate()` and `generate_json()`) before any API call is made. Oversized images raise `AIProviderError` immediately.
 
 **`max_output_tokens`** is the maximum number of tokens a model can generate in a
 single response. Callers **should** use this value when setting `max_tokens` on
@@ -290,7 +307,7 @@ If a truly un-discoverable override is needed (e.g. the cost anchor reference po
 - Changing the **return type** of any public function
 - Adding **required** parameters to existing functions
 - Changing the **behavior** of existing functions (even if signature is same)
-- Changing how `CONFIG_DIR` or `PROJECT_ROOT` are computed
+- Changing how `CONFIG_DIR`, `PACKAGE_CONFIG_DIR`, `PROJECT_CONFIG_DIR`, or `_resolve_config_file` are computed
 - Modifying `AIResponse` fields
 - Changing error class hierarchies
 
@@ -329,7 +346,9 @@ djinnite/
 ├── tests/
 │   └── probe_anthropic_beta.py    # Anthropic beta feature probe
 ├── config/
-│   └── ai_config.example.json     # Example configuration template
+│   ├── ai_config.example.json     # Example configuration template
+│   ├── model_catalog.json         # Package default model catalog (fallback for projects)
+│   └── known_model_defaults.json  # Package default model defaults (fallback for projects)
 ├── requirements.txt         # Direct dependencies
 ├── DEVELOPMENT.md           # This file
 └── README.md                # Package overview (TODO)
@@ -337,16 +356,20 @@ djinnite/
 
 ## Config Path Convention
 
-Djinnite expects config files in the **host project's** `config/` directory:
+Djinnite uses **local project config with package fallback**. Two config directories are defined:
 
-```
-<project_root>/config/ai_config.json
-<project_root>/config/model_catalog.json
-```
+- **`PACKAGE_CONFIG_DIR`** (`Path(__file__).parent / "config"`) -- Djinnite's own `config/` directory, ships with the distribution. Contains `model_catalog.json`, `known_model_defaults.json`, and `ai_config.example.json`.
+- **`PROJECT_CONFIG_DIR`** -- The host project's `config/` directory (discovered from CWD or parent-of-package). Contains `ai_config.json` (secrets) and optional overrides.
 
-Where `<project_root>` = `Path(__file__).parent.parent` (parent of the `djinnite/` directory).
+**Read resolution** (`_resolve_config_file(filename)`):
+1. If `PROJECT_CONFIG_DIR` exists and contains the file, use it.
+2. Otherwise, fall back to `PACKAGE_CONFIG_DIR`.
 
-This works both when djinnite is a subdirectory and when it's a git submodule.
+**Write behavior** (`CONFIG_DIR`):
+- `CONFIG_DIR = PROJECT_CONFIG_DIR or PACKAGE_CONFIG_DIR`
+- Scripts write to the project dir when it exists, otherwise to the package dir.
+
+This means consuming projects only need `ai_config.json` in their `config/` directory. The model catalog and known defaults are inherited from the package unless explicitly overridden.
 
 ## Adding a New Provider
 

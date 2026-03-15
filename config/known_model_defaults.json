@@ -13,5 +13,26 @@
     "_comment": "Model used by Djinnite maintenance scripts (cost estimation, modality estimation, output limit estimation). Separate from the user's default_model in ai_config.json. Should be a model with good web search integration for current pricing data.",
     "provider": "claude",
     "model": "claude-opus-4-6"
+  },
+  "vision_defaults": {
+    "_comment": "Provider-level image input limits. Applied as defaults for vision-capable models during catalog update. AI estimation may refine per-model.",
+    "claude": {
+      "max_image_bytes": 5242880,
+      "max_dimension_px": 8000,
+      "max_images_per_request": 100,
+      "supported_formats": ["jpeg", "png", "gif", "webp"]
+    },
+    "chatgpt": {
+      "max_image_bytes": "inf",
+      "max_dimension_px": "inf",
+      "max_images_per_request": "inf",
+      "supported_formats": ["jpeg", "png", "gif", "webp"]
+    },
+    "gemini": {
+      "max_image_bytes": "inf",
+      "max_dimension_px": "inf",
+      "max_images_per_request": "inf",
+      "supported_formats": ["jpeg", "png", "gif", "webp"]
+    }
   }
 }

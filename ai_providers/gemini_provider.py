@@ -176,6 +176,7 @@ class GeminiProvider(BaseAIProvider):
             from google.genai import types
 
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             gemini_parts = self._map_parts(parts)
 
             # Resolve temperature: strip if catalog says not supported
@@ -385,6 +386,7 @@ class GeminiProvider(BaseAIProvider):
             from google.genai import types
             
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             gemini_parts = self._map_parts(parts)
 
             # Resolve temperature: catalog-aware stripping

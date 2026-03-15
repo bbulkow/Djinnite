@@ -5,9 +5,70 @@ Abstract base class defining the interface for all AI providers.
 Each concrete provider wraps its native SDK directly.
 """
 
+import struct
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Any, Union, List, Dict, Type
+from typing import Optional, Any, Union, List, Dict, Tuple, Type
+
+
+def _get_image_dimensions(data: bytes) -> Optional[Tuple[int, int]]:
+    """
+    Extract (width, height) from image header bytes without PIL.
+
+    Supports JPEG, PNG, GIF, and WebP.  Returns None if the format
+    is unrecognized or the header is too short (fail-open).
+    """
+    if len(data) < 24:
+        return None
+
+    # PNG: 8-byte signature then IHDR chunk with width/height at bytes 16-24
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        w, h = struct.unpack('>II', data[16:24])
+        return (w, h)
+
+    # GIF: "GIF87a" or "GIF89a", width/height at bytes 6-10 (little-endian)
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        w, h = struct.unpack('<HH', data[6:10])
+        return (w, h)
+
+    # JPEG: scan for SOF markers (0xFF 0xC0..0xCF, excluding 0xC4 and 0xCC)
+    if data[:2] == b'\xff\xd8':
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                break
+            marker = data[i + 1]
+            # SOF markers: 0xC0-0xCF except 0xC4 (DHT) and 0xCC (DAC)
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xCC):
+                h, w = struct.unpack('>HH', data[i + 5:i + 9])
+                return (w, h)
+            # Skip to next marker using segment length
+            seg_len = struct.unpack('>H', data[i + 2:i + 4])[0]
+            i += 2 + seg_len
+        return None
+
+    # WebP: "RIFF....WEBP"
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        # VP8 lossy
+        if data[12:16] == b'VP8 ' and len(data) >= 30:
+            # Width/height at bytes 26-30 (little-endian, 14-bit values)
+            w = struct.unpack('<H', data[26:28])[0] & 0x3FFF
+            h = struct.unpack('<H', data[28:30])[0] & 0x3FFF
+            return (w, h)
+        # VP8L lossless
+        if data[12:16] == b'VP8L' and len(data) >= 25:
+            bits = struct.unpack('<I', data[21:25])[0]
+            w = (bits & 0x3FFF) + 1
+            h = ((bits >> 14) & 0x3FFF) + 1
+            return (w, h)
+        # VP8X extended
+        if data[12:16] == b'VP8X' and len(data) >= 30:
+            w = struct.unpack('<I', data[24:27] + b'\x00')[0] + 1
+            h = struct.unpack('<I', data[27:30] + b'\x00')[0] + 1
+            return (w, h)
+        return None
+
+    return None
 
 
 @dataclass
@@ -295,6 +356,67 @@ class BaseAIProvider(ABC):
                 requested_modalities=requested,
                 supported_modalities=supported_modalities
             )
+
+    def _validate_vision_limits(self, parts: List[Dict]) -> None:
+        """
+        Pre-flight: reject oversized images before making API calls.
+
+        Checks byte size, pixel dimensions, and image count against the
+        model's ``vision_limits`` from the catalog.  Fails open (skips
+        validation) when limits are unknown.
+        """
+        if not self._model_info or not self._model_info.vision_limits:
+            return
+
+        limits = self._model_info.vision_limits
+        image_parts = [p for p in parts if p["type"] == "image"]
+        if not image_parts:
+            return
+
+        # Check image count
+        if limits.max_images_per_request and len(image_parts) > limits.max_images_per_request:
+            raise AIProviderError(
+                f"Too many images: {len(image_parts)} exceeds limit of "
+                f"{limits.max_images_per_request} for model {self.model}",
+                provider=self.PROVIDER_NAME,
+            )
+
+        import base64
+
+        for i, part in enumerate(image_parts):
+            image_data = part.get("image_data")
+            if image_data is None:
+                continue  # URL-based image, can't pre-validate
+
+            # Get raw bytes for size/dimension checks
+            if isinstance(image_data, bytes):
+                raw = image_data
+            else:
+                raw = base64.b64decode(image_data)
+
+            # Check byte size
+            if limits.max_image_bytes and len(raw) > limits.max_image_bytes:
+                mb_limit = limits.max_image_bytes / (1024 * 1024)
+                mb_actual = len(raw) / (1024 * 1024)
+                raise AIProviderError(
+                    f"Image {i + 1} is {mb_actual:.1f} MB, exceeds "
+                    f"{mb_limit:.0f} MB limit for model {self.model}. "
+                    f"Resize before sending.",
+                    provider=self.PROVIDER_NAME,
+                )
+
+            # Check pixel dimensions
+            if limits.max_dimension_px:
+                dims = _get_image_dimensions(raw)
+                if dims:
+                    w, h = dims
+                    if w > limits.max_dimension_px or h > limits.max_dimension_px:
+                        raise AIProviderError(
+                            f"Image {i + 1} is {w}x{h} px, exceeds "
+                            f"{limits.max_dimension_px} px max dimension "
+                            f"for model {self.model}.",
+                            provider=self.PROVIDER_NAME,
+                        )
 
     def _normalize_schema(self, schema: Union[Dict, Type]) -> Dict:
         """

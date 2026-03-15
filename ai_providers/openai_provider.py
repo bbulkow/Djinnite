@@ -219,6 +219,7 @@ class OpenAIProvider(BaseAIProvider):
 
         try:
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             openai_content = self._map_parts(parts)
 
             # Build input: either simple string or structured with role
@@ -408,6 +409,7 @@ class OpenAIProvider(BaseAIProvider):
 
         try:
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             openai_content = self._map_parts(parts)
 
             if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":

@@ -175,8 +175,9 @@ class ClaudeProvider(BaseAIProvider):
 
         try:
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             claude_content = self._map_parts(parts)
-            
+
             # Claude requires max_tokens to be specified.
             # Auto-fill from catalog if caller didn't provide one.
             max_tokens = self._resolve_max_tokens(max_tokens) or 8192
@@ -330,6 +331,7 @@ class ClaudeProvider(BaseAIProvider):
         }
         
         parts = self._normalize_input(prompt)
+        self._validate_vision_limits(parts)
         claude_content = self._map_parts(parts)
 
         data = {
@@ -518,6 +520,7 @@ class ClaudeProvider(BaseAIProvider):
 
         try:
             parts = self._normalize_input(prompt)
+            self._validate_vision_limits(parts)
             claude_content = self._map_parts(parts)
 
             # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)

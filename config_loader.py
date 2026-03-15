@@ -19,21 +19,58 @@ from dataclasses import dataclass, field
 
 
 # Configuration discovery
-# We check two locations for the 'config/' directory:
-# 1. Current Working Directory (handles standalone projects & CLI use)
-# 2. Parent of the package (handles submodule/integrated use)
+#
+# Local project config with fallback to package defaults:
+#   - PACKAGE_CONFIG_DIR: Djinnite's own config/ (ships with the distribution)
+#   - PROJECT_CONFIG_DIR: Host project's config/ (user overrides + secrets)
+#
+# When reading a config file, the project-local copy takes priority.
+# If not found there, the package default is used.  This means users
+# only need ai_config.json in their project -- model_catalog.json and
+# known_model_defaults.json are inherited from the package unless
+# explicitly overridden.
 
-def _discover_config_dir() -> Path:
-    """Find the best configuration directory."""
+# Package's own config (always exists -- ships with Djinnite)
+PACKAGE_CONFIG_DIR = Path(__file__).parent / "config"
+
+
+def _discover_project_config_dir() -> Optional[Path]:
+    """Find the host project's config directory, if any."""
+    # 1. Current Working Directory (standalone projects & CLI use)
     cwd_config = Path.cwd() / "config"
     if cwd_config.exists() and cwd_config.is_dir():
-        return cwd_config
-    
-    # Fallback to parent of package (submodule case)
-    pkg_parent_config = Path(__file__).parent.parent / "config"
-    return pkg_parent_config
+        if cwd_config.resolve() != PACKAGE_CONFIG_DIR.resolve():
+            return cwd_config
 
-CONFIG_DIR = _discover_config_dir()
+    # 2. Parent of the package (submodule/integrated use)
+    pkg_parent_config = Path(__file__).parent.parent / "config"
+    if pkg_parent_config.exists() and pkg_parent_config.is_dir():
+        if pkg_parent_config.resolve() != PACKAGE_CONFIG_DIR.resolve():
+            return pkg_parent_config
+
+    return None
+
+
+PROJECT_CONFIG_DIR = _discover_project_config_dir()
+
+
+def _resolve_config_file(filename: str) -> Path:
+    """Resolve a config file: local project config with package fallback.
+
+    Checks the project's config directory first.  If the file is not
+    found there (or no project dir exists), falls back to the package's
+    own config directory.
+    """
+    if PROJECT_CONFIG_DIR:
+        project_file = PROJECT_CONFIG_DIR / filename
+        if project_file.exists():
+            return project_file
+    return PACKAGE_CONFIG_DIR / filename
+
+
+# Backward compatibility -- points to the project dir when available,
+# otherwise the package dir.  Scripts use this for writes.
+CONFIG_DIR = PROJECT_CONFIG_DIR or PACKAGE_CONFIG_DIR
 
 
 @dataclass
@@ -83,6 +120,54 @@ class AIConfig:
         # Check if there's a specific model for this use case
         model = provider.use_cases.get(use_case, provider.default_model)
         return (provider_name, model)
+
+
+def _parse_vision_limit(value) -> Optional[float]:
+    """Parse a vision limit value from JSON.
+
+    Returns:
+        None       -- unknown / not yet discovered
+        float('inf') -- confirmed unlimited
+        positive float -- actual limit
+    """
+    if value is None:
+        return None
+    if value == "inf" or value == float('inf'):
+        return float('inf')
+    if isinstance(value, (int, float)) and value > 0:
+        return float(value)
+    return None
+
+
+def _serialize_vision_limit(value: Optional[float]):
+    """Serialize a vision limit value for JSON.
+
+    float('inf') -> "inf", None -> None, otherwise the numeric value.
+    """
+    if value is None:
+        return None
+    if value == float('inf'):
+        return "inf"
+    if value == int(value):
+        return int(value)
+    return value
+
+
+@dataclass
+class VisionLimits:
+    """Image input constraints for vision-capable models.
+
+    Limit semantics:
+        None         -- unknown / not yet discovered (fail-open)
+        float('inf') -- confirmed unlimited (no constraint)
+        positive number -- actual limit
+
+    In JSON, float('inf') is stored as the string "inf".
+    """
+    max_image_bytes: Optional[float] = None       # Max bytes per image (e.g., 5242880 for 5 MB)
+    max_dimension_px: Optional[float] = None      # Max width or height in pixels (e.g., 8000)
+    max_images_per_request: Optional[float] = None # Max images in a single request
+    supported_formats: list[str] = field(default_factory=list)  # e.g., ["jpeg", "png", "gif", "webp"]
 
 
 @dataclass
@@ -151,6 +236,7 @@ class ModelInfo:
     capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
     modalities: Modalities = field(default_factory=Modalities)
     costing: ModelCosting = field(default_factory=ModelCosting)
+    vision_limits: Optional[VisionLimits] = None
 
     @property
     def supports_structured_json(self) -> Optional[bool]:
@@ -236,7 +322,7 @@ def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:
     Returns:
         AIConfig object with provider settings
     """
-    path = config_path or CONFIG_DIR / "ai_config.json"
+    path = config_path or _resolve_config_file("ai_config.json")
     
     try:
         data = load_json_file(path)
@@ -274,7 +360,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
     Returns:
         ModelCatalog object with available models
     """
-    path = catalog_path or CONFIG_DIR / "model_catalog.json"
+    path = catalog_path or _resolve_config_file("model_catalog.json")
     
     try:
         data = load_json_file(path)
@@ -328,6 +414,17 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 ssj = True if raw_ssj is True else (False if raw_ssj is False else None)
                 caps = ModelCapabilities(structured_json=ssj)
 
+            # Load vision limits if present
+            raw_vl = model_data.get("vision_limits")
+            vision_limits = None
+            if isinstance(raw_vl, dict):
+                vision_limits = VisionLimits(
+                    max_image_bytes=_parse_vision_limit(raw_vl.get("max_image_bytes")),
+                    max_dimension_px=_parse_vision_limit(raw_vl.get("max_dimension_px")),
+                    max_images_per_request=_parse_vision_limit(raw_vl.get("max_images_per_request")),
+                    supported_formats=raw_vl.get("supported_formats", []),
+                )
+
             models.append(ModelInfo(
                 id=model_data["id"],
                 name=model_data["name"],
@@ -335,7 +432,8 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 max_output_tokens=model_data.get("max_output_tokens", 0),
                 capabilities=caps,
                 modalities=modalities,
-                costing=costing
+                costing=costing,
+                vision_limits=vision_limits,
             ))
         providers[provider_name] = models
     
@@ -367,7 +465,11 @@ __all__ = [
     "ModelCapabilities",
     "ModelCatalog",
     "Modalities",
+    "VisionLimits",
     "load_ai_config",
     "load_model_catalog",
-    "CONFIG_DIR"
+    "CONFIG_DIR",
+    "PACKAGE_CONFIG_DIR",
+    "PROJECT_CONFIG_DIR",
+    "_resolve_config_file",
 ]

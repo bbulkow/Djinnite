@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, Dict, List
 
 try:
-    from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities
+    from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file
     from djinnite.ai_providers import get_provider, BaseAIProvider
     from djinnite.ai_providers.gemini_provider import GeminiProvider
     from djinnite.ai_providers.claude_provider import ClaudeProvider
@@ -31,7 +31,7 @@ except ImportError:
     if _project_root not in sys.path:
         sys.path.insert(0, _project_root)
     
-    from config_loader import load_ai_config, CONFIG_DIR, Modalities
+    from config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file
     from ai_providers import get_provider, BaseAIProvider
     from ai_providers.gemini_provider import GeminiProvider
     from ai_providers.claude_provider import ClaudeProvider
@@ -53,16 +53,17 @@ except ImportError:
 # ============================================================================
 
 
-def _load_estimator_config() -> dict:
-    """Load Djinnite-internal estimator config from known_model_defaults.json."""
-    defaults_path = CONFIG_DIR / "known_model_defaults.json"
+def _load_known_defaults() -> dict:
+    """Load known_model_defaults.json (estimator config, vision defaults, etc.)."""
+    defaults_path = _resolve_config_file("known_model_defaults.json")
     if defaults_path.exists():
         with open(defaults_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return data.get("estimator", {})
+            return json.load(f)
     return {}
 
-_estimator_config = _load_estimator_config()
+_known_defaults = _load_known_defaults()
+_estimator_config = _known_defaults.get("estimator", {})
+_vision_defaults = _known_defaults.get("vision_defaults", {})
 
 
 def _resolve_estimator(ai_config) -> tuple:
@@ -203,6 +204,7 @@ def estimate_output_limits_with_ai(
     except Exception as e:
         print(f"  [WARN] Output limit estimation failed: {e}")
         return {}
+
 
 
 def _resolve_max_output_tokens(model_id: str, api_value: int, existing_value: int) -> int:
@@ -405,6 +407,32 @@ def merge_model_data(
             "thinking_style": existing_caps.get("thinking_style"),
         }
         
+        # Resolve vision_limits for vision-capable models
+        input_modalities = model.get("modalities", {})
+        if isinstance(input_modalities, dict):
+            is_vision = "vision" in input_modalities.get("input", [])
+        else:
+            is_vision = False
+
+        if is_vision:
+            # Preserve existing vision_limits from catalog
+            existing_vl = None
+            if model_id in existing_by_id:
+                existing_vl = existing_by_id[model_id].get("vision_limits")
+
+            if existing_vl and isinstance(existing_vl, dict):
+                model["vision_limits"] = existing_vl
+            else:
+                # Apply provider defaults
+                provider_vl = _vision_defaults.get(provider_instance.PROVIDER_NAME, {})
+                if provider_vl:
+                    model["vision_limits"] = dict(provider_vl)  # Copy, not reference
+                else:
+                    model["vision_limits"] = None
+
+        else:
+            model["vision_limits"] = None
+
         # Queue for probing if any capability is still unknown
         needs_probe = (ssj is None or model["capabilities"]["temperature"] is None
                        or model["capabilities"]["thinking"] is None

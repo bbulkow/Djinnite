@@ -24,14 +24,18 @@ from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
 
-# Try absolute or relative import for CONFIG_DIR
+# Try absolute or relative import for config resolution.
+# _resolve_config_file checks the host project's config/ first, then falls
+# back to the package's own config/ — so host projects only need ai_config.json
+# while model_catalog.json is inherited from the distribution.
 try:
-    from djinnite.config_loader import CONFIG_DIR
+    from djinnite.config_loader import _resolve_config_file
 except ImportError:
     try:
-        from ..config_loader import CONFIG_DIR
+        from ..config_loader import _resolve_config_file
     except ImportError:
-        CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+        def _resolve_config_file(filename: str) -> Path:
+            return Path(__file__).resolve().parent.parent / "config" / filename
 
 
 # Registry of available providers
@@ -41,8 +45,10 @@ PROVIDERS = {
     "chatgpt": OpenAIProvider,
 }
 
-# Path to model catalog (in host project's config directory)
-MODEL_CATALOG_PATH = CONFIG_DIR / "model_catalog.json"
+
+def _get_model_catalog_path() -> Path:
+    """Resolve model_catalog.json with project-local → package fallback."""
+    return _resolve_config_file("model_catalog.json")
 
 
 def _is_model_disabled(provider_name: str, model_id: str) -> tuple[bool, str]:
@@ -52,11 +58,12 @@ def _is_model_disabled(provider_name: str, model_id: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_disabled, reason)
     """
-    if not model_id or not MODEL_CATALOG_PATH.exists():
+    catalog_path = _get_model_catalog_path()
+    if not model_id or not catalog_path.exists():
         return (False, "")
-    
+
     try:
-        with open(MODEL_CATALOG_PATH, 'r', encoding='utf-8') as f:
+        with open(catalog_path, 'r', encoding='utf-8') as f:
             catalog = json.load(f)
         
         provider_data = catalog.get(provider_name, {})
@@ -122,10 +129,11 @@ def get_provider(
     # Auto-load model_info from catalog for pre-flight capability checks.
     # Silently skip if catalog doesn't exist (bootstrap / first run).
     model_info = None
-    if model and MODEL_CATALOG_PATH.exists():
+    catalog_path = _get_model_catalog_path()
+    if model and catalog_path.exists():
         try:
             from djinnite.config_loader import load_model_catalog
-            catalog = load_model_catalog(MODEL_CATALOG_PATH)
+            catalog = load_model_catalog(catalog_path)
             model_info = catalog.get_model(provider_name, model)
         except Exception:
             pass  # Catalog unreadable — provider operates without validation

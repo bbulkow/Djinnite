@@ -244,9 +244,10 @@ class BaseAIProvider(ABC):
         Args:
             api_key: API key for authentication
             model: Model ID to use (Required)
-            model_info: Optional ModelInfo from the catalog for pre-flight
-                        capability checks. Passed automatically by
-                        ``get_provider()``. None means no catalog validation.
+            model_info: ModelInfo from the catalog for pre-flight capability
+                        checks. Passed automatically by ``get_provider()``,
+                        which requires the catalog to exist.  May be None
+                        only for direct construction (tests/probes).
         """
         if not model:
             raise ValueError(f"Model must be specified for {self.PROVIDER_NAME} provider. Check your ai_config.json.")

@@ -324,13 +324,8 @@ def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:
     """
     path = config_path or _resolve_config_file("ai_config.json")
     
-    try:
-        data = load_json_file(path)
-    except FileNotFoundError:
-        # Return empty config if file doesn't exist
-        print(f"Warning: AI config not found at {path}. Using empty configuration.")
-        return AIConfig()
-    
+    data = load_json_file(path)
+
     providers = {}
     for name, provider_data in data.get("providers", {}).items():
         providers[name] = ProviderConfig(
@@ -362,11 +357,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
     """
     path = catalog_path or _resolve_config_file("model_catalog.json")
     
-    try:
-        data = load_json_file(path)
-    except FileNotFoundError:
-        print(f"Warning: Model catalog not found at {path}. Using empty catalog.")
-        return ModelCatalog()
+    data = load_json_file(path)
     
     providers = {}
     for provider_name, provider_data in data.items():

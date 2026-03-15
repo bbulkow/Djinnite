@@ -140,7 +140,6 @@ truncated responses.
 Resolution order:
 1. Caller's explicit value (if provided)
 2. Model catalog `max_output_tokens` (auto-filled from `model_catalog.json`)
-3. Provider SDK default (if no catalog is available)
 
 **Recommendation:** For most use cases, omit `max_tokens` entirely and let Djinnite
 use the model's maximum from the catalog.  Only pass an explicit value when you need

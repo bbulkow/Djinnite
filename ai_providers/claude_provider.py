@@ -173,15 +173,44 @@ class ClaudeProvider(BaseAIProvider):
     # Multi-turn continuation for server-side tools (e.g. web_search)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _sanitize_content_for_continuation(content) -> list:
+        """Remove orphaned ``server_tool_use`` blocks that lack a matching
+        ``server_tool_result``.
+
+        When streaming returns ``pause_turn``, ``get_final_message()`` may
+        include ``server_tool_use`` blocks without their corresponding
+        ``server_tool_result``.  The API rejects continuation messages that
+        contain such orphans.  We strip them so the model can re-trigger the
+        search on the next turn if it still needs one.
+        """
+        if not content:
+            return content
+
+        # Collect IDs that have a result block
+        result_ids = set()
+        for block in content:
+            if getattr(block, "type", None) == "server_tool_result":
+                result_ids.add(getattr(block, "server_tool_use_id", None))
+
+        # Keep everything except orphaned server_tool_use blocks
+        sanitized = []
+        for block in content:
+            if getattr(block, "type", None) == "server_tool_use":
+                if getattr(block, "id", None) not in result_ids:
+                    continue  # orphan -- drop it
+            sanitized.append(block)
+
+        return sanitized
+
     def _run_with_continuation(self, kwargs: dict, max_continuations: int = 5):
         """Stream a Messages API call, looping on ``pause_turn`` / ``tool_use``
         until the model produces ``end_turn`` or ``max_tokens``.
 
-        Server-side tools like *web_search* are executed by the API itself.
-        The response contains ``server_tool_use`` and ``server_tool_result``
-        content blocks.  To let the model continue after consuming search
-        results we append the full assistant turn to ``messages`` and add a
-        short user prompt requesting continuation.
+        Streaming is always used (required for large ``max_tokens`` values
+        and long-running thinking requests).  On ``pause_turn``, the
+        assistant content is sanitized to remove any orphaned
+        ``server_tool_use`` blocks before being sent back for continuation.
 
         Returns ``(final_response, accumulated_usage_dict)``.
         """
@@ -190,6 +219,7 @@ class ClaudeProvider(BaseAIProvider):
             "output_tokens": 0,
             "thinking_tokens": 0,
             "server_tool_use_input_tokens": 0,
+            "search_units": 0,
         }
 
         for _turn in range(max_continuations + 1):
@@ -205,16 +235,24 @@ class ClaudeProvider(BaseAIProvider):
                     getattr(response.usage, "server_tool_use_input_tokens", 0) or 0
                 )
 
+            # Accumulate search units across turns (not just the final one)
+            s_units, _ = self._count_search_units(response)
+            acc_usage["search_units"] += s_units
+
             stop = getattr(response, "stop_reason", None)
             if stop not in ("pause_turn", "tool_use"):
                 # Terminal turn -- return final response + totals
                 return response, acc_usage
 
             # Model paused for server-side tool execution.
-            # Append the assistant reply and a brief user nudge so the
-            # model can produce its final output.
+            # Sanitize the content to remove orphaned server_tool_use
+            # blocks (those without a matching server_tool_result) --
+            # streaming may not have delivered the result before pausing.
+            clean_content = self._sanitize_content_for_continuation(
+                response.content
+            )
             kwargs["messages"] = kwargs["messages"] + [
-                {"role": "assistant", "content": response.content},
+                {"role": "assistant", "content": clean_content},
                 {"role": "user", "content": "Continue."},
             ]
 
@@ -313,16 +351,12 @@ class ClaudeProvider(BaseAIProvider):
                 "_thinking_billed_separately": True,
             }
 
-            # Count billable search events (from final response)
-            s_units, s_result_tokens = self._count_search_units(response)
-            if s_units:
-                usage["search_units"] = s_units
-            # Use accumulated server_tool_use_input_tokens for search result tokens
+            # Search units accumulated across all continuation turns
+            if acc_usage["search_units"]:
+                usage["search_units"] = acc_usage["search_units"]
             total_search_tokens = acc_usage["server_tool_use_input_tokens"]
             if total_search_tokens:
                 usage["search_result_tokens"] = total_search_tokens
-            elif s_result_tokens is not None:
-                usage["search_result_tokens"] = s_result_tokens
             self._compute_costs(usage)
 
             # Detect output truncation: Anthropic returns stop_reason="max_tokens"

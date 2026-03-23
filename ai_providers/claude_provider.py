@@ -169,6 +169,62 @@ class ClaudeProvider(BaseAIProvider):
         thinking_type = "adaptive" if style == "adaptive" else "enabled"
         return {"type": thinking_type, "budget_tokens": budget}, max_tokens
 
+    # ------------------------------------------------------------------
+    # Multi-turn continuation for server-side tools (e.g. web_search)
+    # ------------------------------------------------------------------
+
+    def _run_with_continuation(self, kwargs: dict, max_continuations: int = 5):
+        """Stream a Messages API call, looping on ``pause_turn`` / ``tool_use``
+        until the model produces ``end_turn`` or ``max_tokens``.
+
+        Server-side tools like *web_search* are executed by the API itself.
+        The response contains ``server_tool_use`` and ``server_tool_result``
+        content blocks.  To let the model continue after consuming search
+        results we append the full assistant turn to ``messages`` and add a
+        short user prompt requesting continuation.
+
+        Returns ``(final_response, accumulated_usage_dict)``.
+        """
+        acc_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "thinking_tokens": 0,
+            "server_tool_use_input_tokens": 0,
+        }
+
+        for _turn in range(max_continuations + 1):
+            with self._client.messages.stream(**kwargs) as stream:
+                response = stream.get_final_message()
+
+            # Accumulate usage across turns
+            if response.usage:
+                acc_usage["input_tokens"] += getattr(response.usage, "input_tokens", 0) or 0
+                acc_usage["output_tokens"] += getattr(response.usage, "output_tokens", 0) or 0
+                acc_usage["thinking_tokens"] += getattr(response.usage, "thinking_tokens", 0) or 0
+                acc_usage["server_tool_use_input_tokens"] += (
+                    getattr(response.usage, "server_tool_use_input_tokens", 0) or 0
+                )
+
+            stop = getattr(response, "stop_reason", None)
+            if stop not in ("pause_turn", "tool_use"):
+                # Terminal turn -- return final response + totals
+                return response, acc_usage
+
+            # Model paused for server-side tool execution.
+            # Append the assistant reply and a brief user nudge so the
+            # model can produce its final output.
+            kwargs["messages"] = kwargs["messages"] + [
+                {"role": "assistant", "content": response.content},
+                {"role": "user", "content": "Continue."},
+            ]
+
+        # Exhausted continuation budget
+        raise AIProviderError(
+            f"Model did not finish after {max_continuations} continuation "
+            f"turns (last stop_reason='{stop}')",
+            provider=self.PROVIDER_NAME,
+        )
+
     def generate(
         self,
         prompt: Union[str, List[Dict]],
@@ -231,13 +287,11 @@ class ClaudeProvider(BaseAIProvider):
                 kwargs["tools"] = [_WEB_SEARCH_TOOL]
 
             # Generate response.
-            # Always use streaming — Claude requires it for large max_tokens
-            # values (>~64K) and for long-running thinking requests.
-            # stream.get_final_message() returns the same response object as
-            # messages.create(), so all downstream parsing works unchanged.
-            with self._client.messages.stream(**kwargs) as stream:
-                response = stream.get_final_message()
-            
+            # Stream with automatic continuation for server-side tool use
+            # (e.g. web_search).  Loops on pause_turn/tool_use until
+            # the model produces end_turn or max_tokens.
+            response, acc_usage = self._run_with_continuation(kwargs)
+
             # Extract content
             content = ""
             output_parts = []
@@ -246,26 +300,28 @@ class ClaudeProvider(BaseAIProvider):
                     if hasattr(block, 'text'):
                         content += block.text
                         output_parts.append({"type": "text", "text": block.text})
-            
-            # Extract usage info
-            usage = {}
-            if response.usage:
-                input_t = getattr(response.usage, 'input_tokens', 0) or 0
-                output_t = getattr(response.usage, 'output_tokens', 0) or 0
-                thinking_t = getattr(response.usage, 'thinking_tokens', None)
-                usage = {
-                    "input_tokens": input_t,
-                    "output_tokens": output_t,
-                    "total_tokens": input_t + output_t,
-                    "thinking_tokens": thinking_t,
-                    "_thinking_billed_separately": True,
-                }
 
-            # Count billable search events
+            # Build usage from accumulated totals (may span multiple turns)
+            input_t = acc_usage["input_tokens"]
+            output_t = acc_usage["output_tokens"]
+            thinking_t = acc_usage["thinking_tokens"] or None
+            usage = {
+                "input_tokens": input_t,
+                "output_tokens": output_t,
+                "total_tokens": input_t + output_t,
+                "thinking_tokens": thinking_t,
+                "_thinking_billed_separately": True,
+            }
+
+            # Count billable search events (from final response)
             s_units, s_result_tokens = self._count_search_units(response)
             if s_units:
                 usage["search_units"] = s_units
-            if s_result_tokens is not None:
+            # Use accumulated server_tool_use_input_tokens for search result tokens
+            total_search_tokens = acc_usage["server_tool_use_input_tokens"]
+            if total_search_tokens:
+                usage["search_result_tokens"] = total_search_tokens
+            elif s_result_tokens is not None:
                 usage["search_result_tokens"] = s_result_tokens
             self._compute_costs(usage)
 
@@ -459,10 +515,10 @@ class ClaudeProvider(BaseAIProvider):
             if web_search:
                 kwargs["tools"] = [_WEB_SEARCH_TOOL]
 
-            # Always use streaming — same reason as generate().
-            with self._client.messages.stream(**kwargs) as stream:
-                response = stream.get_final_message()
-            
+            # Stream with automatic continuation for server-side tool use
+            # (e.g. web_search).  Same loop as generate().
+            response, acc_usage = self._run_with_continuation(kwargs)
+
             # Extract content
             content = ""
             output_parts = []
@@ -471,26 +527,27 @@ class ClaudeProvider(BaseAIProvider):
                     if hasattr(block, 'text'):
                         content += block.text
                         output_parts.append({"type": "text", "text": block.text})
-            
-            # Extract usage info
-            usage = {}
-            if response.usage:
-                input_t = getattr(response.usage, 'input_tokens', 0) or 0
-                output_t = getattr(response.usage, 'output_tokens', 0) or 0
-                thinking_t = getattr(response.usage, 'thinking_tokens', None)
-                usage = {
-                    "input_tokens": input_t,
-                    "output_tokens": output_t,
-                    "total_tokens": input_t + output_t,
-                    "thinking_tokens": thinking_t,
-                    "_thinking_billed_separately": True,
-                }
 
-            # Count billable search events
+            # Build usage from accumulated totals (may span multiple turns)
+            input_t = acc_usage["input_tokens"]
+            output_t = acc_usage["output_tokens"]
+            thinking_t = acc_usage["thinking_tokens"] or None
+            usage = {
+                "input_tokens": input_t,
+                "output_tokens": output_t,
+                "total_tokens": input_t + output_t,
+                "thinking_tokens": thinking_t,
+                "_thinking_billed_separately": True,
+            }
+
+            # Count billable search events (from final response)
             s_units, s_result_tokens = self._count_search_units(response)
             if s_units:
                 usage["search_units"] = s_units
-            if s_result_tokens is not None:
+            total_search_tokens = acc_usage["server_tool_use_input_tokens"]
+            if total_search_tokens:
+                usage["search_result_tokens"] = total_search_tokens
+            elif s_result_tokens is not None:
                 usage["search_result_tokens"] = s_result_tokens
             self._compute_costs(usage)
 

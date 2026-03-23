@@ -83,12 +83,12 @@ uv run python -m djinnite.scripts.validate_ai
 > See `DEVELOPMENT.md` for the full developer setup guide.
 
 ### 2. `config/model_catalog.json` (optional in your project)
-This file stores the capabilities and cost scores for all models discovered from provider APIs. **Djinnite ships a current copy in its own `config/` directory**, so you do not need to create or maintain this file unless you want project-specific overrides.
+This file stores the capabilities and per-token pricing for all models discovered from provider APIs. **Djinnite ships a current copy in its own `config/` directory**, so you do not need to create or maintain this file unless you want project-specific overrides.
 
 If you run `update_models` or `update_model_costs`, the updated catalog is written to your project's `config/` directory (or the package directory if no project config exists).
 
 ### 3. `config/known_model_defaults.json` (optional in your project)
-Contains the cost anchor, estimator configuration, and provider-level vision defaults. **Ships with Djinnite** -- only copy to your project if you need to override values (e.g., different cost anchor or custom vision limits).
+Contains the cost anchor (base pricing), search pricing, estimator configuration, and provider-level vision defaults. **Ships with Djinnite** -- only copy to your project if you need to override values (e.g., different anchor pricing or custom vision limits).
 
 ---
 
@@ -102,21 +102,31 @@ Fetch the latest models from Gemini, Claude, and OpenAI APIs:
 uv run python -m djinnite.scripts.update_models
 ```
 *   **What it does:** Discovers new models, identifies deprecated ones, updates context window information, and **automatically estimates costs for any new models** found.
-*   **Safety:** Preserves your existing manual cost overrides and existing cost scores. Only new/unknown models are estimated.
+*   **Safety:** Preserves your existing manual cost overrides and existing pricing. Only new/unknown models are estimated.
 *   **Cost estimation:** After saving the updated catalog, the script automatically runs `update_model_costs` in default mode (new models only). If cost estimation fails, a warning is printed and you can re-run it manually.
 
-### Update Model Costs
-Estimate cost scores for models in the catalog:
+### Update Model Pricing
+Discover current per-token dollar pricing for models in the catalog:
 ```bash
 uv run python -m djinnite.scripts.update_model_costs           # Only new/unknown models
 uv run python -m djinnite.scripts.update_model_costs --all     # Re-estimate ALL models
 uv run python -m djinnite.scripts.update_model_costs --dry-run # Preview without saving
 ```
-*   **Default behavior:** Only estimates costs for **new models** that don't have cost data yet (e.g., after running `update_models` and discovering new models). Existing costs are preserved.
-*   **`--all` flag:** Re-estimates all models from scratch (useful when pricing changes).
-*   **Anchor:** All costs are relative to **Gemini 2.5 Flash** (cost_score = 1.0).
-*   **AI-Powered:** Uses an LLM to analyze pricing for other providers and assign a relative cost score.
-*   **Automatic:** Calculates exact scores for Gemini models based on known pricing.
+*   **Default behavior:** Only discovers pricing for **new models** that don't have cost data yet. Existing pricing is preserved.
+*   **`--all` flag:** Re-discovers all model pricing from scratch (useful when provider pricing changes).
+*   **AI-Powered:** Uses an LLM with web search to look up current $/1M-token pricing from official provider pages (openai.com/pricing, anthropic.com/pricing, ai.google.dev/pricing).
+*   **Gemini models:** Use algorithmic pricing derived from the anchor model (Gemini 2.5 Flash).
+*   **Output:** Each model gets `input_per_1m`, `output_per_1m`, and `search_cost_per_unit` stored in the catalog.
+
+### Disable Obsolete Models
+Mark models as disabled so they are skipped during cost estimation and blocked at runtime:
+```bash
+uv run python -m djinnite.scripts.disable_models              # Apply disable list to catalog
+uv run python -m djinnite.scripts.disable_models --dry-run    # Preview only
+uv run python -m djinnite.scripts.disable_models --list       # Show disabled models
+```
+*   **How it works:** Edit `config/disabled_models.json` to add/remove model IDs with reasons. Run the script to apply. The JSON file is the single source of truth -- removing a model from the file re-enables it.
+*   **Effect:** Disabled models are skipped by `update_model_costs` and blocked by `get_provider()` at runtime.
 
 ---
 
@@ -219,6 +229,29 @@ schema = {
 
 response = provider.generate_json(prompt, schema=schema)
 ```
+
+### Cost Tracking
+
+Every `AIResponse` includes dollar-denominated cost breakdown. Costs are computed automatically from per-model pricing in the catalog and per-provider web search rates in `known_model_defaults.json`.
+
+```python
+response = provider.generate("Summarize this article.", web_search=True)
+
+# Token breakdown
+print(f"Input tokens:    {response.input_tokens}")
+print(f"Output tokens:   {response.output_tokens}")
+print(f"Thinking tokens: {response.thinking_tokens}")
+
+# Cost breakdown (dollars)
+print(f"Token cost:  ${response.token_cost}")    # Input + output + thinking tokens
+print(f"Search cost: ${response.search_cost}")   # Web search events
+print(f"Total cost:  ${response.total_cost}")    # token_cost + search_cost
+
+# Search breakdown
+print(f"Search units: {response.search_units}")  # Number of billable search events
+```
+
+Cost properties return `None` when pricing is unknown (e.g., catalog not yet populated for a model). Always check for `None` before doing arithmetic on costs.
 
 ### Output Token Limits
 

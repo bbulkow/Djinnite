@@ -80,6 +80,41 @@ load_model_catalog() -> ModelCatalog
 ModelCatalog.find_models(input_modality, output_modality) -> list[tuple[str, ModelInfo]]
 ```
 
+### AIResponse Properties (Stable)
+
+```python
+# Content
+response.content         # str — generated text
+response.model           # str — model ID
+response.provider        # str — provider name
+response.parts           # list[dict] — multimodal output parts
+response.raw_response    # provider SDK response object
+response.truncated       # bool — True if output was cut short
+response.finish_reason   # str — provider-native stop reason
+
+# Token counts
+response.input_tokens    # int
+response.output_tokens   # int
+response.thinking_tokens # Optional[int] — None if not reported
+response.total_tokens    # int
+
+# Dollar costs (None if model pricing unknown)
+response.token_cost      # Optional[float] — input + output + thinking tokens
+response.search_cost     # Optional[float] — web search events
+response.total_cost      # Optional[float] — token_cost + search_cost
+response.search_units    # int — number of billable search events
+```
+
+### ModelCosting Fields (Stable)
+
+```python
+model_info.costing.input_per_1m        # Optional[float] — $/1M input tokens
+model_info.costing.output_per_1m       # Optional[float] — $/1M output tokens
+model_info.costing.search_cost_per_unit # Optional[float] — $ per search event
+model_info.costing.source              # str — "estimated", "manual", "failed"
+model_info.costing.updated             # str — ISO date
+```
+
 ### Thinking Parameter
 
 The `thinking` parameter on `generate()` and `generate_json()` provides a unified
@@ -214,7 +249,7 @@ class ModelInfo:
     max_output_tokens: int = 0            # Max output tokens (0 = unknown)
     capabilities: ModelCapabilities       # Tri-state capability flags
     modalities: Modalities                # Input/output modality capabilities
-    costing: ModelCosting                 # Cost scoring information
+    costing: ModelCosting                 # Dollar-based pricing ($/1M tokens)
     vision_limits: Optional[VisionLimits] = None  # Image input constraints (None for non-vision models)
 ```
 
@@ -340,7 +375,7 @@ djinnite/
 ├── scripts/
 │   ├── validate_ai.py       # Test provider connectivity
 │   ├── update_models.py     # Refresh model catalog from APIs
-│   ├── update_model_costs.py # AI-estimated cost scoring
+│   ├── update_model_costs.py # AI-discovered per-token pricing
 │   └── clean_disabled_reasons.py  # Catalog maintenance
 ├── tests/
 │   └── probe_anthropic_beta.py    # Anthropic beta feature probe
@@ -420,3 +455,21 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - PATCH: bug fixes, safe additions
   - MINOR: new features, new optional parameters
   - MAJOR: breaking changes (should be rare and coordinated)
+
+## Breaking Changes Log
+
+### March 2026: Dollar-Based Cost Tracking
+
+**Removed:** `ModelCosting.score`, `ModelCosting.tier`, `cost_anchor` config, Gemini algorithmic heuristic, all anchor/relative-scoring infrastructure. Gemini-proxy web search fallback for Claude (Claude now uses native GA web search). Beta header (`anthropic-beta: web-search-...`) for Claude web search.
+
+**Added:** `ModelCosting.input_per_1m`, `ModelCosting.output_per_1m`, `ModelCosting.search_cost_per_unit` (all in dollars). `AIResponse.token_cost`, `AIResponse.search_cost`, `AIResponse.total_cost` properties.
+
+**Behavior change:** `web_search=True` on models that don't support native web search now raises `AIProviderError`. Previously, some providers would silently proxy through Gemini or fall back to system-prompt guidance.
+
+**Why:** The old system stored costs as relative scores (gemini-2.5-flash = 1.0). This made it impossible to compute actual dollar costs or add token costs to web search costs. All providers now publish clear per-token pricing, so Djinnite stores and reports costs in dollars.
+
+**Migration:**
+- Run `uv run python -m djinnite.scripts.update_model_costs --all` after updating
+- Replace `model_info.costing.score` with `model_info.costing.input_per_1m` / `output_per_1m`
+- Use `response.token_cost` / `response.total_cost` for dollar costs
+- The `update_model_costs` script now uses AI + web search for ALL providers (including Gemini)

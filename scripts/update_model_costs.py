@@ -1,14 +1,9 @@
 """
 Update Model Costs Script
 
-Uses the AI abstraction layer to estimate and update cost_score values
-for models in config/model_catalog.json.
-
-The anchor model is defined in config/known_model_defaults.json (default: Gemini 2.5 Flash, cost_score = 1.0).
-All non-anchor models are estimated dynamically via AI with web search.
-
-By default, this script only estimates costs for NEW models (those without
-existing cost data).  Use ``--all`` to re-estimate all models.
+Uses AI with web search to discover current per-token pricing ($/1M tokens)
+for all models in config/model_catalog.json.  Every provider is estimated
+the same way -- no hardcoded pricing or heuristics.
 
 Usage:
     python -m djinnite.scripts.update_model_costs           # Estimate only new/unknown models
@@ -44,35 +39,6 @@ except ImportError:
     from prompts import COST_ESTIMATION_CONFIG
 
 
-# ============================================================================
-# ANCHOR CONFIGURATION (loaded from config/known_model_defaults.json)
-# ============================================================================
-# The cost anchor is the ONLY static model data we maintain.  It defines
-# the reference point for all relative cost scores.  Everything else is
-# discovered dynamically via AI estimation.
-#
-# POLICY: Do NOT add per-model pricing tables to Python code.
-# See DEVELOPMENT.md for the full policy on static model data.
-# ============================================================================
-
-def _load_anchor_config() -> dict:
-    """Load cost anchor from known_model_defaults.json."""
-    defaults_path = _resolve_config_file("known_model_defaults.json")
-    if defaults_path.exists():
-        with open(defaults_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return data.get("cost_anchor", {})
-    return {}
-
-_anchor = _load_anchor_config()
-ANCHOR_MODEL_ID = _anchor.get("model_id", "gemini-2.5-flash")
-ANCHOR_PROVIDER = _anchor.get("provider", "gemini")
-ANCHOR_COST_SCORE = _anchor.get("cost_score", 1.0)
-_anchor_pricing = _anchor.get("pricing", {})
-ANCHOR_INPUT_PRICE = _anchor_pricing.get("input_per_1m_tokens", 0.075)
-ANCHOR_OUTPUT_PRICE = _anchor_pricing.get("output_per_1m_tokens", 0.30)
-
-
 def _load_estimator_config() -> dict:
     """Load Djinnite-internal estimator config from known_model_defaults.json."""
     defaults_path = _resolve_config_file("known_model_defaults.json")
@@ -84,37 +50,6 @@ def _load_estimator_config() -> dict:
 
 _estimator_config = _load_estimator_config()
 
-# Default cost scores by tier (used as TEMPORARY fallback only when estimation fails)
-# These are NOT used as success - they indicate the model needs manual review
-TIER_DEFAULTS = {
-    "economical": 0.5,
-    "standard": 1.0,
-    "premium": 10.0,
-}
-
-# NOTE: Prompts are externalized in djinnite/prompts/__init__.py
-# COST_ESTIMATION_PROMPT and COST_ANALYST_SYSTEM are imported at top
-
-
-# ============================================================================
-# COST CALCULATION
-# ============================================================================
-
-def calculate_cost_score(input_price: float, output_price: float) -> float:
-    """
-    Calculate cost_score from input/output prices ($ per 1M tokens).
-    
-    Uses weighted average: 25% input, 75% output (typical extraction pattern).
-    Anchor pricing is loaded from config/known_model_defaults.json.
-    """
-    # Anchor effective price ($ per 1M tokens, weighted)
-    anchor_effective = (ANCHOR_INPUT_PRICE * 0.25) + (ANCHOR_OUTPUT_PRICE * 0.75)
-    
-    # Model effective price
-    model_effective = (input_price * 0.25) + (output_price * 0.75)
-    
-    return model_effective / anchor_effective
-
 
 # Provider company names for clearer prompts
 PROVIDER_COMPANIES = {
@@ -123,29 +58,6 @@ PROVIDER_COMPANIES = {
     "chatgpt": "OpenAI ChatGPT",
 }
 
-
-def calculate_gemini_cost_heuristic(model_id: str) -> float:
-    """
-    Algorithmic cost estimation for Gemini models relative to gemini-2.5-flash (score=1.0).
-    Based on standard pricing tiers.
-    """
-    model_id = model_id.lower()
-    
-    # Base multipliers (relative to Flash)
-    if "pro" in model_id:
-        multiplier = 4.0  # Pro is typically ~4x Flash pricing
-    elif "flash-lite" in model_id or "flash-8b" in model_id:
-        multiplier = 0.5  # Lite versions are typically half price
-    elif "flash" in model_id:
-        multiplier = 1.0  # Other Flash models assumed similar
-    elif "nano" in model_id:
-        multiplier = 0.1  # Nano is very cheap/on-device (often free, but keep non-zero)
-    elif "embedding" in model_id:
-        multiplier = 0.1  # Embeddings are cheap
-    else:
-        multiplier = 1.0  # Default fallback
-        
-    return multiplier
 
 
 def estimate_costs_with_ai(
@@ -156,9 +68,13 @@ def estimate_costs_with_ai(
     api_key: str,
     logger: Optional[LLMLogger] = None,
     gemini_api_key: Optional[str] = None
-) -> dict[str, float]:
+) -> dict[str, dict]:
     """
-    Use AI to estimate cost_scores for models, with batching support.
+    Use AI with web search to discover per-model pricing.
+
+    Returns:
+        dict mapping model_id to {"input_per_1m": float, "output_per_1m": float,
+        "search_cost_per_unit": float | None}.
     """
     if not models_to_estimate:
         return {}
@@ -191,11 +107,9 @@ def estimate_costs_with_ai(
         
         # Render prompt from externalized template
         prompt = prompt_template.format(
-            anchor_model=ANCHOR_MODEL_ID,
-            anchor_score=ANCHOR_COST_SCORE,
             provider_name=provider_name,
             provider_company=provider_company,
-            model_list=model_list
+            model_list=model_list,
         )
         
         # Log the request BEFORE sending
@@ -243,9 +157,18 @@ def estimate_costs_with_ai(
             batch_estimates = json.loads(content)
             
             # Merge into main results
-            for model_id, score in batch_estimates.items():
-                if isinstance(score, (int, float)) and score > 0:
-                    all_estimates[model_id] = float(score)
+            for model_id, pricing in batch_estimates.items():
+                if isinstance(pricing, dict):
+                    inp = pricing.get("input_per_1m")
+                    out = pricing.get("output_per_1m")
+                    if isinstance(inp, (int, float)) and isinstance(out, (int, float)) and inp > 0 and out > 0:
+                        raw_search = pricing.get("search_cost_per_unit")
+                        search = float(raw_search) if isinstance(raw_search, (int, float)) and raw_search > 0 else None
+                        all_estimates[model_id] = {
+                            "input_per_1m": float(inp),
+                            "output_per_1m": float(out),
+                            "search_cost_per_unit": search,
+                        }
             
             logger.log_response(
                 request_id=request_id,
@@ -266,13 +189,6 @@ def estimate_costs_with_ai(
             # Continue to next batch
     
     return all_estimates
-
-
-def get_tier_default(model: dict) -> float:
-    """Get default cost_score based on model's cost_tier."""
-    costing = model.get("costing", {})
-    tier = costing.get("tier", model.get("cost_tier", "standard"))
-    return TIER_DEFAULTS.get(tier, 1.0)
 
 
 # ============================================================================
@@ -306,7 +222,7 @@ def update_model_costs(
     catalog_path: Optional[Path] = None
 ) -> None:
     """
-    Main function to update cost_score values in the model catalog.
+    Main function to update per-token pricing in the model catalog.
 
     Args:
         force: If False (default), only estimate models that have no cost
@@ -317,7 +233,6 @@ def update_model_costs(
     print("-" * 40)
     mode = "ALL models (--all)" if force else "NEW/unknown models only"
     print(f"Mode: {mode}")
-    print(f"Anchor: {ANCHOR_MODEL_ID} = {ANCHOR_COST_SCORE}")
     if provider_filter:
         print(f"Provider filter: {provider_filter}")
     print()
@@ -377,117 +292,97 @@ def update_model_costs(
         for model in models:
             model_id = model["id"]
             
-            # Migrate old schema if needed
+            # Ensure costing block exists
             if "costing" not in model:
                 model["costing"] = {
-                    "score": model.get("cost_score"),
-                    "source": model.get("cost_source", "default"),
-                    "updated": model.get("cost_updated", ""),
-                    "tier": model.get("cost_tier", "standard")
+                    "input_per_1m": None,
+                    "output_per_1m": None,
+                    "source": "",
+                    "updated": "",
                 }
-                # Remove old fields
-                for f in ["cost_score", "cost_source", "cost_updated", "cost_tier"]:
-                    if f in model: del model[f]
 
             costing = model["costing"]
-            score = costing.get("score")
-            has_cost = costing.get("updated") != "" and score is not None
+            has_pricing = costing.get("input_per_1m") is not None and costing.get("updated") != ""
             is_manual = costing.get("source") == "manual"
             is_disabled = model.get("disabled", False)
-            
+
             # Skip disabled models
             if is_disabled:
                 reason = model.get("disabled_reason", "unknown")
                 print(f"  [DISABLED] {model_id}: DISABLED ({reason})")
                 stats["unchanged"] += 1
                 continue
-            
+
             # Skip manual overrides
             if is_manual:
-                val = f"{score:.2f}" if score is not None else "None"
-                print(f"  [SKIP] {model_id}: {val} (manual, preserved)")
+                inp = costing.get("input_per_1m")
+                out = costing.get("output_per_1m")
+                print(f"  [SKIP] {model_id}: ${inp}/{out} per 1M (manual, preserved)")
                 stats["unchanged"] += 1
                 continue
-            
-            # Check if this is the anchor
-            if model_id == ANCHOR_MODEL_ID and provider_name == ANCHOR_PROVIDER:
-                costing["score"] = ANCHOR_COST_SCORE
-                costing["source"] = "anchor"
-                costing["updated"] = today
-                print(f"  [ANCHOR] {model_id}: {ANCHOR_COST_SCORE} (anchor)")
-                stats["updated" if has_cost else "new"] += 1
-                continue
-            
-            # Logic: If force=True, we update everything (except manual).
-            # If force=False, we only update if score is None or missing.
-            should_estimate = force or (score is None) or (not has_cost)
-            
-            if should_estimate:
-                # GEMINI ALGORITHMIC OVERRIDE
-                if provider_name == "gemini":
-                    heuristic_score = calculate_gemini_cost_heuristic(model_id)
-                    costing["score"] = heuristic_score
-                    costing["source"] = "algorithmic"
-                    costing["updated"] = today
-                    print(f"  [CALC] {model_id}: {heuristic_score:.2f} (algorithmic)")
-                    stats["updated" if has_cost else "new"] += 1
-                    continue
 
+            should_estimate = force or not has_pricing
+
+            if should_estimate:
                 models_needing_estimation.append({
                     "id": model_id,
                     "provider": provider_name,
                     "name": model.get("name", model_id),
-                    "cost_tier": costing.get("tier", "standard"),
-                    "_model_ref": model
+                    "_model_ref": model,
                 })
             else:
-                val = f"{score:.2f}" if score is not None else "None"
-                print(f"  [SKIP] {model_id}: {val} (skipped)")
+                inp = costing.get("input_per_1m")
+                out = costing.get("output_per_1m")
+                print(f"  [SKIP] {model_id}: ${inp}/{out} per 1M (skipped)")
                 stats["unchanged"] += 1
-        
+
         if models_needing_estimation and est_api_key:
             print(f"  [AI] Estimating {len(models_needing_estimation)} models with AI...")
             gemini_config = ai_config.get_provider("gemini")
             gemini_api_key = gemini_config.api_key if gemini_config else None
-            
+
             estimates = estimate_costs_with_ai(
                 models_needing_estimation,
                 provider_name,
                 est_provider,
                 est_model,
                 est_api_key,
-                gemini_api_key=gemini_api_key
+                gemini_api_key=gemini_api_key,
             )
-            
+
             for m in models_needing_estimation:
                 model_id = m["id"]
                 model_ref = m["_model_ref"]
                 costing = model_ref["costing"]
-                has_prev_cost = costing.get("updated") != ""
-                
+                has_prev = costing.get("updated") != ""
+
                 if model_id in estimates:
-                    costing["score"] = round(estimates[model_id], 2)
+                    est = estimates[model_id]
+                    costing["input_per_1m"] = round(est["input_per_1m"], 4)
+                    costing["output_per_1m"] = round(est["output_per_1m"], 4)
+                    costing["search_cost_per_unit"] = est["search_cost_per_unit"]
                     costing["source"] = "estimated"
                     costing["updated"] = today
-                    print(f"  [OK] {model_id}: {estimates[model_id]:.2f} (estimated)")
+                    search_str = f", search=${est['search_cost_per_unit']}" if est["search_cost_per_unit"] else ""
+                    print(f"  [OK] {model_id}: ${est['input_per_1m']}/{est['output_per_1m']} per 1M{search_str} (estimated)")
                     stats["estimated"] += 1
-                    stats["updated" if has_prev_cost else "new"] += 1
+                    stats["updated" if has_prev else "new"] += 1
                 else:
-                    # Failed estimation -> score stays None so the model
-                    # is clearly uncosted and won't be mistaken for a
-                    # cheap model.
-                    costing["score"] = None
+                    costing["input_per_1m"] = None
+                    costing["output_per_1m"] = None
+                    costing["search_cost_per_unit"] = None
                     costing["source"] = "failed"
                     costing["updated"] = today
                     print(f"  [FAIL] {model_id}: None (FAILED - needs re-estimation or manual review)")
                     stats["failed"] += 1
-        
+
         elif models_needing_estimation:
             print(f"  [FAIL] No AI estimator available - marking as FAILED...")
             for m in models_needing_estimation:
                 model_ref = m["_model_ref"]
                 costing = model_ref["costing"]
-                costing["score"] = None
+                costing["input_per_1m"] = None
+                costing["output_per_1m"] = None
                 costing["source"] = "failed"
                 costing["updated"] = today
                 print(f"  [FAIL] {m['id']}: None (FAILED - no estimator available)")
@@ -517,8 +412,8 @@ def update_model_costs(
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Update cost_score values for AI models in the catalog. "
-            "By default, only estimates costs for NEW models (those without "
+            "Update per-token dollar pricing for AI models in the catalog. "
+            "By default, only estimates pricing for NEW models (those without "
             "existing cost data). Use --all to re-estimate everything."
         )
     )

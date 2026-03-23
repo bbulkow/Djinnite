@@ -161,6 +161,32 @@ class OpenAIProvider(BaseAIProvider):
         return text_content, output_parts
 
     @staticmethod
+    def _count_search_units(response) -> int:
+        """Count billable web search actions from an OpenAI Responses API response.
+
+        OpenAI bills per ``web_search_call`` item in ``response.output``
+        where ``action.type == "search"``.  The ``action`` field is a
+        complex object containing ``type``, ``query``, and optional
+        ``domain_filters``.
+        """
+        count = 0
+        output = getattr(response, "output", None)
+        if not output:
+            return 0
+        for item in output:
+            item_type = getattr(item, "type", None)
+            if item_type == "web_search_call":
+                action = getattr(item, "action", None)
+                if action is not None:
+                    action_type = getattr(action, "type", None)
+                    if action_type == "search":
+                        count += 1
+                    elif action_type is None:
+                        # Fallback: action exists but has no type -> count it
+                        count += 1
+        return count
+
+    @staticmethod
     def _extract_usage(response) -> dict:
         """Extract token usage from a Responses API response."""
         usage = {}
@@ -178,7 +204,12 @@ class OpenAIProvider(BaseAIProvider):
                 "output_tokens": output_t,
                 "total_tokens": total_t if total_t is not None else input_t + output_t,
                 "thinking_tokens": thinking_t,  # None if not reported
+                "_thinking_billed_separately": False,
             }
+        # Count billable search events
+        s_units = OpenAIProvider._count_search_units(response)
+        if s_units:
+            usage["search_units"] = s_units
         return usage
 
     @staticmethod
@@ -272,6 +303,7 @@ class OpenAIProvider(BaseAIProvider):
                     output_parts = [{"type": "text", "text": content}]
 
             usage = self._extract_usage(response)
+            self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
 
             ai_response = AIResponse(
@@ -472,6 +504,7 @@ class OpenAIProvider(BaseAIProvider):
                     pass
 
             usage = self._extract_usage(response)
+            self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
 
             ai_response = AIResponse(

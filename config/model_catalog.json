@@ -19,9 +19,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "anchor",
-          "updated": "2026-03-15",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -61,9 +64,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -103,9 +109,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.1,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -145,9 +154,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.1,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -187,9 +199,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.075,
+          "output_per_1m": 0.3,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -229,9 +244,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.075,
+          "output_per_1m": 0.3,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -268,9 +286,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -280,7 +301,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model"
       },
       {
         "id": "gemini-2.5-pro-preview-tts",
@@ -297,9 +320,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.0,
+          "output_per_1m": 20.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -309,7 +335,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model"
       },
       {
         "id": "gemini-flash-latest",
@@ -329,9 +357,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 3.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -371,9 +402,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -413,9 +447,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -455,9 +492,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.1,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": true,
@@ -497,9 +537,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
+          "search_cost_per_unit": 0.035
         },
         "capabilities": {
           "structured_json": null,
@@ -539,9 +582,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": true,
@@ -581,9 +627,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": true,
@@ -623,9 +672,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 3.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -665,9 +717,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -707,9 +762,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -749,9 +807,12 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "algorithmic",
-          "updated": "2026-03-14",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -791,9 +852,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": null,
@@ -833,9 +897,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": null,
@@ -873,9 +940,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -895,7 +965,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "robotics model"
       },
       {
         "id": "gemini-2.5-computer-use-preview-10-2025",
@@ -915,9 +987,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -937,7 +1012,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "computer use model"
       },
       {
         "id": "gemini-embedding-001",
@@ -954,9 +1031,12 @@
         },
         "costing": {
           "score": 0.1,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -966,7 +1046,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "embedding model"
       },
       {
         "id": "gemini-embedding-2-preview",
@@ -983,9 +1065,12 @@
         },
         "costing": {
           "score": 0.1,
-          "source": "algorithmic",
-          "updated": "2026-03-14",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -995,7 +1080,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "embedding model"
       },
       {
         "id": "gemini-2.5-flash-native-audio-latest",
@@ -1015,9 +1102,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -1037,7 +1127,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "native audio model"
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-09-2025",
@@ -1057,9 +1149,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -1079,7 +1174,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot"
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -1099,9 +1196,12 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "algorithmic",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "capabilities": {
           "structured_json": null,
@@ -1121,7 +1221,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot"
       }
     ],
     "last_updated": "2026-03-15"
@@ -1144,8 +1246,11 @@
         "costing": {
           "score": 45.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1184,8 +1289,11 @@
         "costing": {
           "score": 75.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 25.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1224,8 +1332,11 @@
         "costing": {
           "score": 75.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 25.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -1264,8 +1375,11 @@
         "costing": {
           "score": 8.75,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.0,
+          "output_per_1m": 5.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -1304,8 +1418,11 @@
         "costing": {
           "score": 45.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -1344,8 +1461,11 @@
         "costing": {
           "score": 75.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 15.0,
+          "output_per_1m": 75.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32000,
         "capabilities": {
@@ -1384,8 +1504,11 @@
         "costing": {
           "score": 75.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 15.0,
+          "output_per_1m": 75.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32000,
         "capabilities": {
@@ -1424,8 +1547,11 @@
         "costing": {
           "score": 45.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -1464,8 +1590,11 @@
         "costing": {
           "score": 15.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 1.25,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1486,7 +1615,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated"
       }
     ],
     "last_updated": "2026-03-15"
@@ -1508,8 +1639,11 @@
         "costing": {
           "score": 240.0,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 60.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 8192,
         "capabilities": {
@@ -1520,7 +1654,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated"
       },
       {
         "id": "gpt-4",
@@ -1538,8 +1674,11 @@
         "costing": {
           "score": 66.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 60.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 8192,
         "capabilities": {
@@ -1560,7 +1699,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5"
       },
       {
         "id": "gpt-3.5-turbo",
@@ -1577,8 +1718,11 @@
         "costing": {
           "score": 6.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1589,7 +1733,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated"
       },
       {
         "id": "gpt-5.4",
@@ -1609,8 +1755,11 @@
         "costing": {
           "score": 46.67,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1649,8 +1798,11 @@
         "costing": {
           "score": 42.0,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -1691,8 +1843,11 @@
         "costing": {
           "score": 46.67,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1735,8 +1890,11 @@
         "costing": {
           "score": 560.0,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 180.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1779,8 +1937,11 @@
         "costing": {
           "score": 500.0,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 180.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1818,8 +1979,11 @@
         "costing": {
           "score": 9.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.5,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1830,7 +1994,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy instruct model"
       },
       {
         "id": "gpt-3.5-turbo-instruct-0914",
@@ -1847,8 +2013,11 @@
         "costing": {
           "score": 9.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.5,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1859,7 +2028,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy instruct model"
       },
       {
         "id": "gpt-4-1106-preview",
@@ -1877,8 +2048,11 @@
         "costing": {
           "score": 106.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 30.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1899,7 +2073,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy preview - deprecated"
       },
       {
         "id": "gpt-3.5-turbo-1106",
@@ -1916,8 +2092,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.0,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1928,7 +2107,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4-0125-preview",
@@ -1946,8 +2127,11 @@
         "costing": {
           "score": 106.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 30.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -1968,7 +2152,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy preview - deprecated"
       },
       {
         "id": "gpt-4-turbo-preview",
@@ -1986,8 +2172,11 @@
         "costing": {
           "score": 106.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 30.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2008,7 +2197,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy preview - deprecated"
       },
       {
         "id": "gpt-3.5-turbo-0125",
@@ -2025,8 +2216,11 @@
         "costing": {
           "score": 5.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2037,7 +2231,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4-turbo",
@@ -2055,8 +2251,11 @@
         "costing": {
           "score": 116.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 30.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2077,7 +2276,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5"
       },
       {
         "id": "gpt-4-turbo-2024-04-09",
@@ -2095,8 +2296,11 @@
         "costing": {
           "score": 116.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 30.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2117,7 +2321,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o",
@@ -2135,8 +2341,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.03
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2175,8 +2384,11 @@
         "costing": {
           "score": 66.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.03
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2197,7 +2409,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-2024-07-18",
@@ -2215,8 +2429,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": 0.025
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2237,7 +2454,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini",
@@ -2255,8 +2474,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": 0.025
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2295,8 +2517,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.03
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2317,7 +2542,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-audio-preview",
@@ -2337,8 +2564,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2359,7 +2589,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-4o-realtime-preview",
@@ -2377,8 +2609,11 @@
         "costing": {
           "score": 66.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 20.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2399,7 +2634,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model"
       },
       {
         "id": "gpt-4o-realtime-preview-2024-12-17",
@@ -2417,8 +2654,11 @@
         "costing": {
           "score": 66.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 20.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2439,7 +2679,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-audio-preview-2024-12-17",
@@ -2459,8 +2701,11 @@
         "costing": {
           "score": 220.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2481,7 +2726,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-realtime-preview-2024-12-17",
@@ -2499,8 +2746,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2521,7 +2771,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-audio-preview-2024-12-17",
@@ -2541,8 +2793,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2563,7 +2818,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-realtime-preview",
@@ -2581,8 +2838,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2603,7 +2863,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model"
       },
       {
         "id": "gpt-4o-mini-audio-preview",
@@ -2623,8 +2885,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2645,7 +2910,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-4o-2024-11-20",
@@ -2663,8 +2930,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2685,7 +2955,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-search-preview-2025-03-11",
@@ -2703,8 +2975,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": 0.025
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2743,8 +3018,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.15,
+          "output_per_1m": 0.6,
+          "search_cost_per_unit": 0.025
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2783,8 +3061,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2805,7 +3086,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model"
       },
       {
         "id": "gpt-4o-mini-transcribe",
@@ -2823,8 +3106,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 5.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2845,7 +3131,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model"
       },
       {
         "id": "gpt-4o-mini-tts",
@@ -2862,8 +3150,11 @@
         "costing": {
           "score": 33.6,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -2874,7 +3165,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model"
       },
       {
         "id": "gpt-4.1-2025-04-14",
@@ -2892,8 +3185,11 @@
         "costing": {
           "score": 26.67,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 8.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -2932,8 +3228,11 @@
         "costing": {
           "score": 26.67,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 8.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -2972,8 +3271,11 @@
         "costing": {
           "score": 5.33,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.4,
+          "output_per_1m": 1.6,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3012,8 +3314,11 @@
         "costing": {
           "score": 5.33,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.4,
+          "output_per_1m": 1.6,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3052,8 +3357,11 @@
         "costing": {
           "score": 1.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.1,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3092,8 +3400,11 @@
         "costing": {
           "score": 1.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.1,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3131,8 +3442,11 @@
         "costing": {
           "score": 120.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 10.0,
+          "output_per_1m": 40.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -3143,7 +3457,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model"
       },
       {
         "id": "gpt-4o-realtime-preview-2025-06-03",
@@ -3161,8 +3477,11 @@
         "costing": {
           "score": 66.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 20.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -3183,7 +3502,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-audio-preview-2025-06-03",
@@ -3203,8 +3524,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3225,7 +3549,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-transcribe-diarize",
@@ -3242,9 +3568,12 @@
         },
         "costing": {
           "score": 40.0,
-          "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3265,7 +3594,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model"
       },
       {
         "id": "gpt-5-chat-latest",
@@ -3283,8 +3614,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3323,8 +3657,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3363,8 +3700,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3403,8 +3743,11 @@
         "costing": {
           "score": 3.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3443,8 +3786,11 @@
         "costing": {
           "score": 3.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3483,8 +3829,11 @@
         "costing": {
           "score": 0.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.05,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3523,8 +3872,11 @@
         "costing": {
           "score": 0.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.05,
+          "output_per_1m": 0.4,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3563,8 +3915,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3575,7 +3930,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-realtime",
@@ -3592,8 +3949,11 @@
         "costing": {
           "score": 53.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 4.0,
+          "output_per_1m": 16.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -3604,7 +3964,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model"
       },
       {
         "id": "gpt-realtime-2025-08-28",
@@ -3621,8 +3983,11 @@
         "costing": {
           "score": 53.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 20.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -3633,7 +3998,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime dated snapshot"
       },
       {
         "id": "gpt-audio",
@@ -3651,8 +4018,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3663,7 +4033,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-5-codex",
@@ -3680,8 +4052,11 @@
         "costing": {
           "score": 30.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -3709,8 +4084,11 @@
         "costing": {
           "score": 26.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.0,
+          "output_per_1m": 8.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -3721,7 +4099,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model"
       },
       {
         "id": "gpt-5-pro-2025-10-06",
@@ -3739,8 +4119,11 @@
         "costing": {
           "score": 360.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 15.0,
+          "output_per_1m": 120.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 272000,
         "capabilities": {
@@ -3779,8 +4162,11 @@
         "costing": {
           "score": 400.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 15.0,
+          "output_per_1m": 120.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 272000,
         "capabilities": {
@@ -3819,8 +4205,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3831,7 +4220,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-audio-mini-2025-10-06",
@@ -3849,8 +4240,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3861,7 +4255,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio dated snapshot"
       },
       {
         "id": "gpt-5-search-api",
@@ -3878,8 +4274,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3907,8 +4306,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -3919,7 +4321,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model"
       },
       {
         "id": "gpt-realtime-mini-2025-10-06",
@@ -3936,8 +4340,11 @@
         "costing": {
           "score": 2.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -3948,7 +4355,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime dated snapshot"
       },
       {
         "id": "gpt-5-search-api-2025-10-14",
@@ -3965,8 +4374,11 @@
         "costing": {
           "score": 4.17,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3995,8 +4407,11 @@
         "costing": {
           "score": 4.17,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4035,8 +4450,11 @@
         "costing": {
           "score": 4.17,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4075,8 +4493,11 @@
         "costing": {
           "score": 4.17,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4114,8 +4535,11 @@
         "costing": {
           "score": 30.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4143,8 +4567,11 @@
         "costing": {
           "score": 6.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.25,
+          "output_per_1m": 2.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4172,8 +4599,11 @@
         "costing": {
           "score": 504.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4201,8 +4631,11 @@
         "costing": {
           "score": 11.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 5.0,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -4213,7 +4646,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model"
       },
       {
         "id": "gpt-5.2-2025-12-11",
@@ -4231,8 +4666,11 @@
         "costing": {
           "score": 42.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4271,8 +4709,11 @@
         "costing": {
           "score": 42.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4311,8 +4752,11 @@
         "costing": {
           "score": 504.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 21.0,
+          "output_per_1m": 168.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4351,8 +4795,11 @@
         "costing": {
           "score": 504.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 21.0,
+          "output_per_1m": 168.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4391,8 +4838,11 @@
         "costing": {
           "score": 42.0,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": 0.01
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4431,8 +4881,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 5.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4453,7 +4906,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-transcribe-2025-03-20",
@@ -4471,8 +4926,11 @@
         "costing": {
           "score": 16.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.25,
+          "output_per_1m": 5.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4493,7 +4951,9 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-tts-2025-03-20",
@@ -4510,8 +4970,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4522,7 +4985,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-4o-mini-tts-2025-12-15",
@@ -4539,8 +5004,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4551,7 +5019,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-realtime-mini-2025-12-15",
@@ -4568,8 +5038,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4580,7 +5053,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "gpt-audio-mini-2025-12-15",
@@ -4598,8 +5073,11 @@
         "costing": {
           "score": 8.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.6,
+          "output_per_1m": 2.4,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4610,7 +5088,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot"
       },
       {
         "id": "chatgpt-image-latest",
@@ -4626,9 +5106,12 @@
         },
         "costing": {
           "score": 40.0,
-          "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "source": "failed",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -4639,7 +5122,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model"
       },
       {
         "id": "gpt-5.2-codex",
@@ -4656,8 +5141,11 @@
         "costing": {
           "score": 42.0,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4685,8 +5173,11 @@
         "costing": {
           "score": 23.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4714,8 +5205,11 @@
         "costing": {
           "score": 53.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 4.0,
+          "output_per_1m": 16.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4726,7 +5220,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model"
       },
       {
         "id": "gpt-audio-1.5",
@@ -4744,8 +5240,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4756,7 +5255,9 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model"
       },
       {
         "id": "gpt-4o-search-preview",
@@ -4774,8 +5275,11 @@
         "costing": {
           "score": 13.33,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.03
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4814,8 +5318,11 @@
         "costing": {
           "score": 33.33,
           "source": "estimated",
-          "updated": "2026-03-14",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 10.0,
+          "search_cost_per_unit": 0.03
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4853,8 +5360,11 @@
         "costing": {
           "score": 18.67,
           "source": "estimated",
-          "updated": "2026-02-27",
-          "tier": ""
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 4.0,
+          "search_cost_per_unit": null
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4865,7 +5375,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated"
       }
     ],
     "last_updated": "2026-03-15"

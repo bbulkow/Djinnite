@@ -37,11 +37,11 @@ response = provider.generate(prompt)
 **🔍 Breakthrough Feature: Universal Knowledge Grounding**
 
 Escape the knowledge cutoff trap! Every AI provider has opaque training data cutoffs. Djinnite solves this with **universal grounding/web search** across ALL providers:
-- **Gemini**: Uses native search grounding 
-- **Claude**: Uses native search capabilities (when available)
-- **OpenAI**: Uses intelligent Gemini-powered web search (since OpenAI doesn't support this yet)
+- **Gemini**: Native Google Search grounding
+- **Claude**: Native web search (GA since Claude 4.6)
+- **OpenAI**: Native web search via Responses API
 - **Single API**: Same `web_search=True` parameter works everywhere
-- **Automatic fallback**: Graceful degradation when search isn't available
+- **Cost tracking**: Search events are billed per-model and tracked in `response.search_cost`
 
 **Enterprise-Ready Google Integration**
 Djinnite supports both paths for Google Gemini:
@@ -81,7 +81,7 @@ response = provider.generate("Explain quantum computing")  # Identical API
 Designed from day one for **AI agents and automated systems**:
 
 - **Unified Multimodality** - standardized vision, audio, and video support
-- **Standardized responses** with consistent token counting across providers
+- **Standardized responses** with token counts and dollar costs across providers
 - **Robust error handling** with retry-friendly exception hierarchy
 - **JSON generation** optimized for structured agent outputs
 - **Provider fallback chains** - switch providers when one hits limits
@@ -119,9 +119,9 @@ response = provider.generate_json(
 Never fall behind on the latest AI capabilities:
 
 - **Automatic model discovery** - refresh available models from provider APIs
-- **AI-powered cost estimation** - intelligent cost scoring across providers  
+- **AI-powered pricing** - discovers current $/1M-token pricing via web search
+- **Real-time dollar costs** - every response includes `token_cost`, `search_cost`, `total_cost`
 - **Model deprecation tracking** - get warnings before models disappear
-- **Beta model detection** - early access to experimental capabilities
 
 ```bash
 # Stay current with one command
@@ -155,11 +155,11 @@ Don't just switch providers—**use them in parallel**. Djinnite lets you orches
 ```
 
 ### **Universal Grounding & Web Search**
-Get current information across all providers:
+All three providers support native web search:
 
-- **Web search abstraction** - works with OpenAI and Gemini (more coming)
-- **Consistent grounding interface** - same API regardless of how each provider implements real-time data
-- **Fallback strategies** - graceful degradation when web search isn't available
+- **Unified API** - `web_search=True` works identically across Gemini, Claude, and OpenAI
+- **Native implementations** - each provider uses its own search backend (no cross-provider proxying)
+- **Cost-tracked** - search events are billed per-model and reported in `response.search_cost`
 
 ```python
 # Web search works across providers that support it
@@ -265,6 +265,38 @@ For detailed instructions on setup, maintenance scripts, and integration, see **
 
 ---
 
+## Breaking Change: Dollar-Based Cost Tracking (March 2026)
+
+**`AIResponse` now provides real dollar costs on every response.**
+
+Previously, model costs were tracked as relative scores (anchor-based, where gemini-2.5-flash = 1.0). This made it impossible to compute actual dollar costs or combine token costs with web search costs.
+
+**What changed:**
+- `ModelCosting` now stores `input_per_1m` and `output_per_1m` (dollars per 1M tokens) and `search_cost_per_unit` (dollars per web search event) instead of a relative `score`
+- Every `AIResponse` now includes `token_cost`, `search_cost`, and `total_cost` properties (in dollars)
+- Pricing is discovered per-model via AI + web search (run `update_model_costs --all` to populate)
+- The old `score` and `tier` fields on `ModelCosting` are removed
+- Claude web search now uses Anthropic's native GA web search (no more Gemini proxy fallback)
+- `web_search=True` on models that don't support it raises `AIProviderError` instead of silently falling back
+
+**Migration:**
+1. Run `uv run python -m djinnite.scripts.update_model_costs --all` to populate dollar pricing
+2. Replace any code reading `model_info.costing.score` with `model_info.costing.input_per_1m` / `output_per_1m`
+3. Use `response.token_cost` and `response.total_cost` instead of manual cost calculations
+
+```python
+response = provider.generate("Summarize this.", web_search=True)
+
+# New: dollar costs on every response
+print(f"Token cost:  ${response.token_cost:.6f}")
+print(f"Search cost: ${response.search_cost:.6f}")
+print(f"Total cost:  ${response.total_cost:.6f}")
+```
+
+See [USE.md](USE.md) for the full Cost Tracking documentation.
+
+---
+
 ## 📖 Core Concepts
 
 ### Providers
@@ -292,14 +324,23 @@ response = provider.generate("Hello, world!")
 response.content        # Generated text
 response.model         # Actual model used
 response.provider      # Provider name
-response.usage         # Token usage dict
+response.usage         # Full usage + cost dict
 response.parts         # Multimodal output parts (interleaved)
-response.input_tokens  # Tokens in prompt
-response.output_tokens # Tokens in response
-response.total_tokens  # Combined total
 response.raw_response  # Original provider response
 response.truncated     # True if output was cut short by token limit
 response.finish_reason # Provider-native stop reason (e.g. "stop", "length", "max_tokens")
+
+# Token counts
+response.input_tokens  # Tokens in prompt
+response.output_tokens # Tokens in response
+response.thinking_tokens # Reasoning/thinking tokens (None if not reported)
+response.total_tokens  # Combined total
+
+# Dollar costs (computed from per-model catalog pricing)
+response.token_cost    # Cost of token usage in dollars
+response.search_cost   # Cost of web search events in dollars
+response.total_cost    # token_cost + search_cost
+response.search_units  # Number of billable search events
 ```
 
 ### Multimodal Schema
@@ -687,7 +728,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for complete guidelines.
 | **Performance** | 🚀 Native SDK | 🐌 Abstraction Overhead | 🚀 Native SDK | 🚀 Native SDK |
 | **Multimodality** | 🖼️ Unified | 📚 Complex | ❌ Basic | 🔧 Provider-specific |
 | **Model Discovery** | 🤖 AI-Powered | ❌ Manual | ❌ Manual | ❌ Manual |
-| **Cost Tracking** | 📊 AI-Estimated | ❌ Manual | ❌ Manual | ❌ Manual |
+| **Cost Tracking** | 💲 Per-request $ | ❌ Manual | ❌ Manual | ❌ Manual |
 | **Web Search** | 🌐 Unified API | 🌐 Various Tools | ❌ No | 🔧 Provider-specific |
 | **Error Handling** | 🛡️ Standardized | 🛡️ Standardized | 🛡️ Standardized | 🔧 Provider-specific |
 | **Agentic Features** | 🤖 Built-in | 🤖 Extensive | ❌ Basic | 🔧 Manual |
@@ -704,9 +745,10 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for complete guidelines.
 - **Provider fallback chains** for high availability
 
 ### **Cost-Sensitive Applications**
-- **AI-powered cost estimation** for intelligent provider selection
-- **Real-time cost tracking** with token usage monitoring
-- **Automatic model switching** based on cost/performance requirements
+- **Dollar-denominated costs** on every response (`token_cost`, `search_cost`, `total_cost`)
+- **Per-model pricing** discovered via AI + web search, stored in the catalog
+- **Search cost tracking** -- web search is billed per-event and can exceed token costs
+- **Provider comparison** -- compare actual dollar costs across providers for the same task
 
 ### **Multi-Project Organizations**
 - **Git submodule sharing** across projects

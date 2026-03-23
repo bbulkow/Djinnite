@@ -2,12 +2,10 @@
 Anthropic Claude AI Provider
 
 Wraps the Anthropic SDK for Claude models.
-Supports native web search for Claude 4.5+ models.
+Supports native web search for Claude 4.5+/4.6+ models.
 """
 
 import json
-import urllib.request
-import urllib.error
 import base64
 from typing import Optional, Union, List, Dict, Type
 
@@ -23,24 +21,22 @@ from .base_provider import (
 )
 
 
-# Web search beta configuration
-WEB_SEARCH_BETA_HEADER = "web-search-2025-03-05"
-WEB_SEARCH_TOOL = {
-    "type": "web_search_20250305",
-    "name": "web_search"
-}
+# Web search tool configuration (GA since Claude 4.6, Feb 2026)
+_WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
 
 
 def _supports_native_web_search(model_id: str) -> bool:
     """
     Check if a Claude model supports native web search.
+    Supported on Claude 4.5+ and 4.6+ models.
     """
-    if "4-5" in model_id or "4.5" in model_id:
+    low = model_id.lower()
+    if "latest" in low:
         return True
-    if "latest" in model_id.lower():
-        return True
-    if any(x in model_id for x in ["sonnet-4-5", "opus-4-5", "haiku-4-5"]):
-        return True
+    # Match both dash and dot formats: 4-5, 4.5, 4-6, 4.6
+    for gen in ("4-5", "4.5", "4-6", "4.6"):
+        if gen in low:
+            return True
     return False
 
 
@@ -92,6 +88,30 @@ class ClaudeProvider(BaseAIProvider):
                 # Claude doesn't support file_uri directly in the same way as Gemini
         return claude_content
     
+    @staticmethod
+    def _count_search_units(response) -> tuple[int, Optional[int]]:
+        """Count billable web search invocations from an Anthropic response.
+
+        Returns:
+            (search_units, search_result_tokens) -- search_result_tokens is
+            None when no search occurred or the SDK doesn't report it.
+        """
+        units = 0
+        if not hasattr(response, 'content') or not response.content:
+            return 0, None
+        for block in response.content:
+            btype = getattr(block, 'type', None)
+            if btype == 'tool_use' and getattr(block, 'name', None) == 'web_search':
+                units += 1
+            elif btype == 'server_tool_use' and getattr(block, 'name', None) == 'web_search':
+                units += 1
+        # Anthropic bills search_result tokens at the model's input rate.
+        # The SDK may expose these via usage; extract if available.
+        result_tokens = None
+        if units and hasattr(response, 'usage') and response.usage:
+            result_tokens = getattr(response.usage, 'server_tool_use_input_tokens', None)
+        return units, result_tokens
+
     def _build_claude_thinking(
         self,
         thinking: Union[bool, int, str, None],
@@ -164,15 +184,6 @@ class ClaudeProvider(BaseAIProvider):
         # Validate & normalize the thinking parameter
         thinking = self._resolve_thinking(thinking)
 
-        # If web search requested, delegate to native web search method
-        if web_search and _supports_native_web_search(self.model):
-            return self._generate_with_web_search(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens or 8192,
-            )
-
         try:
             parts = self._normalize_input(prompt)
             self._validate_vision_limits(parts)
@@ -209,7 +220,16 @@ class ClaudeProvider(BaseAIProvider):
             # Thinking: add the provider-native thinking block
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
-            
+
+            # Web search: add tool + beta header via SDK
+            if web_search:
+                if not _supports_native_web_search(self.model):
+                    raise AIProviderError(
+                        f"Web search not supported for model '{self.model}'.",
+                        provider=self.PROVIDER_NAME,
+                    )
+                kwargs["tools"] = [_WEB_SEARCH_TOOL]
+
             # Generate response.
             # Always use streaming — Claude requires it for large max_tokens
             # values (>~64K) and for long-running thinking requests.
@@ -232,16 +252,23 @@ class ClaudeProvider(BaseAIProvider):
             if response.usage:
                 input_t = getattr(response.usage, 'input_tokens', 0) or 0
                 output_t = getattr(response.usage, 'output_tokens', 0) or 0
-                # Claude SDK may expose thinking_tokens in newer versions;
-                # None if not available (unknown, not zero).
                 thinking_t = getattr(response.usage, 'thinking_tokens', None)
                 usage = {
                     "input_tokens": input_t,
                     "output_tokens": output_t,
                     "total_tokens": input_t + output_t,
                     "thinking_tokens": thinking_t,
+                    "_thinking_billed_separately": True,
                 }
-            
+
+            # Count billable search events
+            s_units, s_result_tokens = self._count_search_units(response)
+            if s_units:
+                usage["search_units"] = s_units
+            if s_result_tokens is not None:
+                usage["search_result_tokens"] = s_result_tokens
+            self._compute_costs(usage)
+
             # Detect output truncation: Anthropic returns stop_reason="max_tokens"
             # when the output was cut short due to the max_tokens limit.
             # This is an HTTP 200 response — the SDK does NOT raise an exception.
@@ -311,124 +338,6 @@ class ClaudeProvider(BaseAIProvider):
                     original_error=e
                 )
     
-    def _generate_with_web_search(
-        self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
-        max_tokens: int = 4096,
-    ) -> AIResponse:
-        """
-        Generate a response using Claude with native web search.
-        """
-        url = "https://api.anthropic.com/v1/messages"
-        
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "anthropic-beta": WEB_SEARCH_BETA_HEADER,
-            "content-type": "application/json"
-        }
-        
-        parts = self._normalize_input(prompt)
-        self._validate_vision_limits(parts)
-        claude_content = self._map_parts(parts)
-
-        data = {
-            "model": self.model,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": [{"role": "user", "content": claude_content}],
-            "tools": [WEB_SEARCH_TOOL],
-        }
-        
-        if system_prompt:
-            data["system"] = system_prompt
-        
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(data).encode('utf-8'),
-                headers=headers,
-                method='POST'
-            )
-            
-            with urllib.request.urlopen(req) as response:
-                result = json.load(response)
-            
-            content = ""
-            output_parts = []
-            content_blocks = result.get('content', [])
-            
-            for block in content_blocks:
-                block_type = block.get('type', '')
-                if block_type == 'text':
-                    text = block.get('text', '')
-                    content += text
-                    output_parts.append({"type": "text", "text": text})
-            
-            usage_data = result.get('usage', {})
-            input_t = usage_data.get('input_tokens', 0)
-            output_t = usage_data.get('output_tokens', 0)
-            usage = {
-                "input_tokens": input_t,
-                "output_tokens": output_t,
-                "total_tokens": input_t + output_t,
-                "thinking_tokens": usage_data.get('thinking_tokens'),  # None if not present
-            }
-            
-            # Detect output truncation in raw HTTP response
-            stop_reason = result.get('stop_reason')
-            is_truncated = (stop_reason == "max_tokens")
-            
-            ai_response = AIResponse(
-                content=content,
-                model=self.model,
-                provider=self.PROVIDER_NAME,
-                usage=usage,
-                parts=output_parts,
-                raw_response=result,
-                truncated=is_truncated,
-                finish_reason=stop_reason,
-            )
-            
-            if is_truncated:
-                raise AIOutputTruncatedError(
-                    f"Output truncated: model hit max output token limit "
-                    f"(stop_reason='max_tokens', output_tokens={usage.get('output_tokens', '?')})",
-                    provider=self.PROVIDER_NAME,
-                    partial_response=ai_response,
-                )
-            
-            return ai_response
-            
-        except (AIOutputTruncatedError, AIContextLengthError):
-            raise  # Never swallow our own semantic errors
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode('utf-8')
-            error_body_lower = error_body.lower()
-            # Detect context length exceeded in raw HTTP 400 responses
-            if e.code == 400 and ("too many" in error_body_lower and "token" in error_body_lower) or \
-               ("context" in error_body_lower and "length" in error_body_lower) or \
-               ("prompt is too long" in error_body_lower):
-                raise AIContextLengthError(
-                    f"Input context too long for model '{self.model}': {error_body}",
-                    provider=self.PROVIDER_NAME,
-                )
-            elif e.code == 400 and "beta" in error_body_lower:
-                raise AIProviderError(
-                    f"Web search not available for model '{self.model}'.",
-                    provider=self.PROVIDER_NAME
-                )
-            elif e.code == 401:
-                raise AIAuthenticationError("Invalid API key", provider=self.PROVIDER_NAME)
-            elif e.code == 429:
-                raise AIRateLimitError("Rate limit exceeded", provider=self.PROVIDER_NAME)
-            else:
-                raise AIProviderError(f"HTTP {e.code}: {error_body}", provider=self.PROVIDER_NAME)
-        except Exception as e:
-            raise AIProviderError(f"Web search generation failed: {e}", provider=self.PROVIDER_NAME, original_error=e)
-    
     # ------------------------------------------------------------------
     # Schema normalization for Claude strict mode
     # ------------------------------------------------------------------
@@ -476,7 +385,7 @@ class ClaudeProvider(BaseAIProvider):
             system_prompt: Optional system instruction.
             temperature: Sampling temperature (default 0.3).
             max_tokens: Maximum tokens to generate.
-            web_search: If True, enable native Claude web search (4.5+ models).
+            web_search: If True, enable native Claude web search (4.5+/4.6+ models).
             thinking: Optional thinking/reasoning control (same as generate()).
 
         Returns:
@@ -500,21 +409,11 @@ class ClaudeProvider(BaseAIProvider):
             if not _supports_native_web_search(self.model):
                 raise AIProviderError(
                     f"Web search not supported for model '{self.model}'.",
-                    provider=self.PROVIDER_NAME
+                    provider=self.PROVIDER_NAME,
                 )
-            # Web search path uses raw HTTP; include schema guidance in
-            # the system prompt since the beta endpoint may not support
-            # output_config yet.
-            json_system = "You must respond with valid JSON only. No additional text or explanation."
-            if system_prompt:
-                json_system = f"{system_prompt}\n\n{json_system}"
-            return self._generate_with_web_search(
-                prompt=prompt,
-                system_prompt=json_system,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-        
+            if not force:
+                self._check_capability("json_with_search")
+
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
 
@@ -554,7 +453,12 @@ class ClaudeProvider(BaseAIProvider):
             # Thinking block
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
-            
+
+            # Web search: combine output_config (constraint decoding) with
+            # web_search tool in the same request — native JSON + search.
+            if web_search:
+                kwargs["tools"] = [_WEB_SEARCH_TOOL]
+
             # Always use streaming — same reason as generate().
             with self._client.messages.stream(**kwargs) as stream:
                 response = stream.get_final_message()
@@ -579,8 +483,17 @@ class ClaudeProvider(BaseAIProvider):
                     "output_tokens": output_t,
                     "total_tokens": input_t + output_t,
                     "thinking_tokens": thinking_t,
+                    "_thinking_billed_separately": True,
                 }
-            
+
+            # Count billable search events
+            s_units, s_result_tokens = self._count_search_units(response)
+            if s_units:
+                usage["search_units"] = s_units
+            if s_result_tokens is not None:
+                usage["search_result_tokens"] = s_result_tokens
+            self._compute_costs(usage)
+
             # Detect output truncation
             stop_reason = getattr(response, 'stop_reason', None)
             is_truncated = (stop_reason == "max_tokens")
@@ -790,12 +703,39 @@ class ClaudeProvider(BaseAIProvider):
             return None
 
     def probe_json_with_search(self) -> Optional[bool]:
-        """Claude handles JSON + web search via system-prompt fallback — always works."""
-        # Claude's generate_json(web_search=True) routes through
-        # _generate_with_web_search() with JSON guidance in the system
-        # prompt.  It doesn't use Constraint Decoding in this path, but
-        # the call succeeds and returns usable JSON.
-        return True
+        """Probe whether this Claude model supports output_config + web_search combined."""
+        if not _supports_native_web_search(self.model):
+            return False
+
+        _PROBE_SCHEMA = {
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"],
+            "additionalProperties": False,
+        }
+        try:
+            self._client.messages.create(
+                model=self.model,
+                max_tokens=50,
+                temperature=0,
+                messages=[{"role": "user", "content": "Return the number 1."}],
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": _PROBE_SCHEMA,
+                    }
+                },
+                tools=[_WEB_SEARCH_TOOL],
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
+            if status == 400 or "not supported" in err or "invalid" in err or "incompatible" in err:
+                return False
+            if status in (401, 403, 429) or "rate" in err or "quota" in err:
+                return None
+            return None
 
     def discover_modalities(self, model_id: str) -> Dict[str, List[str]]:
         """Discover modalities for Claude models."""

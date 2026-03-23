@@ -32,20 +32,18 @@ def probe_beta_access():
     
     client = anthropic.Anthropic(api_key=claude_config.api_key)
     
-    print("🔍 Probing for 'web-search-20250305' capability...")
-    print(f"   Using model: claude-3-5-sonnet-20241022")
-    
+    print("Probing for web_search (GA) capability...")
+    print(f"   Using model: claude-sonnet-4-6")
+
     try:
-        response = client.beta.messages.create(
-            model="claude-3-5-sonnet-20241022",
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
             max_tokens=100,
             messages=[{"role": "user", "content": "What is the price of GPT-5 today?"}],
-            # THE MAGIC KEYS
-            betas=["web-search-20250305"], 
             tools=[{
                 "type": "web_search_20250305",
-                "name": "web_search"
-            }]
+                "name": "web_search",
+            }],
         )
         print("✅ SUCCESS: Your account has access to Native Web Search.")
         print(f"   Response stop_reason: {response.stop_reason}")

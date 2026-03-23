@@ -4,8 +4,8 @@ Update Models Script
 Fetches the latest model lists from AI providers and updates
 config/model_catalog.json.
 
-This script preserves existing cost_score and modality values 
-when updating models. To update cost scores, use update_model_costs.py.
+This script preserves existing pricing and modality values
+when updating models. To update pricing, use update_model_costs.py.
 
 Usage:
     python -m djinnite.scripts.update_models
@@ -359,24 +359,29 @@ def merge_model_data(
                 # Migrate or overwrite
                 model["modalities"] = discovered
                 
+            # Preserve disabled status
+            if existing.get("disabled"):
+                model["disabled"] = True
+                model["disabled_reason"] = existing.get("disabled_reason", "")
+
             # Preserve costing
             if "costing" in existing:
                 model["costing"] = existing["costing"]
             else:
                 model["costing"] = {
-                    "score": existing.get("cost_score"),
-                    "source": existing.get("cost_source", "default"),
-                    "updated": existing.get("cost_updated", ""),
-                    "tier": existing.get("cost_tier", "standard")
+                    "input_per_1m": None,
+                    "output_per_1m": None,
+                    "source": "",
+                    "updated": "",
                 }
         else:
             # New model
             model["modalities"] = discovered
             model["costing"] = {
-                "score": None,
+                "input_per_1m": None,
+                "output_per_1m": None,
                 "source": "",
                 "updated": "",
-                "tier": ""
             }
             # Queue for AI check if it seems too generic
             if discovered["input"] == ["text"] and discovered["output"] == ["text"]:

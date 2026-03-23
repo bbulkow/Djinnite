@@ -67,12 +67,9 @@ def test_freeform_web_search(provider, provider_name: str) -> bool:
 
 
 # Known provider limitations for generate_json() + web_search.
-# Claude: Architectural limitation — Claude requires all citations to be returned
-#   with web search results, which is incompatible with a fixed JSON schema that
-#   cannot accommodate arbitrary citation blocks.
 # Gemini 2.x: Cannot combine grounding with structured output (resolved in Gemini 3.0+).
-# OpenAI Responses API: Supports both natively.
-_JSON_SEARCH_KNOWN_LIMITATIONS = {"claude"}
+# Claude 4.5+/4.6+ and OpenAI Responses API: Support both natively.
+_JSON_SEARCH_KNOWN_LIMITATIONS = set()
 
 # For Gemini, the JSON+search test uses a Gemini 3.x model which supports
 # grounding + structured output combined.  Gemini 2.x does not.

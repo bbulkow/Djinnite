@@ -119,6 +119,27 @@ class GeminiProvider(BaseAIProvider):
             
         return gemini_parts
 
+    @staticmethod
+    def _count_search_units(response) -> int:
+        """Count billable web search queries from a Gemini response.
+
+        Google bills per individual search query in
+        ``candidates[0].grounding_metadata.web_search_queries``.
+        """
+        try:
+            candidate = response.candidates[0] if response.candidates else None
+            if candidate is None:
+                return 0
+            metadata = getattr(candidate, 'grounding_metadata', None)
+            if metadata is None:
+                return 0
+            queries = getattr(metadata, 'web_search_queries', None)
+            if queries:
+                return len(queries)
+        except (IndexError, AttributeError):
+            pass
+        return 0
+
     def _build_gemini_thinking(
         self,
         thinking: Union[bool, int, str, None],
@@ -223,8 +244,15 @@ class GeminiProvider(BaseAIProvider):
                     "output_tokens": output_t,
                     "total_tokens": total_t if total_t is not None else input_t + output_t,
                     "thinking_tokens": thinking_t,  # None if not reported
+                    "_thinking_billed_separately": False,
                 }
-            
+
+            # Count billable search events
+            s_units = self._count_search_units(response)
+            if s_units:
+                usage["search_units"] = s_units
+            self._compute_costs(usage)
+
             # Extract parts, text, and finish reason from the candidate
             output_parts = []
             text_content = ""
@@ -457,8 +485,15 @@ class GeminiProvider(BaseAIProvider):
                     "output_tokens": output_t,
                     "total_tokens": total_t if total_t is not None else input_t + output_t,
                     "thinking_tokens": thinking_t,
+                    "_thinking_billed_separately": False,
                 }
-            
+
+            # Count billable search events
+            s_units = self._count_search_units(response)
+            if s_units:
+                usage["search_units"] = s_units
+            self._compute_costs(usage)
+
             # Detect output truncation — same check as generate()
             is_truncated = (finish_reason is not None and "MAX_TOKENS" in finish_reason.upper())
             

@@ -83,7 +83,11 @@ class AIResponse:
         content: The generated text content.
         model: The model ID that produced the response.
         provider: The provider name (e.g. "gemini", "claude", "chatgpt").
-        usage: Token usage dict with keys "input_tokens" and "output_tokens".
+        usage: Usage and cost dict.  Token counts: ``input_tokens``,
+            ``output_tokens``, ``total_tokens``, ``thinking_tokens``.
+            Search: ``search_units``, ``search_result_tokens``.
+            Costs (dollars): ``token_cost``, ``search_cost``,
+            ``search_cost_per_unit``, ``total_cost``.
         parts: Multimodal output parts (interleaved text, images, etc.).
         raw_response: The original provider SDK response object.
         truncated: True if the output was cut short due to the max output
@@ -138,6 +142,48 @@ class AIResponse:
         if total is not None:
             return total
         return self.input_tokens + self.output_tokens
+
+    @property
+    def search_units(self) -> int:
+        """Number of billable web search events (0 if no search was used)."""
+        return self.usage.get("search_units", 0)
+
+    @property
+    def search_result_tokens(self) -> Optional[int]:
+        """
+        Tokens consumed by search result content injected into context.
+
+        Relevant for Anthropic (billed at input rate) and legacy OpenAI
+        (GPT-4o).  Returns ``None`` if not reported by the provider.
+        """
+        return self.usage.get("search_result_tokens")
+
+    @property
+    def search_cost(self) -> Optional[float]:
+        """Total dollar cost of web search events for this response.
+
+        Computed as ``search_units * search_cost_per_unit`` by the provider
+        (using the rate from the model catalog).  Returns ``None`` if the
+        per-unit rate is unknown or no search was performed.
+        """
+        return self.usage.get("search_cost")
+
+    @property
+    def token_cost(self) -> Optional[float]:
+        """Dollar cost of token usage (input + output + thinking).
+
+        Computed from per-model rates in the catalog.  Returns ``None``
+        if the model's pricing is unknown.
+        """
+        return self.usage.get("token_cost")
+
+    @property
+    def total_cost(self) -> Optional[float]:
+        """Total dollar cost: token_cost + search_cost.
+
+        Returns ``None`` if no cost information is available.
+        """
+        return self.usage.get("total_cost")
 
 
 class AIProviderError(Exception):
@@ -266,7 +312,57 @@ class BaseAIProvider(ABC):
         This is called during __init__ and should set up self._client.
         """
         pass
-    
+
+    def _compute_search_cost(self, usage: dict) -> None:
+        """Compute dollar cost of web search events and store in usage dict."""
+        units = usage.get("search_units", 0)
+        if not units:
+            return
+        cost_per_unit = None
+        if self._model_info and self._model_info.costing:
+            cost_per_unit = self._model_info.costing.search_cost_per_unit
+        if cost_per_unit is not None:
+            usage["search_cost_per_unit"] = cost_per_unit
+            usage["search_cost"] = round(units * cost_per_unit, 6)
+
+    def _compute_token_cost(self, usage: dict) -> None:
+        """Compute dollar cost of token usage and store in usage dict.
+
+        Reads ``input_per_1m`` / ``output_per_1m`` from the model catalog.
+        Thinking tokens are billed at the output rate.  Anthropic reports
+        them separately (``_thinking_billed_separately=True``), while
+        OpenAI/Google include them in ``output_tokens`` already.
+        """
+        if not self._model_info or not self._model_info.costing:
+            return
+        costing = self._model_info.costing
+        if costing.input_per_1m is None or costing.output_per_1m is None:
+            return
+
+        input_t = usage.get("input_tokens", 0)
+        output_t = usage.get("output_tokens", 0)
+
+        if usage.get("_thinking_billed_separately"):
+            output_t += usage.get("thinking_tokens") or 0
+
+        input_cost = input_t * costing.input_per_1m / 1_000_000
+        output_cost = output_t * costing.output_per_1m / 1_000_000
+        usage["token_cost"] = round(input_cost + output_cost, 8)
+
+    def _compute_costs(self, usage: dict) -> None:
+        """Compute all dollar costs (token + search) and store in usage dict.
+
+        Single entry point called by providers after populating token counts
+        and search units.  Produces ``token_cost``, ``search_cost``, and
+        ``total_cost`` in the usage dict.
+        """
+        self._compute_token_cost(usage)
+        self._compute_search_cost(usage)
+        token_cost = usage.get("token_cost")
+        search_cost = usage.get("search_cost")
+        if token_cost is not None or search_cost is not None:
+            usage["total_cost"] = round((token_cost or 0) + (search_cost or 0), 8)
+
     @abstractmethod
     def generate(
         self,

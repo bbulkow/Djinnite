@@ -172,11 +172,23 @@ class VisionLimits:
 
 @dataclass
 class ModelCosting:
-    """Cost-related information for an AI model."""
-    score: Optional[float] = None
+    """Dollar-based pricing for an AI model.
+
+    Attributes:
+        input_per_1m: Dollar cost per 1 million input tokens.
+        output_per_1m: Dollar cost per 1 million output tokens.
+            Thinking/reasoning tokens are billed at this rate.
+        source: How the pricing was determined
+            (estimated/manual/failed).
+        updated: ISO date when the pricing was last updated.
+        search_cost_per_unit: Dollar cost per billable web search event.
+            Varies by model.  None means unknown or web search not supported.
+    """
+    input_per_1m: Optional[float] = None
+    output_per_1m: Optional[float] = None
     source: str = "default"
     updated: str = ""
-    tier: str = "standard"
+    search_cost_per_unit: Optional[float] = None
 
 
 @dataclass
@@ -227,7 +239,9 @@ class ModelInfo:
         capabilities: Model capability flags (structured_json, temperature,
             thinking, web_search) — tri-state booleans discovered by probing.
         modalities: Input/output modality capabilities
-        costing: Cost scoring information
+        costing: Dollar-based pricing (input/output per 1M tokens, search per unit)
+        disabled: Whether this model is disabled (blocked from use at runtime)
+        disabled_reason: Human-readable explanation for why the model is disabled
     """
     id: str
     name: str
@@ -237,6 +251,8 @@ class ModelInfo:
     modalities: Modalities = field(default_factory=Modalities)
     costing: ModelCosting = field(default_factory=ModelCosting)
     vision_limits: Optional[VisionLimits] = None
+    disabled: bool = False
+    disabled_reason: str = ""
 
     @property
     def supports_structured_json(self) -> Optional[bool]:
@@ -356,20 +372,21 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
         ModelCatalog object with available models
     """
     path = catalog_path or _resolve_config_file("model_catalog.json")
-    
+
     data = load_json_file(path)
-    
+
     providers = {}
     for provider_name, provider_data in data.items():
         models = []
         for model_data in provider_data.get("models", []):
-            # Support both old and new costing schema
             costing_data = model_data.get("costing", {})
+
             costing = ModelCosting(
-                score=costing_data.get("score", model_data.get("cost_score")),
-                source=costing_data.get("source", model_data.get("cost_source", "default")),
-                updated=costing_data.get("updated", model_data.get("cost_updated", "")),
-                tier=costing_data.get("tier", model_data.get("cost_tier", "standard"))
+                input_per_1m=costing_data.get("input_per_1m"),
+                output_per_1m=costing_data.get("output_per_1m"),
+                source=costing_data.get("source", "default"),
+                updated=costing_data.get("updated", ""),
+                search_cost_per_unit=costing_data.get("search_cost_per_unit"),
             )
 
             # Handle modalities schema evolution
@@ -425,6 +442,8 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 modalities=modalities,
                 costing=costing,
                 vision_limits=vision_limits,
+                disabled=model_data.get("disabled", False),
+                disabled_reason=model_data.get("disabled_reason", ""),
             ))
         providers[provider_name] = models
     

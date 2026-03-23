@@ -246,7 +246,7 @@ class ClaudeProvider(BaseAIProvider):
             )
         ]
 
-    def _run_with_continuation(self, kwargs: dict, max_continuations: int = 5):
+    def _run_with_continuation(self, kwargs: dict, max_continuations: int = 2):
         """Stream a Messages API call, looping on ``pause_turn`` / ``tool_use``
         until the model produces ``end_turn`` or ``max_tokens``.
 
@@ -294,9 +294,17 @@ class ClaudeProvider(BaseAIProvider):
             clean_content = self._sanitize_content_for_continuation(
                 response.content
             )
+            # Stop-gap: tell the model to produce output after the first
+            # pause.  Streaming with server-side tools (web_search) exposes
+            # pause_turn states that the non-streaming API handled internally.
+            # TODO: research the correct Anthropic streaming pattern for
+            # server-tool continuations — this nudge is a workaround.
             kwargs["messages"] = kwargs["messages"] + [
                 {"role": "assistant", "content": clean_content},
-                {"role": "user", "content": "Continue."},
+                {"role": "user", "content": (
+                    "Stop searching. Produce the JSON output now "
+                    "using the search results you already have."
+                )},
             ]
 
         # Exhausted continuation budget

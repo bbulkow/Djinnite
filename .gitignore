@@ -149,6 +149,9 @@ cython_debug/
 # VS Code
 .vscode/
 
+# Claude Code
+.claude/
+
 # Project Specific
 config/ai_config.json
 llm_logs/

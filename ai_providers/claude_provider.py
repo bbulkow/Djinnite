@@ -21,8 +21,44 @@ from .base_provider import (
 )
 
 
-# Web search tool configuration (GA since Claude 4.6, Feb 2026)
-_WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
+# ---------------------------------------------------------------------------
+# Web search tool configuration
+# ---------------------------------------------------------------------------
+# Tool version: web_search_20260209 (Feb 2026, GA with Claude 4.6).
+#   Older version web_search_20250305 still works but lacks dynamic filtering
+#   and uses ~24% more input tokens.
+#
+# allowed_callers: The 20260209 tool defaults to requiring "programmatic tool
+#   calling", which only Claude 4.6+ models support.  Setting
+#   allowed_callers=["direct"] makes it compatible with older models like
+#   Haiku 4.5 that only support direct (model-initiated) tool calls.
+#
+# --- Multi-turn continuation (pause_turn) ---
+# Web search is a *server-side* tool: Djinnite never defines or executes it;
+# the Anthropic API handles search execution internally.  However, with
+# constraint decoding (generate_json) or smaller models, the API may return
+# stop_reason="pause_turn" meaning the model paused mid-conversation after
+# triggering a search but before producing final output.
+#
+# Pitfall with streaming: stream.get_final_message() on a pause_turn may
+# return server_tool_use content blocks WITHOUT their matching
+# server_tool_result blocks (the results haven't been delivered via the
+# stream yet).  If you echo these orphaned blocks back in a continuation
+# message the API returns a 400 error:
+#   "web_search tool use with id ... was found without a corresponding
+#    web_search_tool_result block"
+#
+# The fix is _sanitize_content_for_continuation() which strips orphaned
+# server_tool_use blocks before building the continuation message.  The
+# model will re-trigger the search on the next turn if it still needs
+# results.  We stay on streaming throughout (required for large max_tokens
+# and long-running thinking requests -- see commit 75691b7).
+# ---------------------------------------------------------------------------
+_WEB_SEARCH_TOOL = {
+    "type": "web_search_20260209",
+    "name": "web_search",
+    "allowed_callers": ["direct"],
+}
 
 
 def _supports_native_web_search(model_id: str) -> bool:

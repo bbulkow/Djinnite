@@ -961,6 +961,16 @@ class BaseAIProvider(ABC):
                     provider=self.PROVIDER_NAME,
                 )
 
+        elif capability == "web_search":
+            ws = self._model_info.capabilities.web_search
+            if ws is False:
+                raise AIProviderError(
+                    f"Model '{self.model}' does not support native web search "
+                    f"(web_search=false in catalog). Use a model that supports it, "
+                    f"or pass force=True to bypass.",
+                    provider=self.PROVIDER_NAME,
+                )
+
     def generate_json(
         self,
         prompt: Union[str, List[Dict]],

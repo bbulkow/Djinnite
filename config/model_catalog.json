@@ -284,6 +284,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -301,9 +303,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "text-to-speech model"
+        "vision_limits": null
       },
       {
         "id": "gemini-2.5-pro-preview-tts",
@@ -318,6 +318,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 4.0,
           "source": "estimated",
@@ -335,9 +337,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "text-to-speech model"
+        "vision_limits": null
       },
       {
         "id": "gemini-flash-latest",
@@ -565,51 +565,6 @@
         }
       },
       {
-        "id": "gemini-2.5-flash-lite-preview-09-2025",
-        "name": "Gemini 2.5 Flash-Lite Preview Sep 2025",
-        "context_window": 1048576,
-        "max_output_tokens": 65536,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 0.5,
-          "source": "failed",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "search_cost_per_unit": null
-        },
-        "capabilities": {
-          "structured_json": true,
-          "temperature": true,
-          "thinking": true,
-          "web_search": true,
-          "json_with_search": false,
-          "thinking_style": "budget"
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
         "id": "gemini-3-pro-preview",
         "name": "Gemini 3 Pro Preview",
         "context_window": 1048576,
@@ -627,12 +582,12 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "failed",
-          "updated": "2026-03-23",
+          "source": "estimated",
+          "updated": "2026-04-18",
           "tier": "",
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "search_cost_per_unit": null
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "search_cost_per_unit": 0.014
         },
         "capabilities": {
           "structured_json": true,
@@ -925,6 +880,36 @@
         }
       },
       {
+        "id": "gemini-3.1-flash-tts-preview",
+        "name": "Gemini 3.1 Flash TTS Preview",
+        "context_window": 8192,
+        "max_output_tokens": 16384,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 1.0,
+          "output_per_1m": 20.0,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": null
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null
+        },
+        "vision_limits": null
+      },
+      {
         "id": "gemini-robotics-er-1.5-preview",
         "name": "Gemini Robotics-ER 1.5 Preview",
         "context_window": 1048576,
@@ -938,6 +923,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "robotics model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -965,9 +952,48 @@
             "gif",
             "webp"
           ]
+        }
+      },
+      {
+        "id": "gemini-robotics-er-1.6-preview",
+        "name": "Gemini Robotics-ER 1.6 Preview",
+        "context_window": 131072,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
         },
-        "disabled": true,
-        "disabled_reason": "robotics model"
+        "costing": {
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": 0.014
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gemini-2.5-computer-use-preview-10-2025",
@@ -985,6 +1011,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "computer use model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1012,9 +1040,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "computer use model"
+        }
       },
       {
         "id": "gemini-embedding-001",
@@ -1029,6 +1055,8 @@
             "embedding"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "embedding model",
         "costing": {
           "score": 0.1,
           "source": "failed",
@@ -1046,9 +1074,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "embedding model"
+        "vision_limits": null
       },
       {
         "id": "gemini-embedding-2-preview",
@@ -1063,6 +1089,8 @@
             "embedding"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "embedding model",
         "costing": {
           "score": 0.1,
           "source": "failed",
@@ -1080,9 +1108,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "embedding model"
+        "vision_limits": null
       },
       {
         "id": "gemini-2.5-flash-native-audio-latest",
@@ -1100,6 +1126,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "native audio model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1127,9 +1155,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "native audio model"
+        }
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-09-2025",
@@ -1147,6 +1173,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1174,9 +1202,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "native audio dated snapshot"
+        }
       },
       {
         "id": "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -1194,6 +1220,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1221,15 +1249,97 @@
             "gif",
             "webp"
           ]
+        }
+      },
+      {
+        "id": "gemini-3.1-flash-live-preview",
+        "name": "Gemini 3.1 Flash Live Preview",
+        "context_window": 131072,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
         },
-        "disabled": true,
-        "disabled_reason": "native audio dated snapshot"
+        "costing": {
+          "input_per_1m": 0.75,
+          "output_per_1m": 4.5,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": 0.014
+        },
+        "capabilities": {
+          "structured_json": false,
+          "temperature": null,
+          "thinking": null,
+          "web_search": true,
+          "json_with_search": null,
+          "thinking_style": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       }
     ],
-    "last_updated": "2026-03-15"
+    "last_updated": "2026-04-18"
   },
   "claude": {
     "models": [
+      {
+        "id": "claude-opus-4-7",
+        "name": "Claude Opus 4.7",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 5.0,
+          "output_per_1m": 25.0,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 0,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": true,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": "adaptive"
+        },
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
       {
         "id": "claude-sonnet-4-6",
         "name": "Claude Sonnet 4.6",
@@ -1259,7 +1369,7 @@
           "thinking": true,
           "web_search": true,
           "json_with_search": true,
-          "thinking_style": "budget"
+          "thinking_style": "adaptive"
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -1302,7 +1412,7 @@
           "thinking": true,
           "web_search": true,
           "json_with_search": true,
-          "thinking_style": "budget"
+          "thinking_style": "adaptive"
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -1516,7 +1626,7 @@
           "temperature": true,
           "thinking": true,
           "web_search": true,
-          "json_with_search": true,
+          "json_with_search": false,
           "thinking_style": "budget"
         },
         "vision_limits": {
@@ -1559,7 +1669,7 @@
           "temperature": true,
           "thinking": true,
           "web_search": true,
-          "json_with_search": true,
+          "json_with_search": false,
           "thinking_style": "budget"
         },
         "vision_limits": {
@@ -1587,6 +1697,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
         "costing": {
           "score": 15.0,
           "source": "estimated",
@@ -1601,8 +1713,8 @@
           "structured_json": false,
           "temperature": true,
           "thinking": false,
-          "web_search": true,
-          "json_with_search": true,
+          "web_search": false,
+          "json_with_search": false,
           "thinking_style": null
         },
         "vision_limits": {
@@ -1615,12 +1727,10 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated"
+        }
       }
     ],
-    "last_updated": "2026-03-15"
+    "last_updated": "2026-04-18"
   },
   "chatgpt": {
     "models": [
@@ -1636,6 +1746,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
         "costing": {
           "score": 240.0,
           "source": "estimated",
@@ -1654,9 +1766,7 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated"
+        "vision_limits": null
       },
       {
         "id": "gpt-4",
@@ -1671,6 +1781,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -1699,9 +1811,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - use gpt-5"
+        }
       },
       {
         "id": "gpt-3.5-turbo",
@@ -1715,6 +1825,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
         "costing": {
           "score": 6.67,
           "source": "estimated",
@@ -1733,9 +1845,50 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated"
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "name": "gpt-5.4-mini",
+        "context_window": 256000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 0.75,
+          "output_per_1m": 4.5,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 0,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": true,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": "effort"
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.4",
@@ -1783,51 +1936,8 @@
         }
       },
       {
-        "id": "gpt-5.3-chat-latest",
-        "name": "gpt-5.3-chat-latest",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 42.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 1.75,
-          "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": true,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "json_with_search": true,
-          "thinking_style": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-5.4-2026-03-05",
-        "name": "gpt-5.4-2026-03-05",
+        "id": "gpt-5.4-nano-2026-03-17",
+        "name": "gpt-5.4-nano-2026-03-17",
         "context_window": 128000,
         "modalities": {
           "input": [
@@ -1841,15 +1951,13 @@
           ]
         },
         "costing": {
-          "score": 46.67,
+          "input_per_1m": 0.2,
+          "output_per_1m": 1.25,
           "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 2.5,
-          "output_per_1m": 15.0,
+          "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 128000,
+        "max_output_tokens": 0,
         "capabilities": {
           "structured_json": true,
           "temperature": false,
@@ -1871,39 +1979,35 @@
         }
       },
       {
-        "id": "gpt-5.4-pro",
-        "name": "gpt-5.4-pro",
+        "id": "gpt-5.4-nano",
+        "name": "gpt-5.4-nano",
         "context_window": 128000,
         "modalities": {
           "input": [
             "text",
             "vision",
-            "audio",
-            "video"
+            "audio"
           ],
           "output": [
             "text",
-            "audio",
-            "video"
+            "audio"
           ]
         },
         "costing": {
-          "score": 560.0,
+          "input_per_1m": 0.2,
+          "output_per_1m": 1.25,
           "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 30.0,
-          "output_per_1m": 180.0,
+          "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 128000,
+        "max_output_tokens": 0,
         "capabilities": {
           "structured_json": true,
           "temperature": false,
-          "thinking": false,
+          "thinking": true,
           "web_search": true,
           "json_with_search": true,
-          "thinking_style": null
+          "thinking_style": "effort"
         },
         "vision_limits": {
           "max_image_bytes": "inf",
@@ -1918,39 +2022,35 @@
         }
       },
       {
-        "id": "gpt-5.4-pro-2026-03-05",
-        "name": "gpt-5.4-pro-2026-03-05",
-        "context_window": 128000,
+        "id": "gpt-5.4-mini-2026-03-17",
+        "name": "gpt-5.4-mini-2026-03-17",
+        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
             "vision",
-            "audio",
-            "video"
+            "audio"
           ],
           "output": [
             "text",
-            "audio",
-            "video"
+            "audio"
           ]
         },
         "costing": {
-          "score": 500.0,
+          "input_per_1m": 0.75,
+          "output_per_1m": 4.5,
           "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 30.0,
-          "output_per_1m": 180.0,
+          "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 128000,
+        "max_output_tokens": 0,
         "capabilities": {
           "structured_json": true,
           "temperature": false,
-          "thinking": false,
+          "thinking": true,
           "web_search": true,
           "json_with_search": true,
-          "thinking_style": null
+          "thinking_style": "effort"
         },
         "vision_limits": {
           "max_image_bytes": "inf",
@@ -1976,6 +2076,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy instruct model",
         "costing": {
           "score": 9.33,
           "source": "estimated",
@@ -1994,9 +2096,7 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy instruct model"
+        "vision_limits": null
       },
       {
         "id": "gpt-3.5-turbo-instruct-0914",
@@ -2010,6 +2110,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy instruct model",
         "costing": {
           "score": 9.33,
           "source": "estimated",
@@ -2028,54 +2130,7 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy instruct model"
-      },
-      {
-        "id": "gpt-4-1106-preview",
-        "name": "gpt-4-1106-preview",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 106.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 10.0,
-          "output_per_1m": 30.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "json_with_search": false,
-          "thinking_style": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy preview - deprecated"
+        "vision_limits": null
       },
       {
         "id": "gpt-3.5-turbo-1106",
@@ -2089,6 +2144,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -2107,99 +2164,7 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
-      },
-      {
-        "id": "gpt-4-0125-preview",
-        "name": "gpt-4-0125-preview",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 106.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 10.0,
-          "output_per_1m": 30.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "json_with_search": false,
-          "thinking_style": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy preview - deprecated"
-      },
-      {
-        "id": "gpt-4-turbo-preview",
-        "name": "gpt-4-turbo-preview",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 106.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 10.0,
-          "output_per_1m": 30.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": false,
-          "temperature": false,
-          "thinking": false,
-          "web_search": true,
-          "json_with_search": false,
-          "thinking_style": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy preview - deprecated"
+        "vision_limits": null
       },
       {
         "id": "gpt-3.5-turbo-0125",
@@ -2213,6 +2178,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 5.33,
           "source": "estimated",
@@ -2231,9 +2198,7 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-4-turbo",
@@ -2248,6 +2213,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5",
         "costing": {
           "score": 116.67,
           "source": "estimated",
@@ -2276,9 +2243,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - use gpt-5"
+        }
       },
       {
         "id": "gpt-4-turbo-2024-04-09",
@@ -2293,6 +2258,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 116.67,
           "source": "estimated",
@@ -2321,9 +2288,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o",
@@ -2381,6 +2346,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -2409,9 +2376,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-2024-07-18",
@@ -2426,6 +2391,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -2454,9 +2421,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini",
@@ -2514,6 +2479,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -2542,9 +2509,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-audio-preview",
@@ -2561,6 +2526,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -2589,9 +2556,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "audio model"
+        }
       },
       {
         "id": "gpt-4o-realtime-preview",
@@ -2606,6 +2571,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -2634,9 +2601,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model"
+        }
       },
       {
         "id": "gpt-4o-realtime-preview-2024-12-17",
@@ -2651,6 +2616,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -2679,9 +2646,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-audio-preview-2024-12-17",
@@ -2698,6 +2663,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 220.0,
           "source": "estimated",
@@ -2726,9 +2693,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-realtime-preview-2024-12-17",
@@ -2743,6 +2708,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -2771,9 +2738,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-audio-preview-2024-12-17",
@@ -2790,6 +2755,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -2818,9 +2785,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-realtime-preview",
@@ -2835,6 +2800,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -2863,9 +2830,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model"
+        }
       },
       {
         "id": "gpt-4o-mini-audio-preview",
@@ -2882,6 +2847,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -2910,9 +2877,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "audio model"
+        }
       },
       {
         "id": "gpt-4o-2024-11-20",
@@ -2927,6 +2892,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -2955,9 +2922,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-search-preview-2025-03-11",
@@ -3058,6 +3023,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "transcription model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3086,9 +3053,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "transcription model"
+        }
       },
       {
         "id": "gpt-4o-mini-transcribe",
@@ -3103,6 +3068,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "transcription model",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -3131,9 +3098,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "transcription model"
+        }
       },
       {
         "id": "gpt-4o-mini-tts",
@@ -3147,6 +3112,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 33.6,
           "source": "estimated",
@@ -3165,9 +3132,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "text-to-speech model"
+        "vision_limits": null
       },
       {
         "id": "gpt-4.1-2025-04-14",
@@ -3439,6 +3404,8 @@
             "vision"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "image generation model",
         "costing": {
           "score": 120.0,
           "source": "estimated",
@@ -3457,9 +3424,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "image generation model"
+        "vision_limits": null
       },
       {
         "id": "gpt-4o-realtime-preview-2025-06-03",
@@ -3474,6 +3439,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -3502,9 +3469,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-audio-preview-2025-06-03",
@@ -3521,6 +3486,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3549,9 +3516,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-transcribe-diarize",
@@ -3566,6 +3531,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "transcription model",
         "costing": {
           "score": 40.0,
           "source": "failed",
@@ -3594,9 +3561,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "transcription model"
+        }
       },
       {
         "id": "gpt-5-chat-latest",
@@ -3912,6 +3877,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3930,9 +3897,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "audio model"
+        "vision_limits": null
       },
       {
         "id": "gpt-realtime",
@@ -3946,6 +3911,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -3964,9 +3931,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model"
+        "vision_limits": null
       },
       {
         "id": "gpt-realtime-2025-08-28",
@@ -3980,6 +3945,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime dated snapshot",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -3998,9 +3965,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "realtime dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-audio",
@@ -4015,6 +3980,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -4033,9 +4000,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "audio model"
+        "vision_limits": null
       },
       {
         "id": "gpt-5-codex",
@@ -4081,6 +4046,8 @@
             "vision"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "image generation model",
         "costing": {
           "score": 26.67,
           "source": "estimated",
@@ -4099,9 +4066,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "image generation model"
+        "vision_limits": null
       },
       {
         "id": "gpt-5-pro-2025-10-06",
@@ -4202,6 +4167,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -4220,9 +4187,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "audio model"
+        "vision_limits": null
       },
       {
         "id": "gpt-audio-mini-2025-10-06",
@@ -4237,6 +4202,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -4255,9 +4222,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "audio dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-5-search-api",
@@ -4303,6 +4268,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -4321,9 +4288,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model"
+        "vision_limits": null
       },
       {
         "id": "gpt-realtime-mini-2025-10-06",
@@ -4337,6 +4302,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime dated snapshot",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -4355,9 +4322,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "realtime dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-5-search-api-2025-10-14",
@@ -4628,6 +4593,8 @@
             "vision"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "image generation model",
         "costing": {
           "score": 11.33,
           "source": "estimated",
@@ -4646,9 +4613,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "image generation model"
+        "vision_limits": null
       },
       {
         "id": "gpt-5.2-2025-12-11",
@@ -4878,6 +4843,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -4906,9 +4873,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-transcribe-2025-03-20",
@@ -4923,6 +4888,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -4951,9 +4918,7 @@
             "gif",
             "webp"
           ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        }
       },
       {
         "id": "gpt-4o-mini-tts-2025-03-20",
@@ -4967,6 +4932,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -4985,9 +4952,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-4o-mini-tts-2025-12-15",
@@ -5001,6 +4966,8 @@
             "audio"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5019,9 +4986,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-realtime-mini-2025-12-15",
@@ -5035,6 +5000,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5053,9 +5020,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "gpt-audio-mini-2025-12-15",
@@ -5070,6 +5035,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5088,9 +5055,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot"
+        "vision_limits": null
       },
       {
         "id": "chatgpt-image-latest",
@@ -5104,6 +5069,8 @@
             "vision"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "image generation model",
         "costing": {
           "score": 40.0,
           "source": "failed",
@@ -5122,9 +5089,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "image generation model"
+        "vision_limits": null
       },
       {
         "id": "gpt-5.2-codex",
@@ -5202,6 +5167,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -5220,9 +5187,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model"
+        "vision_limits": null
       },
       {
         "id": "gpt-audio-1.5",
@@ -5237,6 +5202,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -5255,9 +5222,7 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "audio model"
+        "vision_limits": null
       },
       {
         "id": "gpt-4o-search-preview",
@@ -5346,6 +5311,188 @@
         }
       },
       {
+        "id": "gpt-5.3-chat-latest",
+        "name": "gpt-5.3-chat-latest",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 42.0,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 1.75,
+          "output_per_1m": 14.0,
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 16384,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": false,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-5.4-2026-03-05",
+        "name": "gpt-5.4-2026-03-05",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "score": 46.67,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 2.5,
+          "output_per_1m": 15.0,
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": true,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": "effort"
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-5.4-pro",
+        "name": "gpt-5.4-pro",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text",
+            "audio",
+            "video"
+          ]
+        },
+        "costing": {
+          "score": 560.0,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 180.0,
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": false,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-5.4-pro-2026-03-05",
+        "name": "gpt-5.4-pro-2026-03-05",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text",
+            "audio",
+            "video"
+          ]
+        },
+        "costing": {
+          "score": 500.0,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 180.0,
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": true,
+          "temperature": false,
+          "thinking": false,
+          "web_search": true,
+          "json_with_search": true,
+          "thinking_style": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gpt-3.5-turbo-16k",
         "name": "gpt-3.5-turbo-16k",
         "context_window": 16000,
@@ -5357,6 +5504,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
         "costing": {
           "score": 18.67,
           "source": "estimated",
@@ -5375,11 +5524,9 @@
           "json_with_search": false,
           "thinking_style": null
         },
-        "vision_limits": null,
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated"
+        "vision_limits": null
       }
     ],
-    "last_updated": "2026-03-15"
+    "last_updated": "2026-04-18"
   }
 }

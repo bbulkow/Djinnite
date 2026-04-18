@@ -272,8 +272,13 @@ def _probe_all_capabilities_for_models(
                 think = True
                 ts = ts_raw
 
-            # web_search is a Djinnite-level capability -- True for all text models
-            ws = True
+            # web_search: probe per-provider when a probe exists; otherwise
+            # default to True (historical behavior for providers that haven't
+            # wired up a probe yet).
+            if hasattr(instance, "probe_web_search"):
+                ws = instance.probe_web_search()
+            else:
+                ws = True
 
             # Probe JSON + search combination (model-specific limitation)
             jws = instance.probe_json_with_search()
@@ -308,14 +313,27 @@ def _probe_all_capabilities_for_models(
 
 
 def merge_model_data(
-    new_models: list[dict], 
-    existing_models: list[dict], 
+    new_models: list[dict],
+    existing_models: list[dict],
     provider_instance: BaseAIProvider,
     provider_cls,
     api_key: str,
-    ai_config
+    ai_config,
+    reprobe: Optional[set] = None,
 ) -> list[dict]:
-    """Merge new model data with existing, preserving costing, modality, and output limit data."""
+    """Merge new model data with existing, preserving costing, modality, and output limit data.
+
+    ``reprobe``: if set, any model whose ID is in this set has its cached
+    capabilities wiped to ``None`` before the probe gate runs, forcing
+    rediscovery. Accepted forms:
+        * ``"all"``                  – reprobe every model across every provider
+        * ``"<provider>:all"``       – reprobe every model under one provider
+                                       (e.g. ``"claude:all"``, ``"gemini:all"``)
+        * ``"<model_id>"``           – reprobe a single model
+
+    Use this to recover from poisoned capability values (e.g. Opus 4.7 marked
+    ``thinking=false`` because older probes sent ``temperature``).
+    """
     existing_by_id = {m["id"]: m for m in existing_models}
     
     # Track models where heuristics only found "text" - these might need AI check
@@ -403,6 +421,20 @@ def merge_model_data(
             raw_caps = existing_by_id[model_id].get("capabilities")
             if isinstance(raw_caps, dict):
                 existing_caps = raw_caps
+
+        # Force-reprobe: wipe cached capabilities so the needs_probe gate
+        # below re-queues this model and the fresh probe results win.
+        provider_scoped = f"{provider_instance.PROVIDER_NAME}:all"
+        force_reprobe = reprobe and (
+            "all" in reprobe
+            or provider_scoped in reprobe
+            or model_id in reprobe
+        )
+        if force_reprobe:
+            existing_caps = {}
+            ssj = None
+            print(f"  [REPROBE] Resetting capabilities for {model_id}")
+
         model["capabilities"] = {
             "structured_json": ssj,
             "temperature": existing_caps.get("temperature"),
@@ -501,14 +533,27 @@ def update_models():
     parser = argparse.ArgumentParser(description="Update AI model catalog")
     parser.add_argument("--config", type=str, help="Path to ai_config.json")
     parser.add_argument("--catalog", type=str, help="Path to model_catalog.json")
+    parser.add_argument(
+        "--reprobe",
+        action="append",
+        default=None,
+        metavar="TARGET",
+        help="Force re-probing of model capabilities (clears cached values). "
+             "Accepts: a model ID (e.g. 'claude-opus-4-7'), a provider-scoped "
+             "wildcard (e.g. 'claude:all', 'gemini:all', 'chatgpt:all'), or "
+             "'all' for every model across every provider. Repeatable: "
+             "--reprobe claude:all --reprobe gemini-2.5-pro.",
+    )
     args = parser.parse_args()
+
+    reprobe_set = set(args.reprobe) if args.reprobe else None
 
     config_path = Path(args.config) if args.config else None
     ai_config = load_ai_config(config_path)
-    
+
     catalog_path = Path(args.catalog) if args.catalog else CONFIG_DIR / "model_catalog.json"
     catalog = {}
-    
+
     if catalog_path.exists():
         try:
             with open(catalog_path, 'r', encoding='utf-8') as f:
@@ -528,7 +573,7 @@ def update_models():
         if not p_config or not p_config.api_key:
             print(f"  [WARN] Provider {name} not configured, skipping.")
             continue
-            
+
         try:
             instance = provider_cls(api_key=p_config.api_key, model=p_config.default_model)
             new_list = instance.list_models()
@@ -536,7 +581,8 @@ def update_models():
                 existing_list = catalog.get(name, {}).get("models", [])
                 merged = merge_model_data(
                     new_list, existing_list, instance,
-                    provider_cls, p_config.api_key, ai_config
+                    provider_cls, p_config.api_key, ai_config,
+                    reprobe=reprobe_set,
                 )
                 
                 catalog[name] = {

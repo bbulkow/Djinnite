@@ -61,21 +61,6 @@ _WEB_SEARCH_TOOL = {
 }
 
 
-def _supports_native_web_search(model_id: str) -> bool:
-    """
-    Check if a Claude model supports native web search.
-    Supported on Claude 4.5+ and 4.6+ models.
-    """
-    low = model_id.lower()
-    if "latest" in low:
-        return True
-    # Match both dash and dot formats: 4-5, 4.5, 4-6, 4.6
-    for gen in ("4-5", "4.5", "4-6", "4.6"):
-        if gen in low:
-            return True
-    return False
-
-
 class ClaudeProvider(BaseAIProvider):
     """
     Anthropic Claude AI provider implementation.
@@ -303,13 +288,20 @@ class ClaudeProvider(BaseAIProvider):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generate a response using Claude.
+
+        ``temperature`` is opt-in. When omitted (default), Claude uses its own
+        default (1.0) and the request ships with no ``temperature`` field.
+        This avoids 400 errors on models that reject sampling parameters
+        (e.g. Opus 4.7). Callers who need determinism on older models may
+        pass an explicit value; catalog-strip handles models where the
+        parameter is unsupported.
         """
         # Validate & normalize the thinking parameter
         thinking = self._resolve_thinking(thinking)
@@ -326,12 +318,6 @@ class ClaudeProvider(BaseAIProvider):
             # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)
             thinking_active = thinking is not None and thinking is not False
             thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
-            
-            # Resolve temperature: strip if catalog says not supported,
-            # force to 1 when thinking is active (Claude requirement).
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active and effective_temp is not None:
-                effective_temp = 1  # Claude requires temperature=1 when thinking is on
 
             # Build request kwargs
             kwargs = {
@@ -340,9 +326,13 @@ class ClaudeProvider(BaseAIProvider):
                 "messages": [{"role": "user", "content": claude_content}],
             }
 
-            # Temperature: only include if resolved (not stripped)
-            if effective_temp is not None:
-                kwargs["temperature"] = effective_temp
+            # Temperature: only send if caller opted in. Catalog-strip is a
+            # backstop for callers who pass an explicit value on a model that
+            # rejects sampling params.
+            if temperature is not None:
+                effective_temp = self._resolve_temperature(temperature, thinking_active)
+                if effective_temp is not None:
+                    kwargs["temperature"] = effective_temp
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -351,13 +341,9 @@ class ClaudeProvider(BaseAIProvider):
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
 
-            # Web search: add tool + beta header via SDK
+            # Web search: catalog decides support.
             if web_search:
-                if not _supports_native_web_search(self.model):
-                    raise AIProviderError(
-                        f"Web search not supported for model '{self.model}'.",
-                        provider=self.PROVIDER_NAME,
-                    )
+                self._check_capability("web_search")
                 kwargs["tools"] = [_WEB_SEARCH_TOOL]
 
             # Generate response.
@@ -492,7 +478,7 @@ class ClaudeProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
@@ -509,7 +495,10 @@ class ClaudeProvider(BaseAIProvider):
             prompt: The user prompt (str or list of multimodal parts).
             schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
             system_prompt: Optional system instruction.
-            temperature: Sampling temperature (default 0.3).
+            temperature: Sampling temperature. Opt-in (default None).  When
+                omitted, Claude uses its own default and no ``temperature``
+                field is sent — avoids 400 errors on 4.7+ which reject
+                sampling params.
             max_tokens: Maximum tokens to generate.
             web_search: If True, enable native Claude web search (4.5+/4.6+ models).
             thinking: Optional thinking/reasoning control (same as generate()).
@@ -532,12 +521,8 @@ class ClaudeProvider(BaseAIProvider):
         max_tokens = self._resolve_max_tokens(max_tokens) or 8192
         
         if web_search:
-            if not _supports_native_web_search(self.model):
-                raise AIProviderError(
-                    f"Web search not supported for model '{self.model}'.",
-                    provider=self.PROVIDER_NAME,
-                )
             if not force:
+                self._check_capability("web_search")
                 self._check_capability("json_with_search")
 
         # Validate & normalize thinking
@@ -552,11 +537,6 @@ class ClaudeProvider(BaseAIProvider):
             thinking_active = thinking is not None and thinking is not False
             thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
 
-            # Resolve temperature: strip if catalog forbids, force=1 for thinking
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active and effective_temp is not None:
-                effective_temp = 1
-            
             kwargs = {
                 "model": self.model,
                 "max_tokens": max_tokens,
@@ -570,8 +550,13 @@ class ClaudeProvider(BaseAIProvider):
                 },
             }
 
-            if effective_temp is not None:
-                kwargs["temperature"] = effective_temp
+            # Temperature: only send if caller opted in. Catalog-strip is a
+            # backstop for callers who pass an explicit value on a model that
+            # rejects sampling params.
+            if temperature is not None:
+                effective_temp = self._resolve_temperature(temperature, thinking_active)
+                if effective_temp is not None:
+                    kwargs["temperature"] = effective_temp
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -745,11 +730,15 @@ class ClaudeProvider(BaseAIProvider):
         """
         Multi-tier probe to determine which thinking style Claude supports.
 
-        Uses the same invariants as ``_build_claude_thinking()``:
-        - ``temperature=1`` (Claude requires this when thinking is on).
-        - ``max_tokens > budget_tokens`` (room for output after thinking).
+        Invariant: ``max_tokens > budget_tokens`` (room for output after thinking).
 
-        1. Try adaptive thinking (newest models).
+        Temperature is omitted entirely. It's never *required* on Claude, and
+        sending it poisons probes against Opus 4.7 (which 400s on any
+        temperature value). Claude's own default (1.0) satisfies the legacy
+        "thinking needs temp=1" constraint naturally.
+
+        1. Try adaptive thinking (4.6/4.7+ preferred; 4.7 requires the bare
+           ``{"type": "adaptive"}`` shape — no budget_tokens).
         2. Fall back to enabled/budget thinking (older thinking models).
         3. Both fail → model doesn't support thinking.
 
@@ -763,14 +752,14 @@ class ClaudeProvider(BaseAIProvider):
         _PROBE_BUDGET = 1024
         _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
 
-        # Tier 1: Try adaptive (newest, preferred)
+        # Tier 1: Try adaptive (newest, preferred). Bare shape — 4.7 rejects
+        # budget_tokens inside adaptive; 4.6 accepts bare adaptive too.
         try:
             self._client.messages.create(
                 model=self.model,
                 max_tokens=_PROBE_MAX_TOKENS,
-                temperature=1,  # Claude requires temp=1 with thinking
                 messages=[{"role": "user", "content": "Say hi."}],
-                thinking={"type": "adaptive", "budget_tokens": _PROBE_BUDGET},
+                thinking={"type": "adaptive"},
             )
             return "adaptive"
         except Exception as e:
@@ -784,7 +773,6 @@ class ClaudeProvider(BaseAIProvider):
             self._client.messages.create(
                 model=self.model,
                 max_tokens=_PROBE_MAX_TOKENS,
-                temperature=1,  # Claude requires temp=1 with thinking
                 messages=[{"role": "user", "content": "Say hi."}],
                 thinking={"type": "enabled", "budget_tokens": _PROBE_BUDGET},
             )
@@ -810,7 +798,6 @@ class ClaudeProvider(BaseAIProvider):
             self._client.messages.create(
                 model=self.model,
                 max_tokens=50,
-                temperature=0,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
                     "format": {
@@ -829,11 +816,39 @@ class ClaudeProvider(BaseAIProvider):
                 return None
             return None
 
-    def probe_json_with_search(self) -> Optional[bool]:
-        """Probe whether this Claude model supports output_config + web_search combined."""
-        if not _supports_native_web_search(self.model):
-            return False
+    def probe_web_search(self) -> Optional[bool]:
+        """
+        Probe whether this Claude model supports the web_search server-side tool.
 
+        Sends a minimal request that declares ``tools=[_WEB_SEARCH_TOOL]`` but
+        asks a trivial question the model is unlikely to search for. A success
+        proves the API accepts the tool schema for this model. A 400 means
+        the tool version isn't supported for this model.
+        """
+        try:
+            self._client.messages.create(
+                model=self.model,
+                max_tokens=50,
+                messages=[{"role": "user", "content": "Say hi."}],
+                tools=[_WEB_SEARCH_TOOL],
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
+            if status == 400 or "not supported" in err or "invalid" in err or "unknown tool" in err:
+                return False
+            if status in (401, 403, 429) or "rate" in err or "quota" in err or "timeout" in err:
+                return None
+            return None
+
+    def probe_json_with_search(self) -> Optional[bool]:
+        """Probe whether this Claude model supports output_config + web_search combined.
+
+        No short-circuit on model ID — the API is the source of truth. If the
+        model doesn't support web_search at all, the underlying error will be
+        a 400 and we'll record it correctly as False.
+        """
         _PROBE_SCHEMA = {
             "type": "object",
             "properties": {"value": {"type": "integer"}},
@@ -844,7 +859,6 @@ class ClaudeProvider(BaseAIProvider):
             self._client.messages.create(
                 model=self.model,
                 max_tokens=50,
-                temperature=0,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
                     "format": {

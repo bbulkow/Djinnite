@@ -196,35 +196,42 @@ class ClaudeProvider(BaseAIProvider):
 
     @staticmethod
     def _sanitize_content_for_continuation(content) -> list:
-        """Remove orphaned ``server_tool_use`` blocks that lack a matching
-        ``server_tool_result``.
+        """Sanitize assistant content blocks for multi-turn continuation.
 
-        When streaming returns ``pause_turn``, ``get_final_message()`` may
-        include ``server_tool_use`` blocks without their corresponding
-        ``server_tool_result``.  The API rejects continuation messages that
-        contain such orphans.  We strip them so the model can re-trigger the
-        search on the next turn if it still needs one.
+        When the model pauses mid-turn (``stop_reason=pause_turn``), the
+        content typically contains paired server-side tool blocks:
+
+          server_tool_use  (id=X, the search request)
+          web_search_tool_result  (tool_use_id=X, the search results)
+
+        These paired blocks MUST be kept — they are the model's search
+        context.  Stripping them forces the model to re-search from
+        scratch, causing redundant API calls and 10x cost variation.
+
+        However, the last block is often an **orphaned**
+        ``server_tool_use`` without a matching ``web_search_tool_result``
+        (the search was requested but results hadn't arrived when the
+        stream ended).  The API rejects orphans, so we strip them.
+        The model will re-issue that specific search on the next turn.
         """
         if not content:
             return content
 
-        # Collect IDs that have a result block
+        # Collect tool_use IDs that have a matching result
         result_ids = set()
         for block in content:
-            if getattr(block, "type", None) == "server_tool_result":
-                result_ids.add(getattr(block, "server_tool_use_id", None))
+            if getattr(block, "type", None) == "web_search_tool_result":
+                result_ids.add(getattr(block, "tool_use_id", None))
 
-        # Keep everything except orphaned server_tool_use blocks
-        sanitized = []
-        for block in content:
-            if getattr(block, "type", None) == "server_tool_use":
-                if getattr(block, "id", None) not in result_ids:
-                    continue  # orphan -- drop it
-            sanitized.append(block)
+        return [
+            block for block in content
+            if not (
+                getattr(block, "type", None) == "server_tool_use"
+                and getattr(block, "id", None) not in result_ids
+            )
+        ]
 
-        return sanitized
-
-    def _run_with_continuation(self, kwargs: dict, max_continuations: int = 5):
+    def _run_with_continuation(self, kwargs: dict, max_continuations: int = 2):
         """Stream a Messages API call, looping on ``pause_turn`` / ``tool_use``
         until the model produces ``end_turn`` or ``max_tokens``.
 
@@ -272,9 +279,17 @@ class ClaudeProvider(BaseAIProvider):
             clean_content = self._sanitize_content_for_continuation(
                 response.content
             )
+            # Stop-gap: tell the model to produce output after the first
+            # pause.  Streaming with server-side tools (web_search) exposes
+            # pause_turn states that the non-streaming API handled internally.
+            # TODO: research the correct Anthropic streaming pattern for
+            # server-tool continuations — this nudge is a workaround.
             kwargs["messages"] = kwargs["messages"] + [
                 {"role": "assistant", "content": clean_content},
-                {"role": "user", "content": "Continue."},
+                {"role": "user", "content": (
+                    "Stop searching. Produce the JSON output now "
+                    "using the search results you already have."
+                )},
             ]
 
         # Exhausted continuation budget

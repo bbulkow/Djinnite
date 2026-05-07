@@ -460,10 +460,7 @@
             "on",
             "off"
           ],
-          "web_search": [
-            "on",
-            "off"
-          ],
+          "web_search": null,
           "json_with_search": [
             "on",
             "off"
@@ -4164,8 +4161,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4223,8 +4219,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4282,8 +4277,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4341,8 +4335,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4400,8 +4393,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4459,8 +4451,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -4655,8 +4646,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -5245,8 +5235,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -5293,8 +5282,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -5341,8 +5329,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -5970,8 +5957,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -6773,7 +6759,17 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-image-2-2026-04-21",
@@ -6804,7 +6800,17 @@
           "json_with_search": null,
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.5",
@@ -6851,7 +6857,17 @@
             "effort"
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.5-2026-04-23",
@@ -6898,7 +6914,17 @@
             "effort"
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.5-pro",
@@ -6942,7 +6968,17 @@
           ],
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.5-pro-2026-04-23",
@@ -6986,7 +7022,17 @@
           ],
           "thinking_style": null
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-realtime-translate",

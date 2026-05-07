@@ -168,8 +168,13 @@ class GeminiProvider(BaseAIProvider):
             return {"thinking_budget": 0}
 
         if thinking is True:
-            budget = self._get_max_thinking_budget(max_tokens)
-        elif isinstance(thinking, int):
+            # ``True`` is "let the model decide" — Gemini's dynamic-budget
+            # signal is ``thinking_budget=-1`` (the model chooses how much
+            # to think based on the prompt). Aligns with Claude's adaptive
+            # mode and OpenAI's high-effort default for the same intent.
+            return {"thinking_budget": -1}
+
+        if isinstance(thinking, int):
             budget = thinking
         else:
             # str effort → token budget

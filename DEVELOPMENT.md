@@ -145,13 +145,42 @@ that state is not in the model's list (e.g. `thinking=True` on a model with
 `capabilities.thinking=["off"]`, or `thinking=False` on an always-on
 reasoning model with `capabilities.thinking=["on"]`).
 
-Djinnite translates this into the provider-native format automatically:
+Djinnite translates this into the provider-native format automatically.
+The semantic of `True` is **"enable thinking — let the model decide how
+much"**, which Djinnite emits as the most accurate native expression on
+each provider:
 
-| Provider | `False` → Explicit Disable | `True`/`int`/`str` → Enable | `None` → |
-|---|---|---|---|
-| **Gemini** | `thinking_config={"thinking_budget": 0}` | `thinking_config={"thinking_budget": N}` | Omit (model default) |
-| **OpenAI** | `reasoning={"effort": "none"}` *(GPT-5.x hybrid models; errors on reasoning-only o1/o3)* | `reasoning={"effort": "low"\|"medium"\|"high"}` | Omit (model default) |
-| **Claude** | Omit `thinking` block *(Anthropic design: thinking is opt-in; omitting = disabled)* | `thinking={"type": "adaptive"\|"enabled", "budget_tokens": N}` | Omit (model default = off) |
+| Provider | `True` → "let the model decide" | `int` budget | `str` effort | `False` → disable | `None` → |
+|---|---|---|---|---|---|
+| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` at max budget)* | `thinking={"type": "enabled", "budget_tokens": N}` | translated to budget via `_effort_to_budget` | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
+| **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | translated to budget via `_effort_to_budget` | `thinking_config={"thinking_budget": 0}` | omit (model default) |
+| **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | translated via `_budget_to_effort` to low/medium/high | `reasoning={"effort": "low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
+
+#### Design note: why `True` means "adaptive," not "max budget"
+
+Anthropic's `thinking.type=adaptive` looks like a third on-mode but is
+semantically the same thing Djinnite already meant by `thinking=True` — *enable
+thinking, you decide how much*. The unified API gives callers exactly two
+levers:
+
+* `True` — "I want thinking, you handle it." → adaptive / dynamic / high effort, depending on what the provider offers.
+* `int` or `str` — "I want a specific depth." → fixed budget or specific effort tier.
+
+Adaptive is therefore **not** exposed as a separate caller-facing value
+(`thinking="adaptive"` is intentionally not accepted). Doing so would force
+callers to learn a vendor-native concept the abstraction is meant to hide,
+and it would be redundant with `True`.
+
+This is also why earlier Gemini behavior — `True` mapping to `thinking_budget=N`
+where `N` was the model's `max_output_tokens` — was a bug: it burned the
+full budget on every prompt, regardless of complexity. The fix sends
+`thinking_budget=-1` (dynamic), which mirrors Claude's adaptive shape and
+matches what the caller intended when they wrote `True`.
+
+The catalog field `capabilities.thinking_style` records which native shapes
+each model accepts (`{"adaptive","budget","effort"}`). This is provider-internal
+information used by the translators above to pick the right shape — it does
+not surface in the caller's vocabulary.
 
 **Temperature conflicts** are handled automatically:
 - Claude forces `temperature=1` when thinking is active (SDK requirement).
@@ -559,6 +588,18 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### May 2026: `thinking=True` means "let the model decide"
+
+**Changed:** On Gemini, `thinking=True` now translates to `thinking_config={"thinking_budget": -1}` (dynamic budget — model self-regulates) instead of `thinking_budget=N` where `N` was the model's full `max_output_tokens`. Claude (already adaptive) and OpenAI (`effort: "high"`) are unchanged.
+
+**Why:** The unified `True` semantic is "enable thinking, you decide how much." Anthropic's `thinking.type=adaptive` and Gemini's `thinking_budget=-1` are the provider-native expressions of that intent. Sending the full max-output budget on every Gemini call burned tokens regardless of prompt complexity — the model now picks its own budget, matching Claude's adaptive behavior.
+
+**Behavior change for callers:**
+* Gemini calls with `thinking=True` will produce *less* reasoning depth on simple prompts and *similar* depth on hard ones. Total cost will drop.
+* Callers who specifically want a fixed deep thinking budget should pass `thinking=<int>` or `thinking="high"` — both unchanged.
+
+**`thinking="adaptive"` is intentionally not a valid caller value.** Adaptive is what `True` already means; exposing it as a separate string would force callers to learn vendor concepts the abstraction is meant to hide.
 
 ### May 2026: Capability fields are now lists of supported states
 

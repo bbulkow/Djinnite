@@ -621,16 +621,33 @@ class OpenAIProvider(BaseAIProvider):
         """
         Whether OpenAI accepts an explicit thinking-disabled request.
 
-        For non-reasoning models, omitting ``reasoning`` is the natural
-        disabled state and always works.
+        Mirrors what the runtime sends for ``thinking=False`` —
+        ``reasoning={"effort": "none"}`` (see ``_translate_thinking_param``).
+        Models that reject ``"none"`` (older reasoning-only o1/o3, and
+        gpt-5-mini as of mid-2026) cause this probe to return False;
+        that surfaces in the catalog as ``thinking=["on"]``, so the
+        runtime pre-flight rejects the call with a clear "reasoning is
+        always on" message instead of letting it 400 at the vendor.
 
-        For reasoning models (o-series, GPT-5*) the API accepts an empty /
-        omitted reasoning param too — Djinnite's "thinking=False" simply
-        means "don't send the reasoning block". Returns True for all
-        OpenAI models. The pre-flight check stays defensive: if a future
-        OpenAI model rejects calls without reasoning, override here.
+        Returns:
+            True  – ``effort: "none"`` accepted (toggleable model).
+            False – vendor rejects ``effort: "none"`` (always-on model).
+            None  – inconclusive (rate limit / timeout).
         """
-        return True
+        try:
+            self._client.responses.create(
+                model=self.model,
+                input="Say hi.",
+                reasoning={"effort": "none"},
+                max_output_tokens=20,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, "status_code", None)
+            if status == 429 or "rate" in err or "timeout" in err:
+                return None
+            return False
 
     def probe_thinking_style(self) -> Optional[list[str]]:
         """

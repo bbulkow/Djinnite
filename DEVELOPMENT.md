@@ -251,7 +251,7 @@ class ModelInfo:
     name: str                             # Human-readable display name
     context_window: int                   # Max input tokens (context window)
     max_output_tokens: int = 0            # Max output tokens (0 = unknown)
-    capabilities: ModelCapabilities       # Tri-state capability flags
+    capabilities: ModelCapabilities       # Per-model lists of supported Djinnite-API states
     modalities: Modalities                # Input/output modality capabilities
     costing: ModelCosting                 # Dollar-based pricing ($/1M tokens)
     vision_limits: Optional[VisionLimits] = None  # Image input constraints (None for non-vision models)
@@ -282,6 +282,104 @@ The field is populated by `update_models.py` dynamically (in priority order):
 1. **Provider API** — Gemini exposes `output_token_limit` directly
 2. **Existing catalog value** — Persisted from prior estimation runs
 3. **AI estimation** — Web search-powered estimation for new/unknown models
+
+### ModelCapabilities — list of supported Djinnite-API states
+
+Every field on `ModelCapabilities` is `Optional[list[str]]`. **A non-null list is
+the per-model subset of the capability's fixed Djinnite vocabulary that the
+model accepts.** `None` means unknown — runtime pre-flight is skipped.
+
+```python
+@dataclass
+class ModelCapabilities:
+    structured_json:  Optional[list[str]] = None   # subset of {"on","off"}
+    temperature:      Optional[list[str]] = None   # subset of {"any","default"}
+    thinking:         Optional[list[str]] = None   # subset of {"on","off"}
+    web_search:       Optional[list[str]] = None   # subset of {"on","off"}
+    json_with_search: Optional[list[str]] = None   # subset of {"on","off"}
+    thinking_style:   Optional[list[str]] = None   # subset of {"adaptive","budget","effort"}
+```
+
+The vocabularies are exported as `Final` constants from `config_loader`
+(`THINKING_STATES`, `TEMPERATURE_STATES`, `THINKING_STYLE_VALUES`, …) — models
+do not invent new vocabulary; they only declare which subset they support.
+
+**Why a list and not a bool:** A bool can't tell apart toggleable, always-on,
+and never-thinks. A list does — and the same shape extends naturally if a
+future API gains another mode (e.g., `"auto"`).
+
+#### Caller arg → state mapping
+
+The runtime maps the caller's argument on `generate()` / `generate_json()` to
+a vocabulary token and rejects with `AIProviderError` if the token is not in
+the catalog list. Mapping is enforced in `_resolve_thinking`,
+`_resolve_temperature`, and `_check_capability` in `base_provider.py`.
+
+| Capability | Caller arg → state | Pre-flight rule |
+|---|---|---|
+| `thinking` | `None` → no check; `False` → `"off"`; `True`/`int`/`str` → `"on"` | Required token must be in `caps.thinking` |
+| `temperature` | caller-passed float → `"any"`; caller-omitted → `"default"` | If `"any"` not in `caps.temperature`, the float is silently stripped (no error) |
+| `structured_json` | schema present → `"on"` | `"on"` must be in `caps.structured_json` |
+| `web_search` | `web_search=True` → `"on"` | `"on"` must be in `caps.web_search` |
+| `json_with_search` | schema + `web_search=True` → `"on"` | `"on"` must be in `caps.json_with_search` |
+
+**`thinking_style` is informational, not enforced.** Djinnite cross-translates
+between budget integers and effort strings transparently
+(`_effort_to_budget` / `_budget_to_effort`), so callers can pass `int` or
+`str` regardless of the model's native style. Provider subclasses consult
+`caps.thinking_style` only to choose the right native request shape.
+
+#### Catalog examples
+
+```jsonc
+// Toggleable thinking model (Claude Sonnet 4, Gemini 2.5 Flash)
+"capabilities": {
+  "thinking":         ["on", "off"],
+  "thinking_style":   ["adaptive", "budget"],
+  "temperature":      ["any", "default"],
+  "structured_json":  ["on", "off"],
+  "web_search":       ["on", "off"],
+  "json_with_search": ["on", "off"]
+}
+
+// Always-on reasoning model (cannot be disabled)
+"capabilities": {
+  "thinking":       ["on"],
+  "thinking_style": ["effort"],
+  "temperature":    ["default"]
+}
+
+// Non-thinking model
+"capabilities": {
+  "thinking":       ["off"],
+  "thinking_style": null
+}
+```
+
+#### Pre-flight error semantics
+
+The runtime raises distinct error messages for each failure mode:
+
+* `thinking=True` on `["off"]` → "does not support thinking/reasoning"
+* `thinking=False` on `["on"]` → "does not support disabling thinking … reasoning is always on"
+* schema on `structured_json=["off"]` → "does not support structured JSON"
+* schema + search on `json_with_search=["off"]` → "does not support combining structured JSON output with web search"
+
+Callers that need to bypass a pre-flight rejection use `force=True` on
+`generate_json()` (existing escape hatch — unchanged).
+
+#### Capability discovery
+
+`update_models.py` populates these lists by combining per-provider probes:
+
+* `probe_thinking_style()` returns `list[str]` of styles confirmed to work.
+* `probe_thinking_disable()` returns whether explicit-disable is accepted.
+* `probe_structured_json()`, `probe_temperature()`, `probe_web_search()`,
+  `probe_json_with_search()` each return tri-state `True/False/None`, which
+  the orchestrator translates to the on/off list shape.
+
+Run `uv run python -m djinnite.scripts.update_models --reprobe all` to refresh
+the catalog with current provider capabilities.
 
 ---
 
@@ -461,6 +559,22 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### May 2026: Capability fields are now lists of supported states
+
+**Changed:** Every field on `ModelCapabilities` (`structured_json`, `temperature`, `thinking`, `web_search`, `json_with_search`, `thinking_style`) is now `Optional[list[str]]` instead of `Optional[bool]` (or `Optional[str]` for `thinking_style`). A non-null list is the per-model subset of a fixed Djinnite vocabulary; `None` still means "unknown".
+
+**Why:** The boolean shape couldn't distinguish toggleable, always-on, and never-thinks reasoning models — they all collapsed to `thinking=true`. The list shape expresses *which* states the model accepts (`["on","off"]`, `["on"]`, `["off"]`) and extends to future modes without per-capability flags.
+
+**New behavior:**
+* `thinking=False` on an always-on model raises a distinct `AIProviderError` ("does not support disabling thinking") instead of silently passing through to the vendor SDK.
+* Models with `temperature=["default"]` (no `"any"`) have caller-passed temperature stripped automatically.
+* `thinking_style` may now list multiple styles when a model supports more than one (e.g. Claude 4.7 = `["adaptive","budget"]`).
+
+**Migration:**
+* Existing catalogs are read through a back-compat shim in `config_loader._coerce_states` that converts the old bool / single-string shapes to lists on load — no manual migration required to keep loading.
+* To rewrite the JSON on disk, run `uv run python scripts/migrate_capabilities_to_lists.py`. After that, run `uv run python -m djinnite.scripts.update_models --reprobe all` to tighten always-on / multi-style cases the conservative migration assumed toggleable.
+* Consumer code that read `caps.thinking is True` / `is False` should switch to `"on" in caps.thinking` / `"off" in caps.thinking`. The `ModelInfo.supports_structured_json` convenience property (returns `Optional[bool]`) is unchanged — it now derives the bool from the list.
 
 ### March 2026: Dollar-Based Cost Tracking
 

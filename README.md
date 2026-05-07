@@ -599,7 +599,7 @@ djinnite/
 
 - [ ] **Agentic Codex / Artifact Interface**: Support OpenAI Codex and similar agentic models that use artifact-based output systems rather than pure streaming. These models (gpt-5-codex, gpt-5.1-codex, etc.) require a different interaction paradigm than chat completions.
 - [ ] **Thinking Abstraction**: Unified `thinking` parameter across providers (Claude `budget`, OpenAI `reasoning_effort`, Gemini `thinking_mode`). The model catalog already records `capabilities.thinking` and `capabilities.thinking_style` — the provider abstraction layer needs to map the unified parameter to provider-native APIs.
-- [ ] **Temperature-Aware Generation**: Use `capabilities.temperature` from the catalog to automatically omit temperature for reasoning models that reject it, instead of forcing callers to handle the error.
+- [ ] **Temperature-Aware Generation**: Use `capabilities.temperature` from the catalog (list shape; `"any"` means caller-specified values are accepted, `"default"` means strip them) to automatically omit temperature for reasoning models that reject it, instead of forcing callers to handle the error.
 - [ ] **Modality-Aware Web Search Discovery**: Refine `discover_modalities` to identify models with native "tools" for web search.
 - [ ] **Training Horizon Probe**: Implement a script to automatically verify training data cutoffs for all models in the catalog.
 

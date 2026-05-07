@@ -31,7 +31,13 @@ from .openai_provider import OpenAIProvider
 try:
     from djinnite.config_loader import _resolve_config_file, load_model_catalog
 except ImportError:
-    from ..config_loader import _resolve_config_file, load_model_catalog
+    try:
+        from ..config_loader import _resolve_config_file, load_model_catalog
+    except (ImportError, ValueError):
+        # Direct execution: ai_providers was imported as a top-level package
+        # (e.g. via update_models.py adding the project root to sys.path).
+        # Fall back to a sibling import.
+        from config_loader import _resolve_config_file, load_model_catalog
 
 
 # Registry of available providers

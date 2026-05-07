@@ -168,10 +168,20 @@ class ClaudeProvider(BaseAIProvider):
         if thinking is None or thinking is False:
             return None, max_tokens
 
-        # Determine thinking style from catalog, default to adaptive
+        # Determine thinking style from catalog. The capability is now a
+        # list of accepted styles; pick the most capable one Claude offers
+        # in priority order: adaptive > budget. (Effort isn't a Claude
+        # native style; if a catalog ever lists ["effort"] for Claude
+        # we still send "enabled" with a translated budget.)
         style = "adaptive"
-        if self._model_info and self._model_info.capabilities.thinking_style:
-            style = self._model_info.capabilities.thinking_style
+        styles = self._model_info.capabilities.thinking_style if self._model_info else None
+        if styles:
+            if "adaptive" in styles:
+                style = "adaptive"
+            elif "budget" in styles:
+                style = "budget"
+            else:
+                style = "budget"
 
         # Compute budget_tokens
         if thinking is True:
@@ -734,16 +744,25 @@ class ClaudeProvider(BaseAIProvider):
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Claude model supports extended thinking."""
-        style = self.probe_thinking_style()
-        if style is None:
-            return False
-        if style == "_inconclusive":
+        styles = self.probe_thinking_style()
+        if styles is None:
             return None
+        return bool(styles)
+
+    def probe_thinking_disable(self) -> Optional[bool]:
+        """
+        Whether Claude accepts an explicit thinking-disabled request.
+
+        Claude's thinking is opt-in: a request without a ``thinking`` block
+        is the natural "disabled" state and every Claude model accepts it.
+        We return True unconditionally here — there is no Claude model that
+        forbids omitting the ``thinking`` parameter.
+        """
         return True
 
-    def probe_thinking_style(self) -> Optional[str]:
+    def probe_thinking_style(self) -> Optional[list[str]]:
         """
-        Multi-tier probe to determine which thinking style Claude supports.
+        Multi-tier probe to determine which thinking styles Claude supports.
 
         Invariant: ``max_tokens > budget_tokens`` (room for output after thinking).
 
@@ -752,22 +771,23 @@ class ClaudeProvider(BaseAIProvider):
         temperature value). Claude's own default (1.0) satisfies the legacy
         "thinking needs temp=1" constraint naturally.
 
-        1. Try adaptive thinking (4.6/4.7+ preferred; 4.7 requires the bare
-           ``{"type": "adaptive"}`` shape — no budget_tokens).
-        2. Fall back to enabled/budget thinking (older thinking models).
-        3. Both fail → model doesn't support thinking.
+        Tries both adaptive and budget; a model may support both
+        (Claude 4.7 = ``["adaptive", "budget"]``) or just one. If a probe
+        is inconclusive (rate limit / timeout) the whole result becomes
+        ``None`` — the orchestrator treats that as unknown.
 
         Returns:
-            ``"adaptive"`` – model supports adaptive thinking
-            ``"budget"``   – model supports fixed-budget thinking only
-            ``None``       – model does not support thinking
-            ``"_inconclusive"`` – transient error (rate limit, timeout)
+            * Non-empty ``list[str]`` from ``("adaptive", "budget")`` — the
+              styles confirmed to work.
+            * ``[]`` — both tiers cleanly rejected → no thinking support.
+            * ``None`` — inconclusive (rate limit / timeout on either tier).
         """
-        # Probe budget: small enough to be cheap, but we need max_tokens > budget.
         _PROBE_BUDGET = 1024
         _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
 
-        # Tier 1: Try adaptive (newest, preferred). Bare shape — 4.7 rejects
+        styles: list[str] = []
+
+        # Tier 1: adaptive (4.6/4.7+ preferred). Bare shape — 4.7 rejects
         # budget_tokens inside adaptive; 4.6 accepts bare adaptive too.
         try:
             self._client.messages.create(
@@ -776,14 +796,14 @@ class ClaudeProvider(BaseAIProvider):
                 messages=[{"role": "user", "content": "Say hi."}],
                 thinking={"type": "adaptive"},
             )
-            return "adaptive"
+            styles.append("adaptive")
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "timeout" in err:
-                return "_inconclusive"
-            # Adaptive not supported — try budget/enabled
+                return None
 
-        # Tier 2: Try enabled (fixed budget)
+        # Tier 2: enabled / fixed-budget (older thinking models, and many
+        # current models accept both modes).
         try:
             self._client.messages.create(
                 model=self.model,
@@ -791,12 +811,13 @@ class ClaudeProvider(BaseAIProvider):
                 messages=[{"role": "user", "content": "Say hi."}],
                 thinking={"type": "enabled", "budget_tokens": _PROBE_BUDGET},
             )
-            return "budget"
+            styles.append("budget")
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "timeout" in err:
-                return "_inconclusive"
-            return None
+                return None
+
+        return styles
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Claude model supports output_config JSON schema mode."""

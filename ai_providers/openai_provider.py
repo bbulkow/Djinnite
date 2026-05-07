@@ -612,21 +612,37 @@ class OpenAIProvider(BaseAIProvider):
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this OpenAI model supports reasoning."""
-        style = self.probe_thinking_style()
-        if style is None:
-            return False
-        if style == "_inconclusive":
+        styles = self.probe_thinking_style()
+        if styles is None:
             return None
+        return bool(styles)
+
+    def probe_thinking_disable(self) -> Optional[bool]:
+        """
+        Whether OpenAI accepts an explicit thinking-disabled request.
+
+        For non-reasoning models, omitting ``reasoning`` is the natural
+        disabled state and always works.
+
+        For reasoning models (o-series, GPT-5*) the API accepts an empty /
+        omitted reasoning param too — Djinnite's "thinking=False" simply
+        means "don't send the reasoning block". Returns True for all
+        OpenAI models. The pre-flight check stays defensive: if a future
+        OpenAI model rejects calls without reasoning, override here.
+        """
         return True
 
-    def probe_thinking_style(self) -> Optional[str]:
+    def probe_thinking_style(self) -> Optional[list[str]]:
         """
-        Probe which thinking style this OpenAI model supports.
+        Probe which thinking styles this OpenAI model supports.
+
+        OpenAI exposes only ``reasoning_effort`` — there is no token-budget
+        analogue — so the result is ``["effort"]`` or ``[]``.
 
         Returns:
-            ``"effort"``   – model supports reasoning effort
-            ``None``       – model does not support thinking
-            ``"_inconclusive"`` – transient error
+            * ``["effort"]`` – reasoning effort accepted.
+            * ``[]`` – cleanly rejected → no reasoning support.
+            * ``None`` – inconclusive (rate limit / timeout).
         """
         try:
             self._client.responses.create(
@@ -635,13 +651,13 @@ class OpenAIProvider(BaseAIProvider):
                 reasoning={"effort": "low"},
                 max_output_tokens=100,
             )
-            return "effort"
+            return ["effort"]
         except Exception as e:
             err = str(e).lower()
             status = getattr(e, "status_code", None)
             if status == 429 or "rate" in err or "timeout" in err:
-                return "_inconclusive"
-            return None
+                return None
+            return []
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this OpenAI model supports structured JSON output."""
@@ -669,6 +685,23 @@ class OpenAIProvider(BaseAIProvider):
         except Exception as e:
             err = str(e).lower()
             status = getattr(e, "status_code", None) or getattr(e, "http_status", None)
+            if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
+                return None
+            return False
+
+    def probe_web_search(self) -> Optional[bool]:
+        """Probe whether this OpenAI model accepts the web_search_preview tool."""
+        try:
+            self._client.responses.create(
+                model=self.model,
+                input="Say hi.",
+                tools=[{"type": "web_search_preview"}],
+                max_output_tokens=50,
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            status = getattr(e, "status_code", None)
             if status == 429 or "rate" in err or "quota" in err or "timeout" in err:
                 return None
             return False

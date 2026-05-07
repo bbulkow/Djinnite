@@ -771,38 +771,60 @@ class BaseAIProvider(ABC):
         """
         Validate and normalize the caller's ``thinking`` parameter.
 
-        - ``None``  → passthrough (no thinking).
-        - ``False`` → explicitly disable thinking.
-        - ``True``  → enable thinking at maximum budget.
-        - ``int``   → validated positive token budget.
-        - ``str``   → validated effort level (``"low"``, ``"medium"``, ``"high"``).
+        - ``None``  → passthrough (no thinking, no pre-flight).
+        - ``False`` → explicitly disable thinking; requires ``"off"`` in
+                      ``capabilities.thinking``.
+        - ``True``  → enable thinking at maximum budget; requires ``"on"``.
+        - ``int``   → validated positive token budget; requires ``"on"``.
+        - ``str``   → validated effort level; requires ``"on"``.
 
-        Raises ``AIProviderError`` if the catalog says the model does not
-        support thinking (``capabilities.thinking is False``) and the
-        caller requested thinking (``True``, ``int``, or ``str``).
-        Skipped when ``self._model_info`` is ``None`` (no catalog).
+        ``capabilities.thinking_style`` is informational only at this layer —
+        providers translate between budget/effort/adaptive shapes
+        transparently. This method enforces only on/off membership.
+
+        Raises ``AIProviderError`` when the catalog says the requested
+        on/off state is not supported. The two failure modes — "model
+        doesn't think at all" vs "model can't disable thinking" — produce
+        distinct messages. Pre-flight is skipped when ``self._model_info``
+        is ``None`` (no catalog).
 
         Returns:
             The validated thinking value, or ``None``/``False``.
         """
-        if thinking is None or thinking is False:
-            return thinking
+        caps = self._model_info.capabilities if self._model_info is not None else None
 
-        # Pre-flight: catalog says model can't think → reject
-        if self._model_info is not None:
-            cap = self._model_info.capabilities.thinking
-            if cap is False:
+        if thinking is None:
+            return None
+
+        if thinking is False:
+            if caps is not None and caps.thinking is not None and "off" not in caps.thinking:
                 raise AIProviderError(
-                    f"Model '{self.model}' does not support thinking/reasoning "
-                    f"(capabilities.thinking=false in catalog). "
-                    f"Use a thinking-capable model, or pass thinking=None.",
+                    f"Model '{self.model}' does not support disabling thinking "
+                    f"(capabilities.thinking={caps.thinking} in catalog — "
+                    f"reasoning is always on). Pass thinking=None to leave "
+                    f"the provider default in place, or use thinking=True/int/str.",
                     provider=self.PROVIDER_NAME,
                 )
+            return False
 
-        # bool True → enable at maximum budget (provider handles the details)
+        # thinking is True | int | str → caller wants thinking enabled.
+        if caps is not None and caps.thinking is not None and "on" not in caps.thinking:
+            raise AIProviderError(
+                f"Model '{self.model}' does not support thinking/reasoning "
+                f"(capabilities.thinking={caps.thinking} in catalog). "
+                f"Use a thinking-capable model, or pass thinking=None.",
+                provider=self.PROVIDER_NAME,
+            )
+
         if thinking is True:
             return True
 
+        # Note: ``capabilities.thinking_style`` is intentionally NOT enforced
+        # here. Djinnite's runtime contract accepts bool/int/str regardless
+        # of the model's native style — providers translate transparently
+        # (``_effort_to_budget`` for budget-style models, ``_budget_to_effort``
+        # for effort-style models). The style list is informational metadata
+        # the provider subclasses consult to pick the native request shape.
         if isinstance(thinking, int):
             if thinking <= 0:
                 raise ValueError("thinking token budget must be a positive integer.")
@@ -868,18 +890,25 @@ class BaseAIProvider(ABC):
         """
         Decide the effective temperature to send to the provider.
 
-        * If the catalog says ``capabilities.temperature is False`` → ``None``
-          (omit temperature entirely to avoid 400 errors).
-        * If ``thinking_active`` is True the provider subclass is responsible
-          for any further override (e.g., Claude forces temperature=1).
-          The base implementation still strips it when the catalog forbids it.
-        * Otherwise → return the caller's value unchanged.
+        Consults ``capabilities.temperature``:
+
+        * ``"any"`` in list → caller's value is sent as-is.
+        * ``"any"`` absent (e.g. ``["default"]``) → caller's value is stripped
+          (returns ``None``) so the model uses its own default. This avoids
+          the 400 error reasoning-only models raise when given an explicit
+          temperature.
+        * ``None`` (unknown) → passthrough.
+
+        ``thinking_active`` is informational; the provider subclass is
+        responsible for any provider-specific override (e.g., Claude forces
+        temperature=1 when thinking).
 
         Returns:
             The temperature to use, or ``None`` meaning "omit".
         """
         if self._model_info is not None:
-            if self._model_info.capabilities.temperature is False:
+            cap = self._model_info.capabilities.temperature
+            if cap is not None and "any" not in cap:
                 return None
         return temperature
 
@@ -924,50 +953,52 @@ class BaseAIProvider(ABC):
     def _check_capability(self, capability: str) -> None:
         """
         Pre-flight check: raise if the catalog says the model does NOT
-        support the requested capability.
+        support the requested capability ("on" not in the relevant list).
 
         Skipped when ``self._model_info`` is None (no catalog loaded,
-        e.g. during probing or testing).
+        e.g. during probing or testing) or when the field is ``None``
+        (unknown).
 
         Args:
-            capability: One of ``"structured_json"`` (more may be added).
+            capability: ``"structured_json"``, ``"json_with_search"``,
+                or ``"web_search"``.
 
         Raises:
-            AIProviderError: If the catalog explicitly says False for
-                this capability.
+            AIProviderError: If the catalog's list does not contain ``"on"``.
         """
         if self._model_info is None:
             return  # No catalog → allow (could be a new/unknown model)
 
+        caps = self._model_info.capabilities
+
         if capability == "structured_json":
-            ssj = self._model_info.supports_structured_json
-            if ssj is False:
+            ssj = caps.structured_json
+            if ssj is not None and "on" not in ssj:
                 raise AIProviderError(
                     f"Model '{self.model}' does not support structured JSON "
-                    f"(supports_structured_json=false in catalog). "
+                    f"(capabilities.structured_json={ssj} in catalog). "
                     f"Use a different model, or pass force=True to bypass.",
                     provider=self.PROVIDER_NAME,
                 )
-            # True or None → allow
 
         elif capability == "json_with_search":
-            jws = self._model_info.capabilities.json_with_search
-            if jws is False:
+            jws = caps.json_with_search
+            if jws is not None and "on" not in jws:
                 raise AIProviderError(
                     f"Model '{self.model}' does not support combining structured "
-                    f"JSON output with web search (json_with_search=false in catalog). "
-                    f"Use a model that supports this combination (e.g. Gemini 3.x), "
-                    f"or pass force=True to bypass.",
+                    f"JSON output with web search (capabilities.json_with_search={jws} "
+                    f"in catalog). Use a model that supports this combination "
+                    f"(e.g. Gemini 3.x), or pass force=True to bypass.",
                     provider=self.PROVIDER_NAME,
                 )
 
         elif capability == "web_search":
-            ws = self._model_info.capabilities.web_search
-            if ws is False:
+            ws = caps.web_search
+            if ws is not None and "on" not in ws:
                 raise AIProviderError(
                     f"Model '{self.model}' does not support native web search "
-                    f"(web_search=false in catalog). Use a model that supports it, "
-                    f"or pass force=True to bypass.",
+                    f"(capabilities.web_search={ws} in catalog). Use a model "
+                    f"that supports it, or pass force=True to bypass.",
                     provider=self.PROVIDER_NAME,
                 )
 
@@ -1092,23 +1123,48 @@ class BaseAIProvider(ABC):
         """
         return None  # Base: unknown — subclasses override
 
-    def probe_thinking_style(self) -> Optional[str]:
+    def probe_thinking_style(self) -> Optional[list[str]]:
         """
-        Probe which thinking style the current model supports.
+        Probe which thinking styles the current model supports.
 
-        Performs a multi-tier probe (provider-specific) to determine the
-        most capable thinking mode the model accepts.  Subclasses override
-        with provider-native logic.
+        Performs a multi-tier probe (provider-specific) and returns the
+        list of styles the model accepts. A model may support more than
+        one — Claude 4.7 supports both ``"adaptive"`` and ``"budget"``.
 
         Returns:
-            ``"adaptive"`` – model supports adaptive/self-regulating thinking
-            ``"budget"``   – model supports fixed token-budget thinking
-            ``"effort"``   – model supports effort-level thinking (OpenAI)
-            ``None``       – model does not support thinking, or inconclusive
+            ``list[str]`` drawn from ``("adaptive", "budget", "effort")``:
+
+            * non-empty list → confirmed: those styles work.
+            * empty list ``[]`` → confirmed: model does not support thinking.
+            * ``None`` → inconclusive (rate limit, transient error). The
+              orchestrator treats this as unknown.
         """
-        # Default: fall back to probe_thinking() for a simple yes/no.
-        # Subclasses override with richer detection.
-        return None
+        return None  # Base: unknown — subclasses override
+
+    def probe_thinking_disable(self) -> Optional[bool]:
+        """
+        Probe whether the model accepts an explicit "thinking disabled"
+        request — i.e. whether the caller can pass ``thinking=False``
+        without the vendor rejecting the call.
+
+        Returns:
+            True  – disable is accepted (toggleable model)
+            False – disable is rejected (always-on reasoning model)
+            None  – inconclusive, or the model does not support thinking
+                    at all (in which case ``"off"`` is the only valid state)
+        """
+        return None  # Base: unknown — subclasses override
+
+    def probe_web_search(self) -> Optional[bool]:
+        """
+        Probe whether the model accepts a web-search / grounding tool.
+
+        Returns:
+            True  – web search accepted
+            False – vendor rejects web-search request
+            None  – inconclusive
+        """
+        return None  # Base: unknown — subclasses override
 
     def probe_structured_json(self) -> Optional[bool]:
         """

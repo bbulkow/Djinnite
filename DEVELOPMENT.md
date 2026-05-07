@@ -136,10 +136,14 @@ thinking: Union[bool, int, str, None] = None
 the model normally does." `False` = "I explicitly do NOT want thinking." If you need
 predictable behavior, always pass `True` or `False` — never rely on `None` for production code.
 
-**Error behavior:** If the caller requests a thinking mode that the model does not
-support (e.g., `thinking=True` on a model with `capabilities.thinking=False`, or
-`thinking=False` on a reasoning-only model like o3), Djinnite raises `AIProviderError`
-rather than silently switching behavior.
+**Error behavior:** Each capability in the catalog is a list of supported
+states drawn from a fixed Djinnite vocabulary (see `ModelCapabilities` in
+`config_loader.py`). For thinking, the vocabulary is `{"on", "off"}`. The
+caller's `thinking` argument maps to a state — `False` → `"off"`, anything
+truthy → `"on"` — and Djinnite raises `AIProviderError` if the catalog says
+that state is not in the model's list (e.g. `thinking=True` on a model with
+`capabilities.thinking=["off"]`, or `thinking=False` on an always-on
+reasoning model with `capabilities.thinking=["on"]`).
 
 Djinnite translates this into the provider-native format automatically:
 
@@ -153,7 +157,7 @@ Djinnite translates this into the provider-native format automatically:
 - Claude forces `temperature=1` when thinking is active (SDK requirement).
 - Claude enforces `max_tokens > budget_tokens` automatically (adjusts upward if needed).
 - OpenAI strips temperature entirely when thinking is active (reasoning models reject it).
-- Models with `capabilities.temperature=false` in the catalog always have temperature omitted.
+- Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically.
 
 **Token budget guidance:**
 Token budgets are highly unpredictable — they depend on prompt complexity, model

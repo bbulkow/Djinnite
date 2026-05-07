@@ -559,22 +559,23 @@ The `ModelCapabilities` dataclass and catalog JSON gain `tool_calling`:
 ```python
 @dataclass
 class ModelCapabilities:
-    structured_json: Optional[bool] = None
-    temperature: Optional[bool] = None
-    thinking: Optional[bool] = None
-    web_search: Optional[bool] = None
-    thinking_style: Optional[str] = None
-    tool_calling: Optional[bool] = None    # NEW
+    structured_json: Optional[list[str]] = None    # subset of {"on","off"}
+    temperature: Optional[list[str]] = None        # subset of {"any","default"}
+    thinking: Optional[list[str]] = None           # subset of {"on","off"}
+    web_search: Optional[list[str]] = None         # subset of {"on","off"}
+    json_with_search: Optional[list[str]] = None   # subset of {"on","off"}
+    thinking_style: Optional[list[str]] = None     # subset of {"adaptive","budget","effort"}
+    tool_calling: Optional[list[str]] = None       # NEW — subset of {"on","off"}
 ```
 
 ```json
 {
     "id": "gemini-2.5-flash",
     "capabilities": {
-        "structured_json": true,
-        "thinking": true,
-        "web_search": true,
-        "tool_calling": true
+        "structured_json": ["on", "off"],
+        "thinking": ["on", "off"],
+        "web_search": ["on", "off"],
+        "tool_calling": ["on", "off"]
     }
 }
 ```

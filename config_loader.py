@@ -14,8 +14,67 @@ Where <project_root> is the parent directory of the djinnite package.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Final, Optional
 from dataclasses import dataclass, field
+
+
+# Capability vocabularies — fixed by the Djinnite API contract.
+# Each per-model `ModelCapabilities` field is `list[str] | None`, where the
+# list is the subset of these tokens that the model accepts.
+#
+#   None  = unknown (not yet probed / inconclusive) — runtime skips pre-flight.
+#   list  = the closed set of states the model supports.
+#
+# Empty lists are not emitted by probes; if a capability is fully unsupported,
+# the explicit "off" token is in the list (e.g. a non-thinking model is ["off"]).
+
+ON_OFF_STATES: Final[tuple[str, ...]] = ("on", "off")
+THINKING_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
+STRUCTURED_JSON_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
+WEB_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
+JSON_WITH_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
+TEMPERATURE_STATES: Final[tuple[str, ...]] = ("any", "default")
+THINKING_STYLE_VALUES: Final[tuple[str, ...]] = ("adaptive", "budget", "effort")
+
+
+def _coerce_states(raw: Any, vocab: tuple[str, ...]) -> Optional[list[str]]:
+    """Normalize a raw capability value into ``list[str] | None``.
+
+    Accepts the new list shape and the legacy bool / single-string shapes
+    so older catalog files keep loading. Migration rules:
+
+    * ``None``      → ``None`` (unknown).
+    * ``True``      → both states for two-token vocabularies (``["on","off"]``
+                      and ``["any","default"]``); the full vocabulary
+                      otherwise. This is the toggleable assumption — a
+                      re-probe pass tightens always-on cases.
+    * ``False``     → ``["off"]`` for ``ON_OFF`` vocabularies, ``["default"]``
+                      for ``TEMPERATURE_STATES``; ``None`` otherwise.
+    * ``str``       → ``[<value>]`` if the value is in the vocabulary, else
+                      ``None``.
+    * ``list[str]`` → kept; unknown tokens are filtered out. An empty result
+                      after filtering becomes ``None``.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        if raw:
+            if vocab == ON_OFF_STATES:
+                return ["on", "off"]
+            if vocab == TEMPERATURE_STATES:
+                return ["any", "default"]
+            return list(vocab)
+        if vocab == ON_OFF_STATES:
+            return ["off"]
+        if vocab == TEMPERATURE_STATES:
+            return ["default"]
+        return None
+    if isinstance(raw, str):
+        return [raw] if raw in vocab else None
+    if isinstance(raw, list):
+        kept = [v for v in raw if isinstance(v, str) and v in vocab]
+        return kept or None
+    return None
 
 
 # Configuration discovery
@@ -201,28 +260,35 @@ class Modalities:
 @dataclass
 class ModelCapabilities:
     """
-    Model capability flags — tri-state booleans discovered by probing.
-    
-    True  = confirmed supported
-    False = confirmed NOT supported
-    None  = unknown (not yet probed or inconclusive)
-    
+    Per-model lists of supported Djinnite-API states.
+
+    Every field is ``list[str] | None``. ``None`` means unknown / not yet
+    probed (runtime pre-flight is skipped). A non-null list is the subset
+    of the capability's fixed Djinnite vocabulary that this model accepts.
+
     Attributes:
-        structured_json: Schema-enforced JSON output (Constraint Decoding).
-        temperature: Whether the model accepts temperature parameter.
-        thinking: Whether the model supports extended thinking/reasoning.
-        web_search: Whether web search/grounding is available via Djinnite.
-        json_with_search: Whether structured JSON + web search can be combined
-                          in a single request (Gemini 2.x: False, 3.x: True).
-        thinking_style: Provider-native thinking param style
-                        ("budget" for Claude, "effort" for OpenAI, "mode" for Gemini).
+        structured_json: Subset of ``STRUCTURED_JSON_STATES``. ``"on"`` means
+            the model accepts a schema; ``"off"`` is plain text.
+        temperature: Subset of ``TEMPERATURE_STATES``. ``"any"`` means the
+            model accepts a caller-specified temperature; ``"default"`` means
+            the model's default is used (caller's value is stripped).
+        thinking: Subset of ``THINKING_STATES``. ``"on"`` means the model
+            accepts a thinking-enabled request; ``"off"`` means it accepts
+            an explicit thinking-disabled request. ``["on"]`` is an
+            always-on reasoning model; ``["off"]`` is a non-thinking model.
+        web_search: Subset of ``WEB_SEARCH_STATES``.
+        json_with_search: Subset of ``JSON_WITH_SEARCH_STATES`` — whether the
+            structured-JSON + web-search combination is accepted.
+        thinking_style: Subset of ``THINKING_STYLE_VALUES``. Identifies the
+            provider-native thinking param style(s) the model accepts; a
+            single model may support multiple (Claude 4.7: adaptive+budget).
     """
-    structured_json: Optional[bool] = None
-    temperature: Optional[bool] = None
-    thinking: Optional[bool] = None
-    web_search: Optional[bool] = None
-    json_with_search: Optional[bool] = None
-    thinking_style: Optional[str] = None
+    structured_json: Optional[list[str]] = None
+    temperature: Optional[list[str]] = None
+    thinking: Optional[list[str]] = None
+    web_search: Optional[list[str]] = None
+    json_with_search: Optional[list[str]] = None
+    thinking_style: Optional[list[str]] = None
 
 
 @dataclass
@@ -256,8 +322,11 @@ class ModelInfo:
 
     @property
     def supports_structured_json(self) -> Optional[bool]:
-        """Convenience accessor for backward compatibility."""
-        return self.capabilities.structured_json
+        """Convenience accessor: True iff "on" is in the structured_json list."""
+        ssj = self.capabilities.structured_json
+        if ssj is None:
+            return None
+        return "on" in ssj
 
 
 @dataclass
@@ -404,23 +473,24 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 caps = model_data.get("capabilities", ["text"])
                 modalities = Modalities(input=caps, output=["text"])
             
-            # Load capabilities — support both new dict format and old flat format
+            # Load capabilities — support new list format, old tri-state-bool
+            # format, and the original flat supports_structured_json field.
             raw_caps = model_data.get("capabilities")
             if isinstance(raw_caps, dict):
-                # New format: capabilities dict with tri-state booleans
                 caps = ModelCapabilities(
-                    structured_json=raw_caps.get("structured_json"),
-                    temperature=raw_caps.get("temperature"),
-                    thinking=raw_caps.get("thinking"),
-                    web_search=raw_caps.get("web_search"),
-                    json_with_search=raw_caps.get("json_with_search"),
-                    thinking_style=raw_caps.get("thinking_style"),
+                    structured_json=_coerce_states(raw_caps.get("structured_json"), ON_OFF_STATES),
+                    temperature=_coerce_states(raw_caps.get("temperature"), TEMPERATURE_STATES),
+                    thinking=_coerce_states(raw_caps.get("thinking"), ON_OFF_STATES),
+                    web_search=_coerce_states(raw_caps.get("web_search"), ON_OFF_STATES),
+                    json_with_search=_coerce_states(raw_caps.get("json_with_search"), ON_OFF_STATES),
+                    thinking_style=_coerce_states(raw_caps.get("thinking_style"), THINKING_STYLE_VALUES),
                 )
             else:
                 # Old format: migrate from flat supports_structured_json field
                 raw_ssj = model_data.get("supports_structured_json")
-                ssj = True if raw_ssj is True else (False if raw_ssj is False else None)
-                caps = ModelCapabilities(structured_json=ssj)
+                caps = ModelCapabilities(
+                    structured_json=_coerce_states(raw_ssj, ON_OFF_STATES),
+                )
 
             # Load vision limits if present
             raw_vl = model_data.get("vision_limits")
@@ -482,4 +552,11 @@ __all__ = [
     "PACKAGE_CONFIG_DIR",
     "PROJECT_CONFIG_DIR",
     "_resolve_config_file",
+    "ON_OFF_STATES",
+    "THINKING_STATES",
+    "STRUCTURED_JSON_STATES",
+    "WEB_SEARCH_STATES",
+    "JSON_WITH_SEARCH_STATES",
+    "TEMPERATURE_STATES",
+    "THINKING_STYLE_VALUES",
 ]

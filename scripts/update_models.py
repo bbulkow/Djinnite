@@ -223,15 +223,39 @@ def _resolve_max_output_tokens(model_id: str, api_value: int, existing_value: in
 
 def _resolve_structured_json_support(
     model_id: str,
-    existing_value: Optional[bool],
-) -> Optional[bool]:
+    existing_value,
+):
     """
-    Resolve supports_structured_json using dynamic sources only:
-    1. Existing catalog value (persisted from prior probe runs)
-    2. None (unknown -- will trigger live probe)
+    Resolve structured_json using dynamic sources only:
+    1. Existing catalog value (persisted from prior probe runs) — already a list.
+    2. None (unknown — will trigger live probe).
     """
     if existing_value is not None:
         return existing_value
+    return None
+
+
+def _onoff_states(probe_result: Optional[bool]) -> Optional[list[str]]:
+    """Translate a True/False/None probe result into the on/off list shape.
+
+    * ``True``  → ``["on", "off"]`` — capability supported, off-state always
+                  works (omit-the-param semantics).
+    * ``False`` → ``["off"]``       — capability cleanly unsupported.
+    * ``None``  → ``None``          — inconclusive / unknown.
+    """
+    if probe_result is True:
+        return ["on", "off"]
+    if probe_result is False:
+        return ["off"]
+    return None
+
+
+def _temperature_states(probe_result: Optional[bool]) -> Optional[list[str]]:
+    """Translate a temperature probe result into the temperature list shape."""
+    if probe_result is True:
+        return ["any", "default"]
+    if probe_result is False:
+        return ["default"]
     return None
 
 
@@ -243,69 +267,101 @@ def _probe_all_capabilities_for_models(
 ) -> dict[str, dict]:
     """
     Probe a list of models to discover ALL capabilities at once.
-    
-    Uses ``probe_thinking_style()`` for rich thinking detection instead of
-    a static mapping.  The thinking style (``"adaptive"``, ``"budget"``,
-    ``"effort"``, etc.) is discovered dynamically per-model.
-    
-    Returns a dict of model_id -> {structured_json, temperature, thinking, web_search, thinking_style}.
+
+    Each capability is emitted as ``list[str] | None`` matching the
+    ``ModelCapabilities`` schema:
+    * ``thinking`` / ``structured_json`` / ``web_search`` / ``json_with_search``
+      → subset of ``("on", "off")`` (or None for unknown).
+    * ``temperature`` → subset of ``("any", "default")``.
+    * ``thinking_style`` → subset of ``("adaptive", "budget", "effort")``.
+
+    Returns a dict of model_id -> capability dict.
     """
     results: dict[str, dict] = {}
     for m in models_to_probe:
         model_id = m["id"]
         try:
             instance = provider_cls(api_key=api_key, model=model_id)
-            
-            ssj = instance.probe_structured_json()
-            temp = instance.probe_temperature()
 
-            # Use probe_thinking_style() for rich detection.
-            # Returns "adaptive", "budget", "effort", None, or "_inconclusive".
-            ts_raw = instance.probe_thinking_style()
-            if ts_raw == "_inconclusive":
-                think = None  # Inconclusive -> None (unknown)
-                ts = None
-            elif ts_raw is None:
-                think = False
-                ts = None
-            else:
-                think = True
-                ts = ts_raw
+            # ---- Per-capability raw probes -----------------------------
+            ssj_raw = instance.probe_structured_json()
+            temp_raw = instance.probe_temperature()
+            jws_raw = instance.probe_json_with_search()
 
-            # web_search: probe per-provider when a probe exists; otherwise
-            # default to True (historical behavior for providers that haven't
-            # wired up a probe yet).
             if hasattr(instance, "probe_web_search"):
-                ws = instance.probe_web_search()
+                ws_raw = instance.probe_web_search()
             else:
-                ws = True
+                # Conservative default: assume supported. Unknown providers
+                # without a probe shouldn't block callers from web_search.
+                ws_raw = True
 
-            # Probe JSON + search combination (model-specific limitation)
-            jws = instance.probe_json_with_search()
+            # Thinking is two-dimensional: which styles work + can disable?
+            styles_raw = instance.probe_thinking_style()    # list[str] | None
+            disable_raw = instance.probe_thinking_disable()  # bool | None
+
+            # ---- Assemble list-shaped fields ---------------------------
+            ssj_states = _onoff_states(ssj_raw)
+            temp_states = _temperature_states(temp_raw)
+            ws_states = _onoff_states(ws_raw)
+            jws_states = _onoff_states(jws_raw)
+
+            # thinking field: combine on-state (any style succeeded) and
+            # off-state (disable accepted). Conservative default for a
+            # missing/unknown disable probe is to include "off" — matches
+            # current de-facto behavior of every model in the catalog.
+            if styles_raw is None:
+                # Inconclusive on the on-state — we cannot tell if thinking
+                # works. Mark as unknown to leave runtime pre-flight off.
+                thinking_states: Optional[list[str]] = None
+                thinking_style_states: Optional[list[str]] = None
+            else:
+                on_supported = bool(styles_raw)
+                states: list[str] = []
+                if on_supported:
+                    states.append("on")
+                # If the model has no thinking, "off" is the only state.
+                # If it has thinking, "off" depends on the disable probe.
+                if not on_supported:
+                    states.append("off")
+                else:
+                    if disable_raw is True or disable_raw is None:
+                        states.append("off")
+                    # disable_raw is False → always-on; no "off" token.
+                thinking_states = states
+                thinking_style_states = list(styles_raw) if styles_raw else None
 
             results[model_id] = {
-                "structured_json": ssj,
-                "temperature": temp,
-                "thinking": think,
-                "web_search": ws,
-                "json_with_search": jws,
-                "thinking_style": ts,
+                "structured_json": ssj_states,
+                "temperature": temp_states,
+                "thinking": thinking_states,
+                "web_search": ws_states,
+                "json_with_search": jws_states,
+                "thinking_style": thinking_style_states,
             }
 
-            parts = []
-            parts.append(f"json={'[OK]' if ssj else '[FAIL]' if ssj is False else '[?]'}")
-            parts.append(f"temp={'[OK]' if temp else '[FAIL]' if temp is False else '[?]'}")
-            think_label = f"{'[OK]' if think else '[FAIL]' if think is False else '[?]'}"
-            if ts:
-                think_label += f"({ts})"
+            def _mark(v):
+                if v is None:
+                    return "[?]"
+                return "[OK]" if "on" in v else "[FAIL]"
+
+            parts = [
+                f"json={_mark(ssj_states)}",
+                f"temp={'[OK]' if temp_states and 'any' in temp_states else '[FAIL]' if temp_states else '[?]'}",
+            ]
+            think_label = _mark(thinking_states)
+            if thinking_states and "off" not in thinking_states:
+                think_label += "(always-on)"
+            if thinking_style_states:
+                think_label += f"({'|'.join(thinking_style_states)})"
             parts.append(f"think={think_label}")
-            parts.append(f"json+search={'✅' if jws else '❌' if jws is False else '❓'}")
+            parts.append(f"web={_mark(ws_states)}")
+            parts.append(f"json+search={_mark(jws_states)}")
             print(f"    {model_id}: {' '.join(parts)}")
-            
+
         except Exception as e:
             results[model_id] = {
                 "structured_json": None, "temperature": None,
-                "thinking": None, "web_search": True,
+                "thinking": None, "web_search": ["on", "off"],
                 "json_with_search": None, "thinking_style": None,
             }
             print(f"    [WARN] {model_id}: probe skipped ({e})")
@@ -354,21 +410,18 @@ def merge_model_data(
         api_output_limit = model.get("max_output_tokens", 0) or 0
         existing_output_limit = 0
         existing_ssj = None
-        
+
         if model_id in existing_by_id:
             existing = existing_by_id[model_id]
             existing_output_limit = existing.get("max_output_tokens", 0) or 0
-            # Preserve existing capabilities.structured_json value
-            # Support both new dict format and old flat format
+            # Preserve existing capabilities.structured_json — pass the raw
+            # value (list / bool / None) through; the loader's coerce shim
+            # accepts all three, and the resolver below stores it as-is.
             raw_caps = existing.get("capabilities")
             if isinstance(raw_caps, dict):
-                raw_ssj = raw_caps.get("structured_json")
+                existing_ssj = raw_caps.get("structured_json")
             else:
-                raw_ssj = existing.get("supports_structured_json")
-            if raw_ssj is True:
-                existing_ssj = True
-            elif raw_ssj is False:
-                existing_ssj = False
+                existing_ssj = existing.get("supports_structured_json")
             
             # Preserve existing structure if it's already structured
             if "modalities" in existing and isinstance(existing["modalities"], dict):

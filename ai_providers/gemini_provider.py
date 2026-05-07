@@ -607,24 +607,52 @@ class GeminiProvider(BaseAIProvider):
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Gemini model supports thinking mode."""
-        style = self.probe_thinking_style()
-        if style is None:
-            return False
-        if style == "_inconclusive":
+        styles = self.probe_thinking_style()
+        if styles is None:
             return None
-        return True
+        return bool(styles)
 
-    def probe_thinking_style(self) -> Optional[str]:
+    def probe_thinking_disable(self) -> Optional[bool]:
         """
-        Probe which thinking style this Gemini model supports.
+        Whether Gemini accepts an explicit thinking-disabled request.
 
-        Gemini uses ``thinking_config`` with ``thinking_budget``
-        (budget-based thinking).
+        Gemini's ``thinking_config`` is opt-in; omitting it always works.
+        Some Gemini variants (e.g. 2.5 Pro thinking-only) accept
+        ``thinking_budget=0`` as the explicit disable. We test that
+        path — if the API rejects ``thinking_budget=0`` outright, the
+        model is always-on and disable is unsupported.
+        """
+        try:
+            self._client.models.generate_content(
+                model=self.model, contents="Say hi.",
+                config={
+                    "max_output_tokens": 100,
+                    "thinking_config": {"thinking_budget": 0},
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            # 400 INVALID_ARGUMENT against thinking_budget=0 → can't disable.
+            # If thinking_config isn't supported at all we fall back to True
+            # (omitting the param is always valid for non-thinking models).
+            if "thinking" in err and ("not support" in err or "invalid" in err or "400" in err):
+                return False
+            return True
+
+    def probe_thinking_style(self) -> Optional[list[str]]:
+        """
+        Probe which thinking styles this Gemini model supports.
+
+        Gemini exposes only ``thinking_config.thinking_budget`` — no effort
+        analogue — so the result is ``["budget"]`` or ``[]``.
 
         Returns:
-            ``"budget"``   – model supports thinking_config/thinking_budget
-            ``None``       – model does not support thinking
-            ``"_inconclusive"`` – transient error (rate limit, quota)
+            * ``["budget"]`` – thinking_config accepted with a positive budget.
+            * ``[]`` – cleanly rejected → no thinking support.
+            * ``None`` – inconclusive (rate limit / quota).
         """
         try:
             self._client.models.generate_content(
@@ -634,12 +662,12 @@ class GeminiProvider(BaseAIProvider):
                     "thinking_config": {"thinking_budget": 1024},
                 },
             )
-            return "budget"
+            return ["budget"]
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "quota" in err or "429" in err:
-                return "_inconclusive"
-            return None
+                return None
+            return []
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Gemini model supports response_schema JSON mode."""
@@ -667,6 +695,25 @@ class GeminiProvider(BaseAIProvider):
             if "rate" in err or "quota" in err or "429" in err:
                 return None
             return None
+
+    def probe_web_search(self) -> Optional[bool]:
+        """Probe whether this Gemini model accepts the google_search tool."""
+        from google.genai import types
+        try:
+            self._client.models.generate_content(
+                model=self.model,
+                contents="Say hi.",
+                config={
+                    "max_output_tokens": 50,
+                    "tools": [types.Tool(google_search=types.GoogleSearch())],
+                },
+            )
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+            return False
 
     def probe_json_with_search(self) -> Optional[bool]:
         """Probe whether this Gemini model supports structured JSON + Google Search combined.

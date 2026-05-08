@@ -298,12 +298,21 @@ class ModelInfo:
     Attributes:
         id: The model ID (e.g. "gemini-2.5-flash", "claude-sonnet-4-20250514")
         name: Human-readable display name
-        context_window: Maximum input token count (context window size)
-        max_output_tokens: Maximum output tokens the model can generate.
-            Callers should use this to set appropriate max_tokens values
-            and avoid truncation. A value of 0 means unknown.
-        capabilities: Model capability flags (structured_json, temperature,
-            thinking, web_search) — tri-state booleans discovered by probing.
+        context_window: Total token budget for a request — sum of input,
+            output, thinking, and tool-call round-trips. This is the
+            provider's published "context window" for the model (e.g.
+            Claude Sonnet 4 = 200,000; Gemini 2.5 Flash = 1,048,576).
+            It is **not** an input-only cap; the provider enforces it
+            server-side and exceeding it raises ``AIContextLengthError``.
+        max_output_tokens: Maximum tokens the model may emit in a single
+            response. Callers should use this to set ``max_output_tokens``
+            on ``generate()`` / ``generate_json()`` and avoid truncation.
+            A value of 0 means unknown. Per-provider semantic note: Claude
+            and Gemini cap visible output only (thinking is counted under
+            a separate budget); OpenAI's ``max_output_tokens`` caps
+            visible output and reasoning combined.
+        capabilities: Per-model lists of supported Djinnite-API states
+            (see ``ModelCapabilities``).
         modalities: Input/output modality capabilities
         costing: Dollar-based pricing (input/output per 1M tokens, search per unit)
         disabled: Whether this model is disabled (blocked from use at runtime)

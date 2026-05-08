@@ -143,18 +143,20 @@ class GeminiProvider(BaseAIProvider):
     def _build_gemini_thinking(
         self,
         thinking: Union[bool, int, str, None],
-        max_tokens: Optional[int],
+        max_output_tokens: Optional[int],
     ) -> Optional[dict]:
         """
         Translate the unified ``thinking`` parameter into Gemini's native
         ``thinking_config`` format.
 
         Gemini uses ``thinking_config={"thinking_budget": N}`` where N is
-        a token count.
+        a token count (separate from the request's ``max_output_tokens``).
 
         Args:
             thinking: The caller's thinking parameter (already validated).
-            max_tokens: The effective max output tokens for the request.
+            max_output_tokens: The effective max output tokens for the
+                request — used only when translating a ``str`` effort into
+                a budget via ``_effort_to_budget``.
 
         Returns:
             A dict for ``thinking_config``, or ``None`` if not requested.
@@ -178,7 +180,7 @@ class GeminiProvider(BaseAIProvider):
             budget = thinking
         else:
             # str effort → token budget
-            effective_max = max_tokens or 8192
+            effective_max = max_output_tokens or 8192
             budget = self._effort_to_budget(thinking, effective_max)
 
         return {"thinking_budget": budget}
@@ -188,7 +190,7 @@ class GeminiProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
@@ -207,21 +209,21 @@ class GeminiProvider(BaseAIProvider):
 
             # Resolve temperature: strip if catalog says not supported
             effective_temp = self._resolve_temperature(temperature, thinking is not None)
-            
-            # Auto-fill max_tokens from catalog if caller didn't provide one.
-            max_tokens = self._resolve_max_tokens(max_tokens)
+
+            # Auto-fill max_output_tokens from catalog if caller didn't provide one.
+            max_output_tokens = self._resolve_max_output_tokens(max_output_tokens)
 
             # Build configuration
             config = {}
             if effective_temp is not None:
                 config["temperature"] = effective_temp
-            if max_tokens:
-                config["max_output_tokens"] = max_tokens
+            if max_output_tokens:
+                config["max_output_tokens"] = max_output_tokens
             if system_prompt:
                 config["system_instruction"] = system_prompt
 
             # Thinking: add thinking_config if requested
-            thinking_config = self._build_gemini_thinking(thinking, max_tokens)
+            thinking_config = self._build_gemini_thinking(thinking, max_output_tokens)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
             
@@ -375,7 +377,7 @@ class GeminiProvider(BaseAIProvider):
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
@@ -392,7 +394,7 @@ class GeminiProvider(BaseAIProvider):
             schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
             system_prompt: Optional system instruction.
             temperature: Sampling temperature (default 0.3).
-            max_tokens: Maximum tokens to generate.
+            max_output_tokens: Cap on output tokens (auto-fills from catalog).
             web_search: If True, enable Google Search grounding for current info.
             thinking: Optional thinking/reasoning control (same as generate()).
 
@@ -431,19 +433,19 @@ class GeminiProvider(BaseAIProvider):
                 "response_schema": json_schema,
             }
 
-            # Auto-fill max_tokens from catalog if caller didn't provide one.
-            max_tokens = self._resolve_max_tokens(max_tokens)
+            # Auto-fill max_output_tokens from catalog if caller didn't provide one.
+            max_output_tokens = self._resolve_max_output_tokens(max_output_tokens)
 
             if effective_temp is not None:
                 config["temperature"] = effective_temp
-            
-            if max_tokens:
-                config["max_output_tokens"] = max_tokens
+
+            if max_output_tokens:
+                config["max_output_tokens"] = max_output_tokens
             if system_prompt:
                 config["system_instruction"] = system_prompt
 
             # Thinking config
-            thinking_config = self._build_gemini_thinking(thinking, max_tokens)
+            thinking_config = self._build_gemini_thinking(thinking, max_output_tokens)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
             

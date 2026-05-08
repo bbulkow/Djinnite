@@ -230,7 +230,7 @@ def validate_json():
                     # support temperature.
                     # Use 4096 to give reasoning models (GPT-5, o-series)
                     # enough room for thinking tokens + output.
-                    max_tokens=4096,
+                    max_output_tokens=4096,
                 )
 
                 # Parse JSON

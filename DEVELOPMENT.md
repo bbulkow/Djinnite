@@ -71,8 +71,8 @@ from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCat
 get_provider(provider_name, api_key, model, **kwargs) -> BaseAIProvider
 
 # Generation (two distinct methods)
-BaseAIProvider.generate(prompt, system_prompt, temperature, max_tokens, web_search, thinking) -> AIResponse
-BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_tokens, web_search, force, thinking) -> AIResponse
+BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking) -> AIResponse
+BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_output_tokens, web_search, force, thinking) -> AIResponse
 
 # Discovery
 load_ai_config() -> AIConfig
@@ -184,7 +184,7 @@ not surface in the caller's vocabulary.
 
 **Temperature conflicts** are handled automatically:
 - Claude forces `temperature=1` when thinking is active (SDK requirement).
-- Claude enforces `max_tokens > budget_tokens` automatically (adjusts upward if needed).
+- Claude enforces output-cap > thinking-budget automatically (adjusts upward if needed).
 - OpenAI strips temperature entirely when thinking is active (reasoning models reject it).
 - Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically.
 
@@ -195,24 +195,24 @@ from the model catalog's `max_output_tokens`).  Only use explicit `int` budgets
 after profiling specific workloads.  Low budgets cause partial/useless reasoning
 that is still charged.
 
-### max_tokens Parameter
+### max_output_tokens Parameter
 
-The `max_tokens` parameter on `generate()` and `generate_json()` controls the
-maximum number of output tokens the model can generate.
+The `max_output_tokens` parameter on `generate()` and `generate_json()` caps
+the output tokens the model may emit. **Auto-resolution:** when the caller
+passes `None` (the default), Djinnite fills it from the model catalog's
+`ModelInfo.max_output_tokens`. Resolution order:
 
-**Auto-resolution:** If the caller passes `max_tokens=None` (the default), Djinnite
-automatically fills it from the model catalog's `max_output_tokens` value.  This
-ensures the model has its full output capacity available and reduces expensive
-truncated responses.
+1. Caller's explicit value (if provided and > 0)
+2. Model catalog `max_output_tokens` (from `model_catalog.json`)
+3. `None` (the provider SDK uses its own default)
 
-Resolution order:
-1. Caller's explicit value (if provided)
-2. Model catalog `max_output_tokens` (auto-filled from `model_catalog.json`)
+**Recommendation:** for most use cases, omit `max_output_tokens` entirely
+and let Djinnite use the catalog value. Pass an explicit value only when
+you need to constrain output for cost or latency.
 
-**Recommendation:** For most use cases, omit `max_tokens` entirely and let Djinnite
-use the model's maximum from the catalog.  Only pass an explicit value when you need
-to constrain output size for cost or latency reasons.  Setting it too low results
-in truncated responses — which are useless but still charged.
+Per-provider semantic note (see the [Token Budgets](#token-budgets) section
+below for the full mapping): Claude and Gemini cap visible output only;
+OpenAI's `max_output_tokens` caps visible output **and reasoning combined**.
 
 ### Error Contract
 
@@ -303,8 +303,8 @@ class VisionLimits:
 Images are validated in `_validate_vision_limits()` (called in every provider's `generate()` and `generate_json()`) before any API call is made. Oversized images raise `AIProviderError` immediately.
 
 **`max_output_tokens`** is the maximum number of tokens a model can generate in a
-single response. Callers **should** use this value when setting `max_tokens` on
-`generate()` / `generate_json()` to avoid truncation. A value of `0` means the
+single response. Callers **should** use this value when setting `max_output_tokens`
+on `generate()` / `generate_json()` to avoid truncation. A value of `0` means the
 limit is unknown — callers should use a conservative default.
 
 The field is populated by `update_models.py` dynamically (in priority order):
@@ -410,6 +410,60 @@ Callers that need to bypass a pre-flight rejection use `force=True` on
 Run `uv run python -m djinnite.scripts.update_models --reprobe all` to refresh
 the catalog with current provider capabilities.
 
+### Token Budgets
+
+Djinnite has five distinct conceptual budgets in play at request time. The
+table below maps each to the Djinnite-side surface (request param, catalog
+field, internal helper, response field) and the native parameter the
+underlying SDK uses. Read this when you need to know "which knob controls
+X, and what does it become at the wire?"
+
+| Budget | Djinnite surface | Anthropic Messages API | OpenAI Responses API | Gemini GenerationConfig |
+|---|---|---|---|---|
+| **Output budget** | request param: `max_output_tokens` (`Optional[int]`)<br>catalog: `ModelInfo.max_output_tokens`<br>internal resolver: `_resolve_max_output_tokens`<br>response: `AIResponse.output_tokens` | `max_tokens` *(required int)* — caps **visible output only**; thinking is counted under a separate budget. Anthropic enforces `max_tokens > thinking.budget_tokens`. | `max_output_tokens` *(int)* — caps **visible output + reasoning combined**; OpenAI does not expose them separately. | `GenerationConfig.max_output_tokens` *(int)* — caps **visible output only**; thinking is counted under a separate budget. |
+| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_get_max_thinking_budget`, `_DEFAULT_THINKING_BUDGET`, `_effort_to_budget`, `_budget_to_effort`, `_EFFORT_FRACTIONS`<br>catalog: not stored — `_get_max_thinking_budget` reads `max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens`. `type:"adaptive"` has no explicit budget (model decides). | `reasoning.effort: "low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Djinnite's `_budget_to_effort` translates int budgets to tiers when targeting OpenAI. | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. **Separate from `max_output_tokens`.** |
+| **Total token budget**<br>(input + output + thinking + tool round-trips) | request param: *not exposed — model property, server-enforced*<br>catalog: `ModelInfo.context_window`<br>response: `AIResponse.total_tokens` *(post-hoc usage, not a cap)* | not a request parameter — model property | not a request parameter — model property *(`truncation: "auto"\|"disabled"` chooses overflow handling, not a numeric cap)* | not a request parameter — model property |
+| **Input budget**<br>(max input tokens) | request param: *not exposed*<br>catalog: not stored — derivable from `context_window` minus reserved output / thinking<br>response: `AIResponse.input_tokens` *(post-hoc usage)* | not a request parameter | not a request parameter; `truncation: "auto"` lets the server drop earliest turns on overflow but does not set a cap | not a request parameter |
+| **Search budget**<br>(billing events — *not tokens*) | request param: `web_search: bool`<br>catalog: `ModelCosting.search_cost_per_unit`<br>response: `AIResponse.search_units`, `AIResponse.search_cost` | `tools=[{...web_search…}]` *(enable/disable; no per-call event cap)* | `tools=[{"type":"web_search_preview"}]` *(enable/disable; no per-call event cap)* | `tools=[Tool(google_search=...)]` *(enable/disable; no per-call event cap)* |
+
+#### Notable semantic asymmetries
+
+1. **Output-budget meaning differs across providers.** A caller passing
+   `max_output_tokens=2000` gets:
+   * Claude / Gemini → up to 2000 *visible* output tokens; thinking is
+     additional and capped under a separate budget.
+   * OpenAI → up to 2000 tokens *combined* across reasoning + visible
+     output. So a high-reasoning prompt with `max_output_tokens=2000`
+     may produce far less visible text than the same number on
+     Claude/Gemini.
+
+   This is an SDK-level inconsistency Djinnite is exposing transparently;
+   it is **not** something Djinnite normalizes today.
+
+2. **Thinking-budget granularity differs.** Anthropic and Gemini accept a
+   numeric token budget; OpenAI accepts only a tier label (`"low"`,
+   `"medium"`, `"high"`, `"none"`). Djinnite hides this via two-way
+   translation — `_budget_to_effort` / `_effort_to_budget` — so callers
+   writing `thinking=8192` against OpenAI silently get `effort:"high"`,
+   and callers writing `thinking="medium"` against Gemini get a budget
+   computed as 50 % of `max_output_tokens`.
+
+3. **`thinking="adaptive"` is intentionally not a Djinnite caller value.**
+   Adaptive is what `True` already means semantically (let the model
+   decide). Exposing it would force callers to learn vendor-native
+   concepts the abstraction is meant to hide.
+
+#### What Djinnite does *not* expose
+
+* **No request parameter for total or input budget.** Both are model
+  properties enforced server-side; exceeding them surfaces as
+  `AIContextLengthError` (HTTP 400). Adding a Djinnite-side cap would
+  duplicate the server's enforcement.
+* **No separate `thinking_budget=N` parameter.** The `thinking`
+  parameter's int form covers it, and splitting would force callers to
+  coordinate two parameters with rules like "`thinking_budget` is
+  honored only when `thinking=True`."
+
 ---
 
 ## 🛠 INTERNAL IMPLEMENTATION (Do Not Depend On)
@@ -428,9 +482,9 @@ The following are internal tools used for maintenance scripts. Host projects **m
 
 get_provider(provider_name: str, api_key: str, model: Optional[str], gemini_api_key: Optional[str]) -> BaseAIProvider
 
-BaseAIProvider.generate(prompt: str, system_prompt: Optional[str], temperature: float, max_tokens: Optional[int]) -> AIResponse
+BaseAIProvider.generate(prompt: str, system_prompt: Optional[str], temperature: float, max_output_tokens: Optional[int]) -> AIResponse
 
-BaseAIProvider.generate_json(prompt: str, schema: Union[Dict, Type], system_prompt: Optional[str], temperature: float, max_tokens: Optional[int], web_search: bool, force: bool) -> AIResponse
+BaseAIProvider.generate_json(prompt: str, schema: Union[Dict, Type], system_prompt: Optional[str], temperature: float, max_output_tokens: Optional[int], web_search: bool, force: bool) -> AIResponse
 
 load_ai_config(config_path: Optional[Path]) -> AIConfig
 load_model_catalog(catalog_path: Optional[Path]) -> ModelCatalog
@@ -588,6 +642,19 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### May 2026: `max_tokens` → `max_output_tokens` on the public API
+
+**Renamed:** the request parameter on `BaseAIProvider.generate()` and `BaseAIProvider.generate_json()` is now `max_output_tokens` instead of `max_tokens`. The internal helper `_resolve_max_tokens` is now `_resolve_max_output_tokens`.
+
+**Why:** `max_tokens` was a leftover from when Djinnite tracked Claude's Messages API one-for-one. The parameter actually caps *output* tokens (and on OpenAI, output + reasoning combined) — never the total token budget. The new name says what it does. OpenAI's Responses API and Gemini's GenerationConfig already use `max_output_tokens` natively; only Anthropic's SDK keyword stays `max_tokens` and that is unchanged at the wire.
+
+**Also corrected (related):** `ModelInfo.context_window` was previously docstring-claimed as "max input tokens." That was wrong — the catalog values are total token budgets (input + output + thinking + tool round-trips combined). Field name unchanged; docstring fixed.
+
+**Migration:** rename every `max_tokens=` keyword in callers of `generate()` / `generate_json()` to `max_output_tokens=`. The Anthropic SDK keyword (the dict key Djinnite passes to `client.messages.create(...)`) stays as `"max_tokens"` — that's the wire-level name and is not Djinnite's concern. Submodule consumers must update call sites in the same release as Djinnite.
+
+See the new [Token Budgets](#token-budgets) section above for the full
+cross-provider mapping table.
 
 ### May 2026: `thinking=True` means "let the model decide"
 

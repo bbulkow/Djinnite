@@ -237,7 +237,7 @@ class OpenAIProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
@@ -277,8 +277,8 @@ class OpenAIProvider(BaseAIProvider):
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
-            # Max tokens
-            resolved_max = self._resolve_max_tokens(max_tokens)
+            # Max output tokens
+            resolved_max = self._resolve_max_output_tokens(max_output_tokens)
             if resolved_max:
                 kwargs["max_output_tokens"] = resolved_max
 
@@ -403,7 +403,7 @@ class OpenAIProvider(BaseAIProvider):
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
@@ -417,7 +417,7 @@ class OpenAIProvider(BaseAIProvider):
             schema: **Required.** A Pydantic BaseModel class or JSON Schema dict.
             system_prompt: Optional system instruction.
             temperature: Sampling temperature (default 0.3).
-            max_tokens: Maximum tokens to generate.
+            max_output_tokens: Cap on output tokens (auto-fills from catalog).
             web_search: If True, enable native OpenAI web search.
             thinking: Optional thinking/reasoning control (same as generate()).
 
@@ -472,8 +472,8 @@ class OpenAIProvider(BaseAIProvider):
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
-            # Max tokens
-            resolved_max = self._resolve_max_tokens(max_tokens)
+            # Max output tokens
+            resolved_max = self._resolve_max_output_tokens(max_output_tokens)
             if resolved_max:
                 kwargs["max_output_tokens"] = resolved_max
 

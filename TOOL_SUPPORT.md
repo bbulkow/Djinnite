@@ -778,7 +778,7 @@ def generate(
     prompt: Union[str, List[Dict]],
     system_prompt: Optional[str] = None,
     temperature: float = 0.7,
-    max_tokens: Optional[int] = None,
+    max_output_tokens: Optional[int] = None,
     web_search: bool = False,
     thinking: Union[bool, int, str, None] = None,
     tools: Optional[List[Dict]] = None,            # NEW
@@ -795,7 +795,7 @@ def generate_json(
     schema: Union[Dict, Type],
     system_prompt: Optional[str] = None,
     temperature: float = 0.3,
-    max_tokens: Optional[int] = None,
+    max_output_tokens: Optional[int] = None,
     web_search: bool = False,
     force: bool = False,
     thinking: Union[bool, int, str, None] = None,

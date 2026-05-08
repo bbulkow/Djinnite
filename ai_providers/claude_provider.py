@@ -136,11 +136,11 @@ class ClaudeProvider(BaseAIProvider):
     def _build_claude_thinking(
         self,
         thinking: Union[bool, int, str, None],
-        max_tokens: int,
+        max_output_tokens: int,
     ) -> tuple[Optional[dict], int]:
         """
         Translate the unified ``thinking`` parameter into Claude's native
-        thinking block format and adjust ``max_tokens`` to be valid.
+        thinking block format and adjust the output cap to be valid.
 
         Claude supports two thinking types:
         - ``"adaptive"``: model decides when/how much to think, with a
@@ -152,21 +152,22 @@ class ClaudeProvider(BaseAIProvider):
         to use.  If no catalog is available, defaults to ``"adaptive"``
         (the newer, more capable mode).
 
-        **Invariant enforced:** Claude requires ``max_tokens > budget_tokens``.
-        If the caller's ``max_tokens`` is not large enough, this method
-        automatically adjusts it upward to leave room for output.
+        **Invariant enforced:** Claude requires the SDK's ``max_tokens``
+        kwarg (i.e. our ``max_output_tokens``) to exceed the thinking
+        ``budget_tokens``. If the caller's value is not large enough this
+        method bumps it upward to leave room for visible output.
 
         Args:
             thinking: The caller's thinking parameter (already validated
                       by ``_resolve_thinking``).
-            max_tokens: The effective max output tokens for the request.
+            max_output_tokens: The effective output cap for the request.
 
         Returns:
-            A tuple of ``(thinking_block, adjusted_max_tokens)``.
+            A tuple of ``(thinking_block, adjusted_max_output_tokens)``.
             ``thinking_block`` is ``None`` if thinking is not requested.
         """
         if thinking is None or thinking is False:
-            return None, max_tokens
+            return None, max_output_tokens
 
         # Determine thinking style from catalog. The capability is now a
         # list of accepted styles; pick the most capable one Claude offers
@@ -185,20 +186,20 @@ class ClaudeProvider(BaseAIProvider):
 
         # Compute budget_tokens
         if thinking is True:
-            budget = self._get_max_thinking_budget(max_tokens)
+            budget = self._get_max_thinking_budget(max_output_tokens)
         elif isinstance(thinking, int):
             budget = thinking
         else:
-            # str effort level → token budget as fraction of max_tokens
-            budget = self._effort_to_budget(thinking, max_tokens)
+            # str effort level → token budget as fraction of max_output_tokens
+            budget = self._effort_to_budget(thinking, max_output_tokens)
 
-        # Invariant: max_tokens must exceed budget_tokens to leave room
+        # Invariant: output cap must exceed budget_tokens to leave room
         # for the actual response output.
-        if budget >= max_tokens:
-            max_tokens = budget + max(1024, budget // 4)
+        if budget >= max_output_tokens:
+            max_output_tokens = budget + max(1024, budget // 4)
 
         thinking_type = "adaptive" if style == "adaptive" else "enabled"
-        return {"type": thinking_type, "budget_tokens": budget}, max_tokens
+        return {"type": thinking_type, "budget_tokens": budget}, max_output_tokens
 
     # ------------------------------------------------------------------
     # Multi-turn continuation for server-side tools (e.g. web_search)
@@ -314,7 +315,7 @@ class ClaudeProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
@@ -336,18 +337,22 @@ class ClaudeProvider(BaseAIProvider):
             self._validate_vision_limits(parts)
             claude_content = self._map_parts(parts)
 
-            # Claude requires max_tokens to be specified.
-            # Auto-fill from catalog if caller didn't provide one.
-            max_tokens = self._resolve_max_tokens(max_tokens) or 8192
+            # Claude's SDK requires the output cap (its `max_tokens` keyword)
+            # to be specified. Auto-fill from catalog if caller didn't provide
+            # one.
+            max_output_tokens = self._resolve_max_output_tokens(max_output_tokens) or 8192
 
-            # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)
+            # Build thinking block + adjust output cap to satisfy Claude's
+            # invariant (max_tokens > thinking.budget_tokens).
             thinking_active = thinking is not None and thinking is not False
-            thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
+            thinking_block, max_output_tokens = self._build_claude_thinking(thinking, max_output_tokens)
 
-            # Build request kwargs
+            # Build request kwargs. The SDK keyword is literally `max_tokens`
+            # (Anthropic's terminology); we pass our `max_output_tokens` value
+            # under that key.
             kwargs = {
                 "model": self.model,
-                "max_tokens": max_tokens,
+                "max_tokens": max_output_tokens,
                 "messages": [{"role": "user", "content": claude_content}],
             }
 
@@ -504,7 +509,7 @@ class ClaudeProvider(BaseAIProvider):
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
@@ -524,7 +529,8 @@ class ClaudeProvider(BaseAIProvider):
                 omitted, Claude uses its own default and no ``temperature``
                 field is sent — avoids 400 errors on 4.7+ which reject
                 sampling params.
-            max_tokens: Maximum tokens to generate.
+            max_output_tokens: Cap on output tokens (auto-fills from catalog,
+                fallback 8192 since Claude's SDK requires a value).
             web_search: If True, enable native Claude web search (4.5+/4.6+ models).
             thinking: Optional thinking/reasoning control (same as generate()).
 
@@ -542,9 +548,10 @@ class ClaudeProvider(BaseAIProvider):
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
 
-        # Claude requires max_tokens. Auto-fill from catalog, fallback to 8192.
-        max_tokens = self._resolve_max_tokens(max_tokens) or 8192
-        
+        # Claude's SDK requires the output cap. Auto-fill from catalog,
+        # fallback to 8192.
+        max_output_tokens = self._resolve_max_output_tokens(max_output_tokens) or 8192
+
         if web_search:
             if not force:
                 self._check_capability("web_search")
@@ -558,13 +565,13 @@ class ClaudeProvider(BaseAIProvider):
             self._validate_vision_limits(parts)
             claude_content = self._map_parts(parts)
 
-            # Build thinking block + adjust max_tokens (invariant: max_tokens > budget)
+            # Build thinking block + adjust output cap (invariant: max_tokens > budget)
             thinking_active = thinking is not None and thinking is not False
-            thinking_block, max_tokens = self._build_claude_thinking(thinking, max_tokens)
+            thinking_block, max_output_tokens = self._build_claude_thinking(thinking, max_output_tokens)
 
             kwargs = {
                 "model": self.model,
-                "max_tokens": max_tokens,
+                "max_tokens": max_output_tokens,
                 "messages": [{"role": "user", "content": claude_content}],
                 # Anthropic Constraint Decoding via output_config.format
                 "output_config": {

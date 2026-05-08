@@ -5,12 +5,12 @@ Centralized storage for all LLM prompts used by Djinnite.
 Prompts are treated as configuration, not code.
 
 This includes not just the prompt text, but also the parameters needed
-to execute the prompt (temperature, max_tokens, etc).
+to execute the prompt (temperature, max_output_tokens, etc).
 
 Usage:
     from djinnite.prompts import COST_ESTIMATION_CONFIG
     prompt = COST_ESTIMATION_CONFIG["prompt"].format(...)
-    max_tokens = COST_ESTIMATION_CONFIG["max_tokens"]
+    max_output_tokens = COST_ESTIMATION_CONFIG["max_output_tokens"]
 """
 
 # ============================================================================
@@ -47,8 +47,8 @@ Always respond with valid JSON only, no additional text or explanation.""",
     # Generation parameters
     "temperature": 0.3,  # Low for consistency
 
-    # Max tokens for output — generous to avoid truncation
-    "max_tokens": 65536,
+    # Cap on output tokens — generous to avoid truncation
+    "max_output_tokens": 65536,
 
     # Enable web search for current pricing info (avoids knowledge cutoff issues)
     "web_search": True,

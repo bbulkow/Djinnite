@@ -373,14 +373,14 @@ from djinnite import (
 )
 
 try:
-    response = provider.generate(prompt, max_tokens=500)
+    response = provider.generate(prompt, max_output_tokens=500)
 except AIOutputTruncatedError as e:
     # CRITICAL: The model's output was cut short by the token limit.
     # The API returned HTTP 200 but the response is incomplete!
     # The partial content is available for inspection:
     print(f"Truncated! Got {e.partial_response.output_tokens} tokens")
     print(f"Partial content: {e.partial_response.content[:100]}...")
-    # Retry with higher max_tokens, or raise to the caller
+    # Retry with higher max_output_tokens, or raise to the caller
 except AIContextLengthError as e:
     # The input prompt was too long for the model's context window.
     # The API returned HTTP 400. Shorten the prompt or use a bigger model.
@@ -424,7 +424,7 @@ response = provider.generate_json(
     schema=resume_schema,
     system_prompt="You are a resume parsing expert.",
     temperature=0.1,  # Lower temperature for deterministic output
-    max_tokens=1000
+    max_output_tokens=1000
 )
 
 # Parse the guaranteed-structure response
@@ -609,12 +609,12 @@ All providers implement the same abstract interface:
 
 ```python
 class BaseAIProvider(ABC):
-    def generate(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None, 
-                 temperature: float = 0.7, max_tokens: Optional[int] = None) -> AIResponse
-    
+    def generate(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None,
+                 temperature: float = 0.7, max_output_tokens: Optional[int] = None) -> AIResponse
+
     def generate_json(self, prompt: Union[str, List[Dict]], schema: Union[Dict, Type],
                       system_prompt: Optional[str] = None, temperature: float = 0.3,
-                      max_tokens: Optional[int] = None,
+                      max_output_tokens: Optional[int] = None,
                       web_search: bool = False) -> AIResponse
     
     def is_available(self) -> bool

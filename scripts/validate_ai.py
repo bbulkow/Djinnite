@@ -85,14 +85,14 @@ def validate_ai():
             # Functional Generation Check (The "Unit Test" part)
             try:
                 # Try a small generation to prove auth works.
-                # Use max_tokens=50 instead of 1 -- reasoning models (e.g.
-                # GPT-5) reject very low values.  Truncation is still OK,
-                # it proves the API accepted the request (HTTP 200).
-                response = provider.generate("Test", max_tokens=50)
+                # Use max_output_tokens=50 instead of 1 -- reasoning models
+                # (e.g. GPT-5) reject very low values.  Truncation is still
+                # OK; it proves the API accepted the request (HTTP 200).
+                response = provider.generate("Test", max_output_tokens=50)
                 print(f"\r[OK] {name}: Success! (Authenticated & Generating)")
                 success_count += 1
             except AIOutputTruncatedError:
-                # Truncation at max_tokens=1 is expected -- the API worked!
+                # Truncation is expected -- the API worked!
                 print(f"\r[OK] {name}: Success! (Authenticated & Generating)")
                 success_count += 1
             except Exception as e:

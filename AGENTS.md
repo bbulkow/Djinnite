@@ -72,5 +72,10 @@ first. The user has paid for surprise probes more than once.
 * **Public API contract:** [DEVELOPMENT.md § THE CONTRACT](DEVELOPMENT.md).
 * **Capability schema** (the list-of-states pattern, vocabularies,
   pre-flight rules): [DEVELOPMENT.md § ModelCapabilities](DEVELOPMENT.md).
-* **Known catalog drift / per-model quirks:** [DEVELOPMENT.md § Known catalog drift](DEVELOPMENT.md).
+* **Token budgets** (request param vs catalog field vs response field,
+  and the per-SDK native mapping for output / thinking / total / input /
+  search): [DEVELOPMENT.md § Token Budgets](DEVELOPMENT.md). Read this
+  before touching anything that mentions tokens — names like
+  `max_output_tokens`, `context_window`, and `thinking` each control a
+  different budget and the per-provider semantics differ.
 * **Breaking change log:** [DEVELOPMENT.md § Breaking Changes Log](DEVELOPMENT.md).

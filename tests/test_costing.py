@@ -36,7 +36,7 @@ def test_token_cost(provider, provider_name: str) -> bool:
     print(f"  [token_cost] Sending 'Say hi.'...", end=" ", flush=True)
 
     try:
-        response = provider.generate("Say hi.", max_tokens=256)
+        response = provider.generate("Say hi.", max_output_tokens=256)
         tc = response.token_cost
         total = response.total_cost
 
@@ -71,7 +71,7 @@ def test_search_cost(provider, provider_name: str) -> bool:
         response = provider.generate(
             "What is the current price of Bitcoin?",
             web_search=True,
-            max_tokens=4096,
+            max_output_tokens=4096,
         )
 
         su = response.search_units
@@ -119,7 +119,7 @@ def test_thinking_cost(provider, provider_name: str) -> bool:
         response = provider.generate(
             "What is 2+2? Think step by step.",
             thinking=1024,
-            max_tokens=4096,
+            max_output_tokens=4096,
         )
 
         tt = response.thinking_tokens

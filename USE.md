@@ -205,7 +205,7 @@ provider = get_provider(
 model_info = catalog.get_model(provider_name, model_id)
 max_out = model_info.max_output_tokens if model_info else None
 
-response = provider.generate("Hello!", max_tokens=max_out)
+response = provider.generate("Hello!", max_output_tokens=max_out)
 ```
 
 ### JSON Schema Normalization
@@ -257,7 +257,7 @@ Cost properties return `None` when pricing is unknown (e.g., catalog not yet pop
 
 Every model has a maximum number of output tokens it can generate. This is stored in
 `ModelInfo.max_output_tokens` in the model catalog. **You should always pass this value
-as `max_tokens`** to avoid silent truncation or unnecessarily low defaults.
+as `max_output_tokens`** to avoid silent truncation or unnecessarily low defaults.
 
 ```python
 from djinnite.config_loader import load_model_catalog
@@ -267,7 +267,7 @@ model_info = catalog.get_model("claude", "claude-sonnet-4-20250514")
 
 if model_info:
     print(f"Max output: {model_info.max_output_tokens}")  # e.g. 16384
-    response = provider.generate(prompt, max_tokens=model_info.max_output_tokens)
+    response = provider.generate(prompt, max_output_tokens=model_info.max_output_tokens)
 ```
 
 The `max_output_tokens` field is populated automatically by `update_models.py`:
@@ -329,7 +329,7 @@ from djinnite import (
 provider = get_provider("gemini", api_key, model)
 
 try:
-    response = provider.generate(prompt, max_tokens=2000)
+    response = provider.generate(prompt, max_output_tokens=2000)
     # If we get here, the response is complete
     process(response.content)
 
@@ -341,7 +341,7 @@ except AIOutputTruncatedError as e:
     #   - e.partial_response.truncated == True
     #   - e.partial_response.finish_reason (provider-native reason)
     log.error(f"Output truncated after {e.partial_response.output_tokens} tokens")
-    # Option A: Retry with higher max_tokens
+    # Option A: Retry with higher max_output_tokens
     # Option B: Raise to caller
     # Option C: Use partial content if appropriate
     raise

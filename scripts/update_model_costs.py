@@ -102,7 +102,7 @@ def estimate_costs_with_ai(
         prompt_template = COST_ESTIMATION_CONFIG["prompt"]
         system_prompt = COST_ESTIMATION_CONFIG["system_prompt"]
         temperature = COST_ESTIMATION_CONFIG["temperature"]
-        max_tokens = COST_ESTIMATION_CONFIG["max_tokens"]
+        max_output_tokens = COST_ESTIMATION_CONFIG["max_output_tokens"]
         web_search = COST_ESTIMATION_CONFIG.get("web_search", False)
         
         # Render prompt from externalized template
@@ -118,7 +118,7 @@ def estimate_costs_with_ai(
             system_prompt=system_prompt,
             model=estimator_model,
             provider=estimator_provider,
-            metadata={"batch_index": i, "batch_size": len(batch), "max_tokens": max_tokens}
+            metadata={"batch_index": i, "batch_size": len(batch), "max_output_tokens": max_output_tokens}
         )
         
         raw_response = ""
@@ -134,7 +134,7 @@ def estimate_costs_with_ai(
                 prompt=prompt,
                 system_prompt=json_system.strip(),
                 temperature=temperature,
-                max_tokens=max_tokens,
+                max_output_tokens=max_output_tokens,
                 web_search=web_search,
             )
             

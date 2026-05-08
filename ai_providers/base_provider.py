@@ -249,8 +249,8 @@ class AIContextLengthError(AIProviderError):
         - Anthropic: 400 Bad Request, type: "invalid_request_error"
         - Gemini:    400 INVALID_ARGUMENT
 
-    The consumer should shorten the prompt, reduce max_tokens, or switch
-    to a model with a larger context window.
+    The consumer should shorten the prompt, reduce max_output_tokens, or
+    switch to a model with a larger context window.
     """
     pass
 
@@ -369,18 +369,22 @@ class BaseAIProvider(ABC):
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
     ) -> AIResponse:
         """
         Generate a freeform text response from the AI model.
-        
+
         Args:
             prompt: The user prompt/message (str or list of multimodal parts)
             system_prompt: Optional system instruction
             temperature: Sampling temperature (0.0-1.0)
-            max_tokens: Maximum tokens to generate (provider default if None)
+            max_output_tokens: Cap on output tokens the model may emit.
+                Auto-fills from the catalog's ``ModelInfo.max_output_tokens``
+                when ``None``. Note: per-provider semantics differ — see the
+                "Token Budgets" section in DEVELOPMENT.md. Claude/Gemini cap
+                visible output only; OpenAI caps visible+reasoning combined.
             web_search: If True, enable web/grounding search for current info
                         (provider support varies).
             thinking: Optional thinking/reasoning control.
@@ -753,8 +757,8 @@ class BaseAIProvider(ABC):
     # Thinking & Temperature resolution helpers
     # ------------------------------------------------------------------
 
-    # Mapping from effort strings to approximate fractions of max_tokens,
-    # used when translating a string effort level to a token budget.
+    # Mapping from effort strings to approximate fractions of max_output_tokens,
+    # used when translating a string effort level to a thinking-token budget.
     _EFFORT_FRACTIONS: Dict[str, float] = {
         "low": 0.25,
         "medium": 0.50,
@@ -842,12 +846,12 @@ class BaseAIProvider(ABC):
             f"got {type(thinking).__name__}."
         )
 
-    def _resolve_max_tokens(self, max_tokens: Optional[int]) -> Optional[int]:
+    def _resolve_max_output_tokens(self, max_output_tokens: Optional[int]) -> Optional[int]:
         """
-        Resolve the effective ``max_tokens`` for a request.
+        Resolve the effective ``max_output_tokens`` for a request.
 
         If the caller passed ``None``, auto-fill from the model catalog's
-        ``max_output_tokens``.  This prevents expensive incomplete responses
+        ``max_output_tokens``. This prevents expensive incomplete responses
         and ensures the model has its full output capacity available.
 
         Resolution order:
@@ -858,19 +862,19 @@ class BaseAIProvider(ABC):
         Returns:
             An integer token limit, or ``None`` if unknown.
         """
-        if max_tokens is not None and max_tokens > 0:
-            return max_tokens
+        if max_output_tokens is not None and max_output_tokens > 0:
+            return max_output_tokens
         if self._model_info and self._model_info.max_output_tokens > 0:
             return self._model_info.max_output_tokens
         return None
 
-    def _get_max_thinking_budget(self, max_tokens: Optional[int]) -> int:
+    def _get_max_thinking_budget(self, max_output_tokens: Optional[int]) -> int:
         """
         Determine the maximum thinking budget for ``thinking=True``.
 
         Resolution order:
         1. Model catalog ``max_output_tokens`` (if available and > 0)
-        2. Caller's ``max_tokens`` (if provided)
+        2. Caller's ``max_output_tokens`` (if provided)
         3. ``_DEFAULT_THINKING_BUDGET`` fallback
 
         Returns:
@@ -878,8 +882,8 @@ class BaseAIProvider(ABC):
         """
         if self._model_info and self._model_info.max_output_tokens > 0:
             return self._model_info.max_output_tokens
-        if max_tokens and max_tokens > 0:
-            return max_tokens
+        if max_output_tokens and max_output_tokens > 0:
+            return max_output_tokens
         return self._DEFAULT_THINKING_BUDGET
 
     def _resolve_temperature(
@@ -912,22 +916,22 @@ class BaseAIProvider(ABC):
                 return None
         return temperature
 
-    def _effort_to_budget(self, effort: str, max_tokens: int) -> int:
+    def _effort_to_budget(self, effort: str, max_output_tokens: int) -> int:
         """
-        Convert a string effort level to a token budget.
+        Convert a string effort level to a thinking-token budget.
 
-        Uses ``_EFFORT_FRACTIONS`` to compute a fraction of *max_tokens*.
-        Ensures a minimum of 1024 tokens.
+        Uses ``_EFFORT_FRACTIONS`` to compute a fraction of
+        ``max_output_tokens``. Ensures a minimum of 1024 tokens.
 
         Args:
             effort: ``"low"``, ``"medium"``, or ``"high"``.
-            max_tokens: The max output token limit to base the fraction on.
+            max_output_tokens: The output cap to base the fraction on.
 
         Returns:
             An integer token budget.
         """
         frac = self._EFFORT_FRACTIONS.get(effort, 0.50)
-        return max(1024, int(max_tokens * frac))
+        return max(1024, int(max_output_tokens * frac))
 
     @staticmethod
     def _budget_to_effort(budget: int) -> str:
@@ -1008,7 +1012,7 @@ class BaseAIProvider(ABC):
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
         temperature: float = 0.3,
-        max_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
@@ -1037,7 +1041,9 @@ class BaseAIProvider(ABC):
             system_prompt: Optional system instruction prepended to the request.
             temperature: Sampling temperature (default 0.3 for deterministic,
                          schema-conforming output).
-            max_tokens: Maximum tokens to generate (provider default if None).
+            max_output_tokens: Cap on output tokens the model may emit
+                (auto-fills from catalog when ``None``). See ``generate()``
+                for the per-provider semantic note.
             web_search: If True, enable web/grounding search for current info
                         (provider support varies).
             force: If True, skip catalog pre-flight checks. Used by probes
@@ -1078,7 +1084,7 @@ class BaseAIProvider(ABC):
             prompt=prompt,
             system_prompt=system_prompt,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_output_tokens=max_output_tokens,
         )
     
     @abstractmethod

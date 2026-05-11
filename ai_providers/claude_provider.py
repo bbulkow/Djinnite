@@ -367,6 +367,15 @@ class ClaudeProvider(BaseAIProvider):
             thinking_active = thinking is not None and thinking is not False
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
+            # Cross-capability pre-flight from catalog (e.g. temp + thinking
+            # is rejected on every current Claude thinking model).
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking_active        else "off",
+                "structured_json": "off",
+                "web_search":      "on"  if web_search             else "off",
+            })
+
             # Build request kwargs. The SDK keyword is literally `max_tokens`
             # (Anthropic's terminology); we pass our `max_output_tokens` value
             # under that key.
@@ -601,6 +610,15 @@ class ClaudeProvider(BaseAIProvider):
             thinking_active = thinking is not None and thinking is not False
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
+            # Cross-capability pre-flight from catalog.
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking_active        else "off",
+                "structured_json": "on",
+                "web_search":      "on"  if web_search             else "off",
+                "json_with_search": "on" if web_search             else "off",
+            })
+
             kwargs = {
                 "model": self.model,
                 "max_tokens": max_output_tokens,
@@ -772,7 +790,15 @@ class ClaudeProvider(BaseAIProvider):
             return []
 
     def probe_temperature(self) -> Optional[bool]:
-        """Probe whether this Claude model accepts temperature. (All Claude models do.)"""
+        """Probe whether this Claude model accepts temperature. (All Claude models do.)
+
+        Cross-capability constraints (e.g. ``temperature`` + ``thinking``
+        rejected together on every current thinking Claude) are NOT
+        captured here — this probe deliberately isolates the temperature
+        signal by sending no other features. The interaction is
+        discovered by ``probe_incompatible_combinations`` and stored in
+        ``capabilities.incompatible``.
+        """
         try:
             self._client.messages.create(
                 model=self.model, max_tokens=10, temperature=0.5,
@@ -784,6 +810,44 @@ class ClaudeProvider(BaseAIProvider):
             if "rate" in err or "timeout" in err:
                 return None
             return False
+
+    def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
+        """
+        Map a set of activated capability states into Anthropic SDK
+        kwargs for ``messages.create``. Used by the cross-capability
+        probe orchestrator on the base class.
+        """
+        kwargs: dict = {
+            "model": self.model,
+            "max_tokens": 2048,
+            "messages": [{"role": "user", "content": "Say hi."}],
+        }
+        if active_states.get("temperature") == "any":
+            kwargs["temperature"] = 0.5
+        if active_states.get("thinking") == "on":
+            # Use "enabled" (budget) — every thinking-capable Claude
+            # accepts it. budget_tokens (1024) < max_tokens (2048) to
+            # honor the invariant.
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": 1024}
+        if active_states.get("structured_json") == "on":
+            kwargs["output_config"] = {
+                "format": {
+                    "type": "json_schema",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"v": {"type": "integer"}},
+                        "required": ["v"],
+                        "additionalProperties": False,
+                    },
+                }
+            }
+        if active_states.get("web_search") == "on":
+            kwargs["tools"] = [_WEB_SEARCH_TOOL]
+        return kwargs
+
+    def _run_combination_probe(self, kwargs: dict) -> None:
+        """Send the probe via Anthropic's messages.create."""
+        self._client.messages.create(**kwargs)
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Claude model supports extended thinking."""

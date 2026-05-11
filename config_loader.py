@@ -37,6 +37,35 @@ TEMPERATURE_STATES: Final[tuple[str, ...]] = ("any", "default")
 THINKING_STYLE_VALUES: Final[tuple[str, ...]] = ("adaptive", "budget", "effort")
 
 
+# Maps each "activatable" capability to the state token that means "the
+# caller is using this feature". The probe orchestrator iterates these
+# pairs to build combinations to test; the runtime validator uses the
+# same map to convert call arguments into the capability-state vocabulary
+# the catalog records under `capabilities.incompatible`.
+#
+# `json_with_search` is intentionally excluded — it is itself the answer
+# to the pair `structured_json="on" + web_search="on"` and gets its own
+# capability field. Re-probing it here would be redundant.
+ACTIVATABLE_CAPABILITIES: Final[dict[str, str]] = {
+    "temperature":     "any",
+    "thinking":        "on",
+    "structured_json": "on",
+    "web_search":      "on",
+}
+
+
+# Vocabulary lookup for incompatible-list validation. Maps each
+# capability name to its allowed state tokens, so a catalog entry like
+# {"temperature": "any", "thinking": "on"} can be checked field-by-field.
+_INCOMPATIBLE_VOCABS: Final[dict[str, tuple[str, ...]]] = {
+    "temperature":      TEMPERATURE_STATES,
+    "thinking":         THINKING_STATES,
+    "structured_json":  STRUCTURED_JSON_STATES,
+    "web_search":       WEB_SEARCH_STATES,
+    "json_with_search": JSON_WITH_SEARCH_STATES,
+}
+
+
 def _coerce_states(raw: Any, vocab: tuple[str, ...]) -> Optional[list[str]]:
     """Normalize a raw capability value into ``list[str] | None``.
 
@@ -75,6 +104,44 @@ def _coerce_states(raw: Any, vocab: tuple[str, ...]) -> Optional[list[str]]:
         kept = [v for v in raw if isinstance(v, str) and v in vocab]
         return kept or None
     return None
+
+
+def _coerce_incompatible(raw: Any) -> Optional[list[dict[str, str]]]:
+    """Normalize the raw `incompatible` value into ``list[dict] | None``.
+
+    Each entry must be a dict mapping a known capability name (a key in
+    ``_INCOMPATIBLE_VOCABS``) to a state token in that capability's
+    vocabulary. Invalid keys/values are dropped; if an entry has any
+    invalid pairs after filtering, the whole entry is dropped.
+
+    Returns:
+        * ``None`` — unknown / not yet probed. Runtime treats this as
+          "no constraints recorded; do not pre-flight."
+        * ``[]`` — probed; no incompatibilities found.
+        * non-empty list — confirmed forbidden combinations.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return None
+    out: list[dict[str, str]] = []
+    for entry in raw:
+        if not isinstance(entry, dict) or not entry:
+            continue
+        cleaned: dict[str, str] = {}
+        ok = True
+        for cap, state in entry.items():
+            if not isinstance(cap, str) or not isinstance(state, str):
+                ok = False
+                break
+            vocab = _INCOMPATIBLE_VOCABS.get(cap)
+            if vocab is None or state not in vocab:
+                ok = False
+                break
+            cleaned[cap] = state
+        if ok and len(cleaned) >= 2:
+            out.append(cleaned)
+    return out
 
 
 # Configuration discovery
@@ -282,6 +349,15 @@ class ModelCapabilities:
         thinking_style: Subset of ``THINKING_STYLE_VALUES``. Identifies the
             provider-native thinking param style(s) the model accepts; a
             single model may support multiple (Claude 4.7: adaptive+budget).
+        incompatible: List of forbidden capability-state combinations.
+            Each entry is a ``dict[str, str]`` mapping capability name to
+            state token (from that capability's vocabulary). Semantics:
+            if a request simultaneously selects every state in the dict,
+            the request is invalid and Djinnite raises before any HTTP
+            call. ``None`` means "not yet probed"; ``[]`` means "probed,
+            no incompatibilities found." Discovered by the combinatorial
+            probe orchestrator; enforced by
+            ``BaseAIProvider._validate_incompatible_combinations``.
     """
     structured_json: Optional[list[str]] = None
     temperature: Optional[list[str]] = None
@@ -289,6 +365,7 @@ class ModelCapabilities:
     web_search: Optional[list[str]] = None
     json_with_search: Optional[list[str]] = None
     thinking_style: Optional[list[str]] = None
+    incompatible: Optional[list[dict[str, str]]] = None
 
 
 @dataclass
@@ -493,6 +570,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                     web_search=_coerce_states(raw_caps.get("web_search"), ON_OFF_STATES),
                     json_with_search=_coerce_states(raw_caps.get("json_with_search"), ON_OFF_STATES),
                     thinking_style=_coerce_states(raw_caps.get("thinking_style"), THINKING_STYLE_VALUES),
+                    incompatible=_coerce_incompatible(raw_caps.get("incompatible")),
                 )
             else:
                 # Old format: migrate from flat supports_structured_json field
@@ -568,4 +646,5 @@ __all__ = [
     "JSON_WITH_SEARCH_STATES",
     "TEMPERATURE_STATES",
     "THINKING_STYLE_VALUES",
+    "ACTIVATABLE_CAPABILITIES",
 ]

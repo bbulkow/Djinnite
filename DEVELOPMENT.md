@@ -115,6 +115,69 @@ model_info.costing.source              # str — "estimated", "manual", "failed"
 model_info.costing.updated             # str — ISO date
 ```
 
+### Catalog & validation philosophy
+
+Four governing principles for how the catalog, probes, and runtime checks
+fit together. New work touching capabilities or validation must respect
+these; the rules exist because an unwritten gap let a known Anthropic
+constraint (temperature + thinking ≠ 1) escape into production.
+
+1. **The catalog must be expressive enough to encode every constraint a
+   caller needs to build a valid request.** If a real API constraint
+   cannot be expressed in the schema, the schema is wrong — extend it.
+   We do not paper over schema gaps with hardcoded provider logic,
+   silent rewrites, or out-of-band rules.
+2. **Fail fast in the Djinnite layer.** When a caller's request is
+   incoherent with the catalog, raise a clear error before any HTTP
+   call. Never silently rewrite caller-supplied values.
+3. **Probes discover reality, not assumptions.** Even constraints that
+   look like API-class rules get re-validated per-model on every probe
+   pass, so provider relaxations are picked up automatically.
+4. **Cross-capability constraints are first-class.** They get a generic
+   schema slot (`capabilities.incompatible`), a generic combinatorial
+   probe orchestrator (`BaseAIProvider.probe_incompatible_combinations`),
+   and a generic runtime check
+   (`BaseAIProvider._validate_incompatible_combinations`). No
+   hand-listing of specific known-bad pairs in provider code.
+
+#### `capabilities.incompatible`
+
+Each entry is a `dict[str, str]` mapping capability name to a state
+token from that capability's vocabulary. Semantics: if a request
+simultaneously selects every state in the dict, the request is invalid
+and Djinnite raises before any HTTP call.
+
+```python
+# Example for every current Claude thinking model:
+caps.incompatible == [{"temperature": "any", "thinking": "on"}]
+```
+
+Allowed capability names are listed in `ACTIVATABLE_CAPABILITIES`
+(`config_loader.py`):
+
+| capability        | "active" token | "inactive" token |
+|-------------------|----------------|------------------|
+| `temperature`     | `"any"`        | `"default"`      |
+| `thinking`        | `"on"`         | `"off"`          |
+| `structured_json` | `"on"`         | `"off"`          |
+| `web_search`      | `"on"`         | `"off"`          |
+
+`incompatible: None` means "not yet probed"; `[]` means "probed, no
+incompatibilities found." The combinatorial probe runs pairwise across
+the activatable capabilities each model supports, with conservative
+classification (any inconclusive failure returns `None` so a partial
+result never overwrites a good cached value).
+
+Callers introspecting the catalog can preempt rejections themselves:
+
+```python
+caps = info.capabilities
+for combo in (caps.incompatible or []):
+    # combo is e.g. {"temperature": "any", "thinking": "on"}
+    # caller should avoid producing every state in `combo` at once
+    ...
+```
+
 ### Thinking Parameter
 
 The `thinking` parameter on `generate()` and `generate_json()` provides a unified
@@ -205,11 +268,12 @@ Mismatches surface as a local `ValueError` whose message names the
 offending shape and lists `caps.thinking_style`, so a caller who skipped
 the introspection sees what to do without burning an API call.
 
-**Temperature conflicts** are handled automatically:
-- Claude forces `temperature=1` when thinking is active (SDK requirement).
+**Temperature conflicts** and other cross-capability constraints are
+recorded in `capabilities.incompatible` on each model and enforced at
+call time — see the [Catalog & validation philosophy](#catalog--validation-philosophy)
+section. Notes:
 - Caller is responsible for `max_output_tokens > thinking_budget` on Claude — Djinnite raises `ValueError` if not, rather than silently bumping the cap.
-- OpenAI strips temperature entirely when thinking is active (reasoning models reject it).
-- Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically.
+- Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically. (The strip is independent of cross-capability checks.)
 
 **Token budget guidance:**
 Token budgets are highly unpredictable — they depend on prompt complexity, model
@@ -379,7 +443,11 @@ class ModelCapabilities:
     web_search:       Optional[list[str]] = None   # subset of {"on","off"}
     json_with_search: Optional[list[str]] = None   # subset of {"on","off"}
     thinking_style:   Optional[list[str]] = None   # subset of {"adaptive","budget","effort"}
+    incompatible:     Optional[list[dict[str, str]]] = None  # forbidden cross-capability combos
 ```
+
+The `incompatible` field encodes cross-capability constraints — see
+[Catalog & validation philosophy](#catalog--validation-philosophy).
 
 The vocabularies are exported as `Final` constants from `config_loader`
 (`THINKING_STATES`, `TEMPERATURE_STATES`, `THINKING_STYLE_VALUES`, …) — models

@@ -922,9 +922,10 @@ class BaseAIProvider(ABC):
           temperature.
         * ``None`` (unknown) → passthrough.
 
-        ``thinking_active`` is informational; the provider subclass is
-        responsible for any provider-specific override (e.g., Claude forces
-        temperature=1 when thinking).
+        ``thinking_active`` is informational; cross-capability constraints
+        like temperature-with-thinking are encoded in
+        ``capabilities.incompatible`` and enforced by
+        ``_validate_incompatible_combinations`` before this method is called.
 
         Returns:
             The temperature to use, or ``None`` meaning "omit".
@@ -934,6 +935,182 @@ class BaseAIProvider(ABC):
             if cap is not None and "any" not in cap:
                 return None
         return temperature
+
+    # ------------------------------------------------------------------
+    # Cross-capability incompatibility: runtime check + probe orchestrator
+    # ------------------------------------------------------------------
+
+    def _validate_incompatible_combinations(self, caller_state: Dict[str, str]) -> None:
+        """
+        Raise if the caller's effective state matches any combination
+        recorded in ``capabilities.incompatible``. Pure catalog read — no
+        provider-specific logic.
+
+        ``caller_state`` maps capability names (those in
+        ``ACTIVATABLE_CAPABILITIES``) to the state token the caller has
+        selected ("any"/"default" for temperature, "on"/"off" for the
+        on/off capabilities). Providers build this dict in their
+        ``generate`` / ``generate_structured`` methods immediately after
+        parameter normalization, then call this helper.
+        """
+        if self._model_info is None:
+            return
+        incompat = self._model_info.capabilities.incompatible
+        if not incompat:
+            return
+        for combo in incompat:
+            if all(caller_state.get(k) == v for k, v in combo.items()):
+                pretty = ", ".join(f"{k}={v}" for k, v in combo.items())
+                raise ValueError(
+                    f"Model '{self.model}': the combination ({pretty}) is "
+                    f"recorded as incompatible in the catalog. Adjust the "
+                    f"request so at least one of these capabilities is not "
+                    f"in the listed state."
+                )
+
+    def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
+        """
+        Build the SDK kwargs that activate exactly the capabilities named
+        in ``active_states`` (and nothing else). Used by the combinatorial
+        probe orchestrator.
+
+        Subclasses override to map each ``ACTIVATABLE_CAPABILITIES`` key
+        to the native request shape:
+
+            "temperature"     → set sampling param
+            "thinking"        → attach the provider's thinking block
+            "structured_json" → attach the schema/format block
+            "web_search"      → attach the provider's web-search tool
+
+        Returns a dict of kwargs the orchestrator can pass verbatim to
+        the SDK's create/generate call. Base implementation raises so
+        a missing override surfaces clearly during a probe pass.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement "
+            f"_build_combination_probe_request to participate in "
+            f"cross-capability probing."
+        )
+
+    def probe_incompatible_combinations(
+        self,
+        supported_states: Dict[str, list],
+        max_combo_size: int = 2,
+    ) -> Optional[list]:
+        """
+        Discover forbidden cross-capability combinations on this model.
+
+        ``supported_states`` is the per-capability probe results dict
+        (``{cap_name: list[str] | None}``) collected earlier in the
+        probe pass. Combinations are restricted to capabilities whose
+        "active" token (per ``ACTIVATABLE_CAPABILITIES``) is in this
+        list — capabilities the model doesn't support are skipped.
+
+        For each combination, sends a probe request (built by
+        ``_build_combination_probe_request``) and classifies the result:
+
+        * success → combination is NOT incompatible.
+        * ``_classify_probe_error`` returns ``"not_supported"`` → record
+          the combination.
+        * Otherwise (inconclusive: rate limit / 5xx / network / unknown)
+          → flip the run to inconclusive; do NOT commit a partial result.
+
+        Subsumption pruning: if a smaller combo ``{A:x, B:y}`` is
+        confirmed incompatible, larger combos containing both
+        ``(A, x)`` and ``(B, y)`` are skipped — they are implicitly
+        incompatible. Keeps the result minimal and the catalog readable.
+
+        Returns:
+            * ``list[dict[str, str]]`` — confirmed forbidden combinations.
+              ``[]`` means probed and none found.
+            * ``None`` — any probe was inconclusive. Caller (the catalog
+              writer) should preserve the previous value rather than
+              commit a partial truth.
+        """
+        # Late import to avoid a circular dependency at module load.
+        from itertools import combinations
+        try:
+            try:
+                from ..config_loader import ACTIVATABLE_CAPABILITIES  # type: ignore
+            except ImportError:
+                from config_loader import ACTIVATABLE_CAPABILITIES  # type: ignore
+        except ImportError:
+            # No catalog vocabulary available — cannot probe.
+            return None
+
+        candidates: List[str] = []
+        for cap_name, active_token in ACTIVATABLE_CAPABILITIES.items():
+            states = supported_states.get(cap_name)
+            if states and active_token in states:
+                candidates.append(cap_name)
+
+        if len(candidates) < 2:
+            return []
+
+        found: List[Dict[str, str]] = []
+        inconclusive = False
+
+        # Dedicated-capability skip list: combinations that already have a
+        # purpose-built capability field encoding the same answer. Probing
+        # them again would create redundant catalog entries.
+        dedicated_combos: List[Dict[str, str]] = []
+        if supported_states.get("json_with_search") is not None:
+            # `json_with_search` IS the catalog's answer to the pair
+            # (structured_json=on, web_search=on).
+            dedicated_combos.append(
+                {"structured_json": "on", "web_search": "on"}
+            )
+
+        for size in range(2, max(2, max_combo_size) + 1):
+            for combo_caps in combinations(candidates, size):
+                active_states = {
+                    cap: ACTIVATABLE_CAPABILITIES[cap] for cap in combo_caps
+                }
+                # Skip if a dedicated capability field already records this
+                # exact combination's compatibility.
+                if any(active_states == ded for ded in dedicated_combos):
+                    continue
+                # Subsumption pruning: skip if a smaller confirmed-bad
+                # combo is fully contained in this one.
+                if any(
+                    all(active_states.get(k) == v for k, v in prior.items())
+                    for prior in found
+                ):
+                    continue
+                try:
+                    kwargs = self._build_combination_probe_request(active_states)
+                except NotImplementedError:
+                    return None
+                except Exception:
+                    # Building the probe shouldn't fail; treat as inconclusive.
+                    inconclusive = True
+                    continue
+                try:
+                    self._run_combination_probe(kwargs)
+                    # success → not incompatible
+                except Exception as e:
+                    cls = self._classify_probe_error(e)
+                    if cls == "not_supported":
+                        found.append(active_states)
+                    else:
+                        inconclusive = True
+
+        if inconclusive:
+            return None
+        return found
+
+    def _run_combination_probe(self, kwargs: dict) -> None:
+        """
+        Send the probe request kwargs to the provider's native SDK. Each
+        provider has a different entry point (Anthropic
+        ``messages.create``, OpenAI ``responses.create``, Gemini
+        ``models.generate_content``), so subclasses override. The base
+        implementation raises so a missing override is loud.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement _run_combination_probe "
+            f"to participate in cross-capability probing."
+        )
 
     # ------------------------------------------------------------------
     # Probe-error classification

@@ -216,6 +216,14 @@ class GeminiProvider(BaseAIProvider):
             self._validate_vision_limits(parts)
             gemini_parts = self._map_parts(parts)
 
+            # Cross-capability pre-flight from catalog.
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking is not None    else "off",
+                "structured_json": "off",
+                "web_search":      "on"  if web_search              else "off",
+            })
+
             # Resolve temperature: strip if catalog says not supported
             effective_temp = self._resolve_temperature(temperature, thinking is not None)
 
@@ -440,10 +448,19 @@ class GeminiProvider(BaseAIProvider):
 
         try:
             from google.genai import types
-            
+
             parts = self._normalize_input(prompt)
             self._validate_vision_limits(parts)
             gemini_parts = self._map_parts(parts)
+
+            # Cross-capability pre-flight from catalog.
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking is not None    else "off",
+                "structured_json": "on",
+                "web_search":      "on"  if web_search              else "off",
+                "json_with_search": "on" if web_search              else "off",
+            })
 
             # Resolve temperature: catalog-aware stripping
             effective_temp = self._resolve_temperature(temperature, thinking is not None)
@@ -636,6 +653,38 @@ class GeminiProvider(BaseAIProvider):
             if "rate" in err or "quota" in err or "429" in err:
                 return None
             return False
+
+    def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
+        """Map activated states to Gemini ``generate_content`` kwargs.
+
+        The orchestrator's ``_run_combination_probe`` forwards
+        ``contents`` and ``config`` to ``client.models.generate_content``.
+        """
+        from google.genai import types  # local import: SDK presence checked at init
+
+        config: dict = {"max_output_tokens": 2048}
+        if active_states.get("temperature") == "any":
+            config["temperature"] = 0.5
+        if active_states.get("thinking") == "on":
+            config["thinking_config"] = {"thinking_budget": 1024}
+        if active_states.get("structured_json") == "on":
+            config["response_mime_type"] = "application/json"
+            config["response_schema"] = {
+                "type": "object",
+                "properties": {"v": {"type": "integer"}},
+                "required": ["v"],
+            }
+        if active_states.get("web_search") == "on":
+            config["tools"] = [types.Tool(google_search=types.GoogleSearch())]
+        return {
+            "model": self.model,
+            "contents": "Say hi.",
+            "config": config,
+        }
+
+    def _run_combination_probe(self, kwargs: dict) -> None:
+        """Send the probe via Gemini's generate_content."""
+        self._client.models.generate_content(**kwargs)
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this Gemini model supports thinking mode."""

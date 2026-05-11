@@ -274,6 +274,14 @@ class OpenAIProvider(BaseAIProvider):
             self._validate_vision_limits(parts)
             openai_content = self._map_parts(parts)
 
+            # Cross-capability pre-flight from catalog.
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking_active        else "off",
+                "structured_json": "off",
+                "web_search":      "on"  if web_search             else "off",
+            })
+
             # Build input: either simple string or structured with role
             if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
                 # Simple text prompt — can use string input
@@ -477,6 +485,15 @@ class OpenAIProvider(BaseAIProvider):
             self._validate_vision_limits(parts)
             openai_content = self._map_parts(parts)
 
+            # Cross-capability pre-flight from catalog.
+            self._validate_incompatible_combinations({
+                "temperature":     "any" if temperature is not None else "default",
+                "thinking":        "on"  if thinking_active        else "off",
+                "structured_json": "on",
+                "web_search":      "on"  if web_search             else "off",
+                "json_with_search": "on" if web_search             else "off",
+            })
+
             if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
                 api_input = openai_content[0]["text"]
             else:
@@ -646,6 +663,39 @@ class OpenAIProvider(BaseAIProvider):
             if "temperature" in err and ("unsupported" in err or "not support" in err):
                 return False
             return False
+
+    def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
+        """Map activated states to OpenAI Responses API kwargs."""
+        kwargs: dict = {
+            "model": self.model,
+            "input": "Say hi.",
+            "max_output_tokens": 2048,
+        }
+        if active_states.get("temperature") == "any":
+            kwargs["temperature"] = 0.5
+        if active_states.get("thinking") == "on":
+            kwargs["reasoning"] = {"effort": "low"}
+        if active_states.get("structured_json") == "on":
+            kwargs["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "probe_response",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {"v": {"type": "integer"}},
+                        "required": ["v"],
+                        "additionalProperties": False,
+                    },
+                }
+            }
+        if active_states.get("web_search") == "on":
+            kwargs["tools"] = [{"type": "web_search_preview"}]
+        return kwargs
+
+    def _run_combination_probe(self, kwargs: dict) -> None:
+        """Send the probe via OpenAI's responses.create."""
+        self._client.responses.create(**kwargs)
 
     def probe_thinking(self) -> Optional[bool]:
         """Probe whether this OpenAI model supports reasoning."""

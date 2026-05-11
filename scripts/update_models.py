@@ -417,6 +417,29 @@ def _probe_all_capabilities_for_models(
                 thinking_states = states
                 thinking_style_states = list(styles_raw) if styles_raw else None
 
+            # ---- Cross-capability incompatibility probe -----------------
+            # Driven by the orchestrator on BaseAIProvider. It consults the
+            # supported-states map we just built so it skips combinations
+            # the model can't reach (e.g. thinking=on on a non-thinking
+            # model). None means inconclusive — preserve cached value.
+            supported_for_orchestrator = {
+                "temperature": temp_states,
+                "thinking": thinking_states,
+                "structured_json": ssj_states,
+                "web_search": ws_states,
+                # Passed so the orchestrator can skip the
+                # (structured_json=on, web_search=on) pair — that exact
+                # combination is already encoded by `json_with_search`.
+                "json_with_search": jws_states,
+            }
+            try:
+                incompat_states = instance.probe_incompatible_combinations(
+                    supported_for_orchestrator
+                )
+            except Exception as e:
+                incompat_states = None
+                print(f"    [WARN] {model_id}: incompatibility probe skipped ({e})")
+
             results[model_id] = {
                 "structured_json": ssj_states,
                 "temperature": temp_states,
@@ -424,6 +447,7 @@ def _probe_all_capabilities_for_models(
                 "web_search": ws_states,
                 "json_with_search": jws_states,
                 "thinking_style": thinking_style_states,
+                "incompatible": incompat_states,
             }
 
             def _mark(v):
@@ -443,6 +467,10 @@ def _probe_all_capabilities_for_models(
             parts.append(f"think={think_label}")
             parts.append(f"web={_mark(ws_states)}")
             parts.append(f"json+search={_mark(jws_states)}")
+            if incompat_states is None:
+                parts.append("incompat=[?]")
+            else:
+                parts.append(f"incompat={len(incompat_states)}")
             print(f"    {model_id}: {' '.join(parts)}")
 
         except Exception as e:
@@ -450,6 +478,7 @@ def _probe_all_capabilities_for_models(
                 "structured_json": None, "temperature": None,
                 "thinking": None, "web_search": ["on", "off"],
                 "json_with_search": None, "thinking_style": None,
+                "incompatible": None,
             }
             print(f"    [WARN] {model_id}: probe skipped ({e})")
     return results
@@ -588,6 +617,7 @@ def merge_model_data(
             "web_search": existing_caps.get("web_search"),
             "json_with_search": existing_caps.get("json_with_search"),
             "thinking_style": existing_caps.get("thinking_style"),
+            "incompatible": existing_caps.get("incompatible"),
         }
         
         # Resolve vision_limits for vision-capable models
@@ -641,7 +671,8 @@ def merge_model_data(
         needs_probe = (ssj is None or caps["temperature"] is None
                        or caps["thinking"] is None
                        or caps["json_with_search"] is None
-                       or caps["thinking_style"] is None)
+                       or caps["thinking_style"] is None
+                       or caps["incompatible"] is None)
         if restrictive_scope and not force_reprobe:
             needs_probe = False
         if needs_probe and not is_disabled:
@@ -693,7 +724,7 @@ def merge_model_data(
                 probed = probe_results[model["id"]]
                 # Merge probe results into capabilities (probe wins over None)
                 caps = model["capabilities"]
-                for key in ["structured_json", "temperature", "thinking", "web_search", "json_with_search", "thinking_style"]:
+                for key in ["structured_json", "temperature", "thinking", "web_search", "json_with_search", "thinking_style", "incompatible"]:
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
     

@@ -1605,6 +1605,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path",
         "costing": {
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,

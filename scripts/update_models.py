@@ -620,9 +620,30 @@ def merge_model_data(
         # Disabled models are never queued — calling a disabled model's
         # API would bill tokens for a model the catalog says nobody
         # should be using.
-        needs_probe = (ssj is None or model["capabilities"]["temperature"] is None
-                       or model["capabilities"]["thinking"] is None
-                       or model["capabilities"]["json_with_search"] is None)
+        # ``thinking_style`` is included so that a model whose previous
+        # probe was inconclusive (and recorded as None) gets re-tested on
+        # the next normal refresh, without requiring an explicit
+        # --reprobe.
+        #
+        # Scoping rule: when --reprobe is restrictive (specific bare
+        # model IDs, not ``all`` or ``<provider>:all``), only the
+        # explicitly-targeted models are queued. The opportunistic
+        # "any null cap" gate is suppressed for non-targeted models so
+        # the user's tight scope is honored. With no --reprobe, or with
+        # an ``all``/``<provider>:all`` wildcard, the opportunistic gate
+        # runs as usual.
+        restrictive_scope = (
+            reprobe is not None
+            and "all" not in reprobe
+            and provider_scoped not in reprobe
+        )
+        caps = model["capabilities"]
+        needs_probe = (ssj is None or caps["temperature"] is None
+                       or caps["thinking"] is None
+                       or caps["json_with_search"] is None
+                       or caps["thinking_style"] is None)
+        if restrictive_scope and not force_reprobe:
+            needs_probe = False
         if needs_probe and not is_disabled:
             input_mods = model.get("modalities", {})
             if isinstance(input_mods, dict):

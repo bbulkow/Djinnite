@@ -814,52 +814,50 @@ class ClaudeProvider(BaseAIProvider):
         temperature value). Claude's own default (1.0) satisfies the legacy
         "thinking needs temp=1" constraint naturally.
 
-        Tries both adaptive and budget; a model may support both
-        (Claude 4.7 = ``["adaptive", "budget"]``) or just one. If a probe
-        is inconclusive (rate limit / timeout) the whole result becomes
-        ``None`` — the orchestrator treats that as unknown.
+        **Partial-success policy:** if any tier is inconclusive (rate
+        limit, timeout, 5xx, unknown error class) the entire result is
+        ``None``. We do NOT commit a partial truth (e.g. ``["adaptive"]``
+        when the budget probe was rate-limited) because the catalog
+        consumer would treat that as "confirmed: only adaptive" and the
+        wrong value would stick until someone reprobed.
 
         Returns:
             * Non-empty ``list[str]`` from ``("adaptive", "budget")`` — the
               styles confirmed to work.
             * ``[]`` — both tiers cleanly rejected → no thinking support.
-            * ``None`` — inconclusive (rate limit / timeout on either tier).
+            * ``None`` — any tier was inconclusive.
         """
         _PROBE_BUDGET = 1024
         _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
 
+        tiers = [
+            # Tier 1: adaptive (4.6/4.7+ preferred). Bare shape — 4.7 rejects
+            # budget_tokens inside adaptive; 4.6 accepts bare adaptive too.
+            ("adaptive", {"type": "adaptive"}),
+            # Tier 2: enabled / fixed-budget (older thinking models, and many
+            # current models accept both modes).
+            ("budget", {"type": "enabled", "budget_tokens": _PROBE_BUDGET}),
+        ]
+
         styles: list[str] = []
+        inconclusive = False
 
-        # Tier 1: adaptive (4.6/4.7+ preferred). Bare shape — 4.7 rejects
-        # budget_tokens inside adaptive; 4.6 accepts bare adaptive too.
-        try:
-            self._client.messages.create(
-                model=self.model,
-                max_tokens=_PROBE_MAX_TOKENS,
-                messages=[{"role": "user", "content": "Say hi."}],
-                thinking={"type": "adaptive"},
-            )
-            styles.append("adaptive")
-        except Exception as e:
-            err = str(e).lower()
-            if "rate" in err or "timeout" in err:
-                return None
+        for style_name, thinking_cfg in tiers:
+            try:
+                self._client.messages.create(
+                    model=self.model,
+                    max_tokens=_PROBE_MAX_TOKENS,
+                    messages=[{"role": "user", "content": "Say hi."}],
+                    thinking=thinking_cfg,
+                )
+                styles.append(style_name)
+            except Exception as e:
+                if self._classify_probe_error(e) == "inconclusive":
+                    inconclusive = True
+                # else: confirmed not_supported → leave style_name out
 
-        # Tier 2: enabled / fixed-budget (older thinking models, and many
-        # current models accept both modes).
-        try:
-            self._client.messages.create(
-                model=self.model,
-                max_tokens=_PROBE_MAX_TOKENS,
-                messages=[{"role": "user", "content": "Say hi."}],
-                thinking={"type": "enabled", "budget_tokens": _PROBE_BUDGET},
-            )
-            styles.append("budget")
-        except Exception as e:
-            err = str(e).lower()
-            if "rate" in err or "timeout" in err:
-                return None
-
+        if inconclusive:
+            return None
         return styles
 
     def probe_structured_json(self) -> Optional[bool]:

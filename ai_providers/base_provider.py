@@ -936,6 +936,64 @@ class BaseAIProvider(ABC):
         return temperature
 
     # ------------------------------------------------------------------
+    # Probe-error classification
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_probe_error(exc: Exception) -> str:
+        """Classify an exception raised by a tier-probe as 'not_supported' or 'inconclusive'.
+
+        Used by multi-tier probes (e.g. ``probe_thinking_style``) to decide
+        whether a tier failure is a confirmed signal that the model rejects
+        the feature, or a transient/unknown failure that should leave the
+        catalog unchanged. Conservative bias: anything ambiguous returns
+        ``"inconclusive"`` so the probe returns ``None`` and the orchestrator
+        keeps any cached value (or leaves it null) rather than committing a
+        partial truth.
+
+        Returns:
+            ``"not_supported"`` — the API clearly rejected the feature
+                (HTTP 400, "invalid argument", "not supported", "unknown
+                field", etc.). Recording the tier as a confirmed-no is
+                safe.
+            ``"inconclusive"`` — rate limit, timeout, network error, 5xx,
+                or unknown error class. Caller should refuse to commit
+                this probe run.
+        """
+        err = str(exc).lower()
+        status = (
+            getattr(exc, "status_code", None)
+            or getattr(exc, "http_status", None)
+            or getattr(exc, "code", None)
+        )
+
+        # Inconclusive: transient, retryable, or environmental
+        if status in (408, 409, 425, 429, 500, 502, 503, 504):
+            return "inconclusive"
+        if any(s in err for s in (
+            "rate", "quota", "429",
+            "timeout", "deadline", "deadline_exceeded",
+            "503", "504", "500",
+            "internal", "unavailable", "resource_exhausted",
+            "connection", "network",
+        )):
+            return "inconclusive"
+
+        # Confirmed not supported: API explicitly rejected the request shape
+        if status == 400:
+            return "not_supported"
+        if any(s in err for s in (
+            "invalid_argument", "invalid argument",
+            "not support", "not_supported", "unsupported",
+            "unknown field", "unknown_field",
+            "bad request", "400",
+        )):
+            return "not_supported"
+
+        # Unknown error → conservative: don't commit a wrong negative
+        return "inconclusive"
+
+    # ------------------------------------------------------------------
     # Opt-in request inspection (DJINNITE_DEBUG_REQUESTS=1)
     # ------------------------------------------------------------------
 

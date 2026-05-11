@@ -681,47 +681,51 @@ class GeminiProvider(BaseAIProvider):
         Gemini exposes two alternative shapes on ``thinking_config``:
         ``thinking_budget`` (int) and ``thinking_level`` (enum). Each is
         probed independently so models that support one but not the other
-        are recorded accurately. Newer Gemini models (2.5+) accept both.
+        are recorded accurately. Newer Gemini models (3.x) accept both;
+        older models may only accept ``thinking_budget``.
+
+        **Partial-success policy:** if any tier is inconclusive (rate
+        limit, timeout, 5xx, unknown error class) the entire result is
+        ``None``. We do NOT commit a partial truth (e.g. ``["budget"]``
+        when the effort probe was rate-limited) because the catalog
+        consumer would treat that as "confirmed: only budget" and the
+        wrong value would stick until someone reprobed. ``None`` lets
+        the orchestrator preserve any cached value or leave it null
+        until a fresh probe succeeds.
 
         Returns:
-            * Non-empty subset of ``["budget", "effort"]`` confirmed to work.
-            * ``[]`` – both probes cleanly rejected → no thinking support.
-            * ``None`` – inconclusive on either probe (rate limit / quota).
+            * Non-empty subset of ``["budget", "effort"]`` — all tiers
+              completed and these are the confirmed-supported shapes.
+            * ``[]`` – all tiers cleanly rejected → no thinking support.
+            * ``None`` – any tier was inconclusive.
         """
         from google.genai.types import ThinkingLevel
 
         styles: list[str] = []
+        inconclusive = False
 
-        # Tier 1: integer budget
-        try:
-            self._client.models.generate_content(
-                model=self.model, contents="Say hi.",
-                config={
-                    "max_output_tokens": 100,
-                    "thinking_config": {"thinking_budget": 1024},
-                },
-            )
-            styles.append("budget")
-        except Exception as e:
-            err = str(e).lower()
-            if "rate" in err or "quota" in err or "429" in err:
-                return None
+        tiers = [
+            ("budget", {"thinking_budget": 1024}),
+            ("effort", {"thinking_level": ThinkingLevel.LOW}),
+        ]
 
-        # Tier 2: ThinkingLevel enum (the caller-facing "effort" shape)
-        try:
-            self._client.models.generate_content(
-                model=self.model, contents="Say hi.",
-                config={
-                    "max_output_tokens": 100,
-                    "thinking_config": {"thinking_level": ThinkingLevel.LOW},
-                },
-            )
-            styles.append("effort")
-        except Exception as e:
-            err = str(e).lower()
-            if "rate" in err or "quota" in err or "429" in err:
-                return None
+        for style_name, thinking_cfg in tiers:
+            try:
+                self._client.models.generate_content(
+                    model=self.model, contents="Say hi.",
+                    config={
+                        "max_output_tokens": 100,
+                        "thinking_config": thinking_cfg,
+                    },
+                )
+                styles.append(style_name)
+            except Exception as e:
+                if self._classify_probe_error(e) == "inconclusive":
+                    inconclusive = True
+                # else: confirmed not_supported → leave style_name out
 
+        if inconclusive:
+            return None
         return styles
 
     def probe_structured_json(self) -> Optional[bool]:

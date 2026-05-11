@@ -468,13 +468,17 @@
             "on",
             "off"
           ],
-          "web_search": null,
+          "web_search": [
+            "on",
+            "off"
+          ],
           "json_with_search": [
             "on",
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -536,7 +540,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -597,7 +602,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -764,7 +770,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -826,7 +833,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -887,7 +895,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -948,7 +957,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -1010,7 +1020,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -1070,7 +1081,8 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ]
         },
         "vision_limits": {
@@ -1623,7 +1635,7 @@
         }
       }
     ],
-    "last_updated": "2026-05-07"
+    "last_updated": "2026-05-11"
   },
   "claude": {
     "models": [
@@ -1647,7 +1659,7 @@
           "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2163,7 +2175,7 @@
         }
       }
     ],
-    "last_updated": "2026-05-07"
+    "last_updated": "2026-05-11"
   },
   "chatgpt": {
     "models": [

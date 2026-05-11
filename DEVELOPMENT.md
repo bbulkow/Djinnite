@@ -237,6 +237,35 @@ Per-provider semantic note (see the [Token Budgets](#token-budgets) section
 below for the full mapping): Claude and Gemini cap visible output only;
 OpenAI's `max_output_tokens` caps visible output **and reasoning combined**.
 
+### Debug request inspection (`DJINNITE_DEBUG_REQUESTS`)
+
+Set the environment variable `DJINNITE_DEBUG_REQUESTS=1` (also accepts
+`true`/`yes`/`on`) to dump the resolved per-request config to stderr
+immediately before each provider SDK call. Useful for debugging cost
+and budget surprises ("what did Djinnite actually hand to the SDK?")
+without modifying code or attaching a debugger.
+
+The dump is a single line per request, written to stderr (so it doesn't
+pollute stdout used by piped tools), and contains both the caller's
+**original** args (`thinking`, `max_output_tokens`, `temperature`,
+`web_search`, `system_prompt`, `force` where applicable) and the
+**resolved** provider-native config dict (Gemini's `config`, Claude's
+`kwargs`, OpenAI's `kwargs`). Long strings (prompts, system
+instructions) and large lists (multimodal parts, message histories) are
+elided. Bytes are reported as `<bytes len=N>`.
+
+Example:
+
+```
+$ DJINNITE_DEBUG_REQUESTS=1 uv run python my_script.py
+[DJINNITE_REQUEST] gemini/gemini-2.5-flash generate caller={"thinking": "low", "max_output_tokens": null, "temperature": 0.7, "web_search": false, "system_prompt": null} native={"temperature": 0.7, "max_output_tokens": 8192, "thinking_config": {"thinking_level": "ThinkingLevel.LOW"}}
+```
+
+The check is a single `os.environ.get` per call; zero overhead when the
+env var is unset. No logging-library dependency. Exceptions raised
+during dump rendering never propagate to the request path — they
+print a `<dump failed: ...>` line instead.
+
 ### Error Contract
 
 Every call to `generate()` or `generate_json()` can raise the following exceptions.

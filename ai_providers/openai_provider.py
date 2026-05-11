@@ -258,6 +258,13 @@ class OpenAIProvider(BaseAIProvider):
         """
         Generate a response using OpenAI's Responses API.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+        }
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
         thinking_active = thinking is not None and thinking is not False
@@ -304,6 +311,10 @@ class OpenAIProvider(BaseAIProvider):
             # Web search → native tool
             if web_search:
                 kwargs["tools"] = [{"type": "web_search_preview"}]
+
+            self._debug_dump_request(
+                method="generate", caller_args=_orig_caller, native_config=kwargs,
+            )
 
             # Make the API call
             response = self._client.responses.create(**kwargs)
@@ -438,6 +449,14 @@ class OpenAIProvider(BaseAIProvider):
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+            "force": force,
+        }
         if schema is None:
             raise ValueError(
                 "schema is required for generate_json(). "
@@ -499,6 +518,10 @@ class OpenAIProvider(BaseAIProvider):
             # Web search
             if web_search:
                 kwargs["tools"] = [{"type": "web_search_preview"}]
+
+            self._debug_dump_request(
+                method="generate_json", caller_args=_orig_caller, native_config=kwargs,
+            )
 
             response = self._client.responses.create(**kwargs)
 

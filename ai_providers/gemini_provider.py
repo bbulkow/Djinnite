@@ -199,6 +199,13 @@ class GeminiProvider(BaseAIProvider):
         """
         Generate a response using Gemini.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+        }
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
 
@@ -228,11 +235,15 @@ class GeminiProvider(BaseAIProvider):
             thinking_config = self._build_gemini_thinking(thinking)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
-            
+
             # Enable Google Search grounding for current information
             if web_search:
                 config["tools"] = [types.Tool(google_search=types.GoogleSearch())]
-            
+
+            self._debug_dump_request(
+                method="generate", caller_args=_orig_caller, native_config=config,
+            )
+
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
@@ -403,6 +414,14 @@ class GeminiProvider(BaseAIProvider):
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+            "force": force,
+        }
         if schema is None:
             raise ValueError(
                 "schema is required for generate_json(). "
@@ -454,14 +473,18 @@ class GeminiProvider(BaseAIProvider):
             # Enable Google Search grounding for current information
             if web_search:
                 config["tools"] = [types.Tool(google_search=types.GoogleSearch())]
-            
+
+            self._debug_dump_request(
+                method="generate_json", caller_args=_orig_caller, native_config=config,
+            )
+
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
                 contents=gemini_parts,
                 config=config
             )
-            
+
             # Extract text, parts, and finish reason from candidates
             text_content = ""
             output_parts = []

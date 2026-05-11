@@ -342,6 +342,13 @@ class ClaudeProvider(BaseAIProvider):
         pass an explicit value; catalog-strip handles models where the
         parameter is unsupported.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+        }
         # Validate & normalize the thinking parameter
         thinking = self._resolve_thinking(thinking)
 
@@ -388,6 +395,10 @@ class ClaudeProvider(BaseAIProvider):
             if web_search:
                 self._check_capability("web_search")
                 kwargs["tools"] = [_WEB_SEARCH_TOOL]
+
+            self._debug_dump_request(
+                method="generate", caller_args=_orig_caller, native_config=kwargs,
+            )
 
             # Generate response.
             # Stream with automatic continuation for server-side tool use
@@ -550,6 +561,14 @@ class ClaudeProvider(BaseAIProvider):
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
         """
+        _orig_caller = {
+            "thinking": thinking,
+            "max_output_tokens": max_output_tokens,
+            "temperature": temperature,
+            "web_search": web_search,
+            "system_prompt": system_prompt,
+            "force": force,
+        }
         if schema is None:
             raise ValueError(
                 "schema is required for generate_json(). "
@@ -614,6 +633,10 @@ class ClaudeProvider(BaseAIProvider):
             # web_search tool in the same request — native JSON + search.
             if web_search:
                 kwargs["tools"] = [_WEB_SEARCH_TOOL]
+
+            self._debug_dump_request(
+                method="generate_json", caller_args=_orig_caller, native_config=kwargs,
+            )
 
             # Stream with automatic continuation for server-side tool use
             # (e.g. web_search).  Same loop as generate().

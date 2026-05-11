@@ -5,7 +5,10 @@ Abstract base class defining the interface for all AI providers.
 Each concrete provider wraps its native SDK directly.
 """
 
+import json as _json
+import os
 import struct
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Any, Union, List, Dict, Tuple, Type
@@ -931,6 +934,74 @@ class BaseAIProvider(ABC):
             if cap is not None and "any" not in cap:
                 return None
         return temperature
+
+    # ------------------------------------------------------------------
+    # Opt-in request inspection (DJINNITE_DEBUG_REQUESTS=1)
+    # ------------------------------------------------------------------
+
+    _DEBUG_REQUEST_ENV: str = "DJINNITE_DEBUG_REQUESTS"
+
+    @staticmethod
+    def _debug_requests_enabled() -> bool:
+        """Return True if DJINNITE_DEBUG_REQUESTS is set to a truthy value.
+
+        Read on every call so the toggle works without restart. The cost
+        of a single ``os.environ.get`` is negligible (~microseconds) and
+        keeps the off-path branch-predictable.
+        """
+        val = os.environ.get(BaseAIProvider._DEBUG_REQUEST_ENV, "")
+        return val.strip().lower() in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def _elide_for_debug(obj: Any, max_str: int = 200, max_list: int = 8) -> Any:
+        """Recursively shorten long strings, bytes, and large lists for one-line debug output."""
+        if isinstance(obj, str):
+            if len(obj) > max_str:
+                return f"<str len={len(obj)} head={obj[:max_str]!r}>"
+            return obj
+        if isinstance(obj, (bytes, bytearray)):
+            return f"<bytes len={len(obj)}>"
+        if isinstance(obj, dict):
+            return {k: BaseAIProvider._elide_for_debug(v, max_str, max_list) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            head = [BaseAIProvider._elide_for_debug(x, max_str, max_list) for x in obj[:max_list]]
+            if len(obj) > max_list:
+                head.append(f"... (+{len(obj) - max_list} more)")
+            return head
+        return obj
+
+    def _debug_dump_request(
+        self,
+        *,
+        method: str,
+        caller_args: Dict[str, Any],
+        native_config: Dict[str, Any],
+    ) -> None:
+        """Dump one debug line per SDK request when DJINNITE_DEBUG_REQUESTS=1.
+
+        The line is written to stderr with no logging-library dependency.
+        Both the caller's pre-resolve args and the resolved provider-native
+        config dict are included; large fields (prompts, system_instruction,
+        message lists) are elided. Zero overhead when the env var is unset.
+        """
+        if not self._debug_requests_enabled():
+            return
+        try:
+            elided_caller = self._elide_for_debug(caller_args)
+            elided_native = self._elide_for_debug(native_config)
+            line = (
+                f"[DJINNITE_REQUEST] {self.PROVIDER_NAME}/{self.model} {method} "
+                f"caller={_json.dumps(elided_caller, default=str, ensure_ascii=False)} "
+                f"native={_json.dumps(elided_native, default=str, ensure_ascii=False)}"
+            )
+            print(line, file=sys.stderr, flush=True)
+        except Exception as e:
+            # Diagnostics must never break the request path.
+            print(
+                f"[DJINNITE_REQUEST] {self.PROVIDER_NAME}/{self.model} {method} "
+                f"<dump failed: {e!r}>",
+                file=sys.stderr, flush=True,
+            )
 
     # ------------------------------------------------------------------
 

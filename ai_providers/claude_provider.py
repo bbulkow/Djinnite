@@ -137,43 +137,53 @@ class ClaudeProvider(BaseAIProvider):
         self,
         thinking: Union[bool, int, str, None],
         max_output_tokens: int,
-    ) -> tuple[Optional[dict], int]:
+    ) -> Optional[dict]:
         """
         Translate the unified ``thinking`` parameter into Claude's native
-        thinking block format and adjust the output cap to be valid.
+        thinking block format.
 
         Claude supports two thinking types:
         - ``"adaptive"``: model decides when/how much to think, with a
-          budget cap.  Preferred for newest models.
-        - ``"enabled"``: fixed-budget explicit thinking.  For models that
+          budget cap. Preferred for newest models.
+        - ``"enabled"``: fixed-budget explicit thinking. For models that
           support thinking but not adaptive mode.
 
         The ``thinking_style`` from the model catalog determines which type
-        to use.  If no catalog is available, defaults to ``"adaptive"``
-        (the newer, more capable mode).
+        to use. If no catalog is available, defaults to ``"adaptive"``.
 
-        **Invariant enforced:** Claude requires the SDK's ``max_tokens``
-        kwarg (i.e. our ``max_output_tokens``) to exceed the thinking
-        ``budget_tokens``. If the caller's value is not large enough this
-        method bumps it upward to leave room for visible output.
+        **Caller responsibility:** Claude requires
+        ``max_output_tokens > budget_tokens`` so the model has room to
+        emit visible output after thinking. This method validates the
+        invariant and raises a ``ValueError`` if the caller's
+        ``max_output_tokens`` doesn't leave room. No silent adjustment.
 
         Args:
             thinking: The caller's thinking parameter (already validated
-                      by ``_resolve_thinking``).
+                      by ``_resolve_thinking`` — never ``str`` for Claude;
+                      ``_resolve_thinking`` rejects str when the model's
+                      ``thinking_style`` lacks ``"effort"``, and Claude's
+                      catalog never advertises ``"effort"``).
             max_output_tokens: The effective output cap for the request.
 
         Returns:
-            A tuple of ``(thinking_block, adjusted_max_output_tokens)``.
-            ``thinking_block`` is ``None`` if thinking is not requested.
+            The ``thinking`` block dict, or ``None`` if not requested.
         """
         if thinking is None or thinking is False:
-            return None, max_output_tokens
+            return None
 
-        # Determine thinking style from catalog. The capability is now a
-        # list of accepted styles; pick the most capable one Claude offers
-        # in priority order: adaptive > budget. (Effort isn't a Claude
-        # native style; if a catalog ever lists ["effort"] for Claude
-        # we still send "enabled" with a translated budget.)
+        # str must not reach here for Claude (caught upstream by
+        # _resolve_thinking against the model's thinking_style). Defense
+        # in depth — surface a clear local error rather than emitting a
+        # malformed Claude request.
+        if isinstance(thinking, str):
+            raise ValueError(
+                f"thinking=str (effort level) is not supported on Claude "
+                f"model '{self.model}'. Claude's thinking block accepts "
+                f"only an integer budget_tokens. Pass an int, True, "
+                f"False, or None."
+            )
+
+        # Determine thinking style from catalog. Priority: adaptive > budget.
         style = "adaptive"
         styles = self._model_info.capabilities.thinking_style if self._model_info else None
         if styles:
@@ -181,25 +191,28 @@ class ClaudeProvider(BaseAIProvider):
                 style = "adaptive"
             elif "budget" in styles:
                 style = "budget"
-            else:
-                style = "budget"
 
         # Compute budget_tokens
         if thinking is True:
             budget = self._get_max_thinking_budget(max_output_tokens)
-        elif isinstance(thinking, int):
-            budget = thinking
         else:
-            # str effort level → token budget as fraction of max_output_tokens
-            budget = self._effort_to_budget(thinking, max_output_tokens)
+            # int passthrough (bool was handled above; isinstance(True, int)
+            # is True but already returned).
+            budget = thinking
 
         # Invariant: output cap must exceed budget_tokens to leave room
-        # for the actual response output.
+        # for the visible response. Caller mistake — raise rather than
+        # silently bumping max_output_tokens upward.
         if budget >= max_output_tokens:
-            max_output_tokens = budget + max(1024, budget // 4)
+            raise ValueError(
+                f"thinking budget ({budget}) must be less than "
+                f"max_output_tokens ({max_output_tokens}); Claude requires "
+                f"room for visible output after thinking. Either lower the "
+                f"budget or raise max_output_tokens."
+            )
 
         thinking_type = "adaptive" if style == "adaptive" else "enabled"
-        return {"type": thinking_type, "budget_tokens": budget}, max_output_tokens
+        return {"type": thinking_type, "budget_tokens": budget}
 
     # ------------------------------------------------------------------
     # Multi-turn continuation for server-side tools (e.g. web_search)
@@ -345,7 +358,7 @@ class ClaudeProvider(BaseAIProvider):
             # Build thinking block + adjust output cap to satisfy Claude's
             # invariant (max_tokens > thinking.budget_tokens).
             thinking_active = thinking is not None and thinking is not False
-            thinking_block, max_output_tokens = self._build_claude_thinking(thinking, max_output_tokens)
+            thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
             # Build request kwargs. The SDK keyword is literally `max_tokens`
             # (Anthropic's terminology); we pass our `max_output_tokens` value
@@ -567,7 +580,7 @@ class ClaudeProvider(BaseAIProvider):
 
             # Build thinking block + adjust output cap (invariant: max_tokens > budget)
             thinking_active = thinking is not None and thinking is not False
-            thinking_block, max_output_tokens = self._build_claude_thinking(thinking, max_output_tokens)
+            thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
             kwargs = {
                 "model": self.model,

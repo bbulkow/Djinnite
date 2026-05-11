@@ -107,6 +107,11 @@ class OpenAIProvider(BaseAIProvider):
         Translate the unified ``thinking`` parameter into the Responses API
         ``reasoning`` parameter.
 
+        OpenAI's ``reasoning.effort`` only accepts string levels
+        (``"minimal"``, ``"low"``, ``"medium"``, ``"high"``, ``"none"``).
+        There is no integer-budget field — callers passing an int are
+        rejected at the local boundary.
+
         Returns:
             A dict for the ``reasoning`` kwarg, or ``None``.
         """
@@ -120,12 +125,21 @@ class OpenAIProvider(BaseAIProvider):
             return {"effort": "none"}
 
         if thinking is True:
-            effort = "high"
-        elif isinstance(thinking, str):
-            effort = thinking
-        else:
-            effort = self._budget_to_effort(thinking)
-        return {"effort": effort}
+            return {"effort": "high"}
+
+        if isinstance(thinking, str):
+            return {"effort": thinking}
+
+        # int must not reach here for OpenAI (caught upstream by
+        # _resolve_thinking against the model's thinking_style — which
+        # for OpenAI never advertises "budget"). Defense in depth.
+        raise ValueError(
+            f"thinking=int (token budget) is not supported on OpenAI "
+            f"model '{self.model}'. OpenAI's reasoning parameter accepts "
+            f"only string effort levels "
+            f"('minimal'/'low'/'medium'/'high'). Pass a string, True, "
+            f"False, or None."
+        )
 
     # ------------------------------------------------------------------
     # Response parsing helpers

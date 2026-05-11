@@ -145,16 +145,17 @@ that state is not in the model's list (e.g. `thinking=True` on a model with
 `capabilities.thinking=["off"]`, or `thinking=False` on an always-on
 reasoning model with `capabilities.thinking=["on"]`).
 
-Djinnite translates this into the provider-native format automatically.
-The semantic of `True` is **"enable thinking — let the model decide how
-much"**, which Djinnite emits as the most accurate native expression on
-each provider:
+Djinnite dispatches the caller's value to the provider's native field —
+**without silent translation between shapes**. Each provider only accepts
+the shapes its native API exposes; mismatches raise `ValueError` locally
+before any API call is made. The caller introspects
+`capabilities.thinking_style` to know which shapes a given model accepts.
 
 | Provider | `True` → "let the model decide" | `int` budget | `str` effort | `False` → disable | `None` → |
 |---|---|---|---|---|---|
-| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` at max budget)* | `thinking={"type": "enabled", "budget_tokens": N}` | translated to budget via `_effort_to_budget` | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
-| **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | translated to budget via `_effort_to_budget` | `thinking_config={"thinking_budget": 0}` | omit (model default) |
-| **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | translated via `_budget_to_effort` to low/medium/high | `reasoning={"effort": "low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
+| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` at max budget)* | `thinking={"type": "enabled", "budget_tokens": N}` | **`ValueError`** — Claude is budget-only | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
+| **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | `thinking_config={"thinking_level": ThinkingLevel.<UPPER>}` *(native enum)* | `thinking_config={"thinking_budget": 0}` | omit (model default) |
+| **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | **`ValueError`** — OpenAI is effort-only | `reasoning={"effort": "minimal"\|"low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
 
 #### Design note: why `True` means "adaptive," not "max budget"
 
@@ -171,20 +172,42 @@ Adaptive is therefore **not** exposed as a separate caller-facing value
 callers to learn a vendor-native concept the abstraction is meant to hide,
 and it would be redundant with `True`.
 
-This is also why earlier Gemini behavior — `True` mapping to `thinking_budget=N`
-where `N` was the model's `max_output_tokens` — was a bug: it burned the
-full budget on every prompt, regardless of complexity. The fix sends
-`thinking_budget=-1` (dynamic), which mirrors Claude's adaptive shape and
-matches what the caller intended when they wrote `True`.
+#### How callers know which shape a model accepts
 
-The catalog field `capabilities.thinking_style` records which native shapes
-each model accepts (`{"adaptive","budget","effort"}`). This is provider-internal
-information used by the translators above to pick the right shape — it does
-not surface in the caller's vocabulary.
+The catalog field `capabilities.thinking_style` records the *union* of
+native shapes each model accepts, drawn from `{"adaptive","budget","effort"}`:
+
+* `"adaptive"` — caller passes `True`; provider has a "model decides" mode.
+* `"budget"` — caller passes `int`; provider has an integer-budget field.
+* `"effort"` — caller passes `str` (`"minimal"`/`"low"`/`"medium"`/`"high"`);
+  provider has a string-effort field (OpenAI's `reasoning.effort`,
+  Gemini's `thinking_level`).
+
+A model can list multiple — Claude 4.7 is `["adaptive","budget"]`, Gemini
+2.5+ is `["budget","effort"]` — meaning either shape is accepted on
+different calls. The "exactly one per call" constraint is enforced by
+the type system (the `thinking` parameter is a single value of type
+`bool | int | str | None`).
+
+Calling code introspects via the public catalog API:
+
+```python
+from djinnite import load_model_catalog
+shapes = load_model_catalog().get_model("gemini", "gemini-2.5-flash").capabilities.thinking_style
+# → ["budget", "effort"]
+if "effort" in shapes:
+    resp = provider.generate(prompt, thinking="low")
+elif "budget" in shapes:
+    resp = provider.generate(prompt, thinking=2048)
+```
+
+Mismatches surface as a local `ValueError` whose message names the
+offending shape and lists `caps.thinking_style`, so a caller who skipped
+the introspection sees what to do without burning an API call.
 
 **Temperature conflicts** are handled automatically:
 - Claude forces `temperature=1` when thinking is active (SDK requirement).
-- Claude enforces output-cap > thinking-budget automatically (adjusts upward if needed).
+- Caller is responsible for `max_output_tokens > thinking_budget` on Claude — Djinnite raises `ValueError` if not, rather than silently bumping the cap.
 - OpenAI strips temperature entirely when thinking is active (reasoning models reject it).
 - Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically.
 
@@ -346,17 +369,19 @@ the catalog list. Mapping is enforced in `_resolve_thinking`,
 
 | Capability | Caller arg → state | Pre-flight rule |
 |---|---|---|
-| `thinking` | `None` → no check; `False` → `"off"`; `True`/`int`/`str` → `"on"` | Required token must be in `caps.thinking` |
+| `thinking` | `None` → no check; `False` → `"off"`; `True`/`int`/`str` → `"on"`; additionally `int` → requires `"budget"` in `caps.thinking_style`, `str` → requires `"effort"` in `caps.thinking_style` | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
 | `temperature` | caller-passed float → `"any"`; caller-omitted → `"default"` | If `"any"` not in `caps.temperature`, the float is silently stripped (no error) |
 | `structured_json` | schema present → `"on"` | `"on"` must be in `caps.structured_json` |
 | `web_search` | `web_search=True` → `"on"` | `"on"` must be in `caps.web_search` |
 | `json_with_search` | schema + `web_search=True` → `"on"` | `"on"` must be in `caps.json_with_search` |
 
-**`thinking_style` is informational, not enforced.** Djinnite cross-translates
-between budget integers and effort strings transparently
-(`_effort_to_budget` / `_budget_to_effort`), so callers can pass `int` or
-`str` regardless of the model's native style. Provider subclasses consult
-`caps.thinking_style` only to choose the right native request shape.
+**`thinking_style` is enforced.** The caller must match the shape to the
+model's `thinking_style`. Mismatches raise `ValueError` locally before any
+API call is made — no silent shape conversion. Each provider's native
+field (Claude `budget_tokens`, OpenAI `reasoning.effort`, Gemini
+`thinking_budget`/`thinking_level`) accepts the corresponding caller
+shape unchanged. To write portable code across providers, branch on
+`info.capabilities.thinking_style` to pick a shape the model accepts.
 
 #### Catalog examples
 
@@ -421,7 +446,7 @@ X, and what does it become at the wire?"
 | Budget | Djinnite surface | Anthropic Messages API | OpenAI Responses API | Gemini GenerationConfig |
 |---|---|---|---|---|
 | **Output budget** | request param: `max_output_tokens` (`Optional[int]`)<br>catalog: `ModelInfo.max_output_tokens`<br>internal resolver: `_resolve_max_output_tokens`<br>response: `AIResponse.output_tokens` | `max_tokens` *(required int)* — caps **visible output only**; thinking is counted under a separate budget. Anthropic enforces `max_tokens > thinking.budget_tokens`. | `max_output_tokens` *(int)* — caps **visible output + reasoning combined**; OpenAI does not expose them separately. | `GenerationConfig.max_output_tokens` *(int)* — caps **visible output only**; thinking is counted under a separate budget. |
-| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_get_max_thinking_budget`, `_DEFAULT_THINKING_BUDGET`, `_effort_to_budget`, `_budget_to_effort`, `_EFFORT_FRACTIONS`<br>catalog: not stored — `_get_max_thinking_budget` reads `max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens`. `type:"adaptive"` has no explicit budget (model decides). | `reasoning.effort: "low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Djinnite's `_budget_to_effort` translates int budgets to tiers when targeting OpenAI. | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. **Separate from `max_output_tokens`.** |
+| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_resolve_thinking`, `_get_max_thinking_budget`, `_EFFORT_LEVELS`<br>catalog: shape support in `ModelCapabilities.thinking_style`; max for `True` read from `ModelInfo.max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens`. `type:"adaptive"` has no explicit budget (model decides). Caller must pass `int` or `True`/`False`/`None`; `str` raises `ValueError` (no native effort field). | `reasoning.effort: "minimal"\|"low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Caller must pass `str` or `True`/`False`/`None`; `int` raises `ValueError` (no native budget field). | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. *Or* `thinking_config.thinking_level` *(`ThinkingLevel.MINIMAL\|LOW\|MEDIUM\|HIGH`)*. **Both fields are alternatives — Djinnite sets exactly one per request based on the caller's shape.** Both are separate from `max_output_tokens`. |
 | **Total token budget**<br>(input + output + thinking + tool round-trips) | request param: *not exposed — model property, server-enforced*<br>catalog: `ModelInfo.context_window`<br>response: `AIResponse.total_tokens` *(post-hoc usage, not a cap)* | not a request parameter — model property | not a request parameter — model property *(`truncation: "auto"\|"disabled"` chooses overflow handling, not a numeric cap)* | not a request parameter — model property |
 | **Input budget**<br>(max input tokens) | request param: *not exposed*<br>catalog: not stored — derivable from `context_window` minus reserved output / thinking<br>response: `AIResponse.input_tokens` *(post-hoc usage)* | not a request parameter | not a request parameter; `truncation: "auto"` lets the server drop earliest turns on overflow but does not set a cap | not a request parameter |
 | **Search budget**<br>(billing events — *not tokens*) | request param: `web_search: bool`<br>catalog: `ModelCosting.search_cost_per_unit`<br>response: `AIResponse.search_units`, `AIResponse.search_cost` | `tools=[{...web_search…}]` *(enable/disable; no per-call event cap)* | `tools=[{"type":"web_search_preview"}]` *(enable/disable; no per-call event cap)* | `tools=[Tool(google_search=...)]` *(enable/disable; no per-call event cap)* |
@@ -440,13 +465,19 @@ X, and what does it become at the wire?"
    This is an SDK-level inconsistency Djinnite is exposing transparently;
    it is **not** something Djinnite normalizes today.
 
-2. **Thinking-budget granularity differs.** Anthropic and Gemini accept a
-   numeric token budget; OpenAI accepts only a tier label (`"low"`,
-   `"medium"`, `"high"`, `"none"`). Djinnite hides this via two-way
-   translation — `_budget_to_effort` / `_effort_to_budget` — so callers
-   writing `thinking=8192` against OpenAI silently get `effort:"high"`,
-   and callers writing `thinking="medium"` against Gemini get a budget
-   computed as 50 % of `max_output_tokens`.
+2. **Thinking-budget granularity differs, and Djinnite does NOT
+   cross-translate.** Anthropic accepts only a numeric token budget;
+   OpenAI accepts only a string effort tier (`"minimal"`/`"low"`/
+   `"medium"`/`"high"`/`"none"`); Gemini accepts either (numeric
+   `thinking_budget` *or* the `ThinkingLevel` enum). The caller is
+   responsible for matching the shape to the model's
+   `capabilities.thinking_style` — passing the wrong shape raises
+   `ValueError` locally before the API call. To write portable code,
+   branch on `info.capabilities.thinking_style`. Djinnite removed the
+   silent two-way translation that older versions performed: it tied
+   thinking budgets to unrelated caps (`max_output_tokens`) and obscured
+   the caller's intent. The new contract is fail-fast and never "do what
+   I mean." See the Breaking Changes Log for the migration.
 
 3. **`thinking="adaptive"` is intentionally not a Djinnite caller value.**
    Adaptive is what `True` already means semantically (let the model
@@ -642,6 +673,57 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### May 2026: drop silent shape translation for `thinking`
+
+**Removed:** the magic translation tables that converted between effort
+strings and integer token budgets — `_EFFORT_FRACTIONS`,
+`_effort_to_budget`, `_budget_to_effort`, and `_DEFAULT_THINKING_BUDGET`
+in `BaseAIProvider`. The Gemini provider also no longer derives a
+`thinking_budget` from a string effort by computing a fraction of
+`max_output_tokens`. The Claude provider no longer silently raises
+`max_output_tokens` when it's smaller than the requested thinking budget.
+
+**Why:** the previous behavior silently converted shapes the provider's
+native API didn't accept, tying budgets to unrelated caps and obscuring
+caller intent. The motivating bug: `thinking="low"` against Gemini was
+ignoring the SDK's native `thinking_level` enum and computing a budget
+from `max_output_tokens × 0.25`, losing the "let Google decide what
+'low' means" intent. The new contract is fail-fast and never "do what I
+mean": each provider passes the caller's value through to its native
+field unchanged, OR raises `ValueError` locally if the shape isn't
+expressible. No API call is made on a mismatch.
+
+**New behavior:**
+* Gemini `thinking="low"` → `thinking_config={"thinking_level": ThinkingLevel.LOW}` (was: budget computed from `max_output_tokens`).
+* Gemini `thinking="minimal"` is now valid (was: `ValueError`).
+* Claude `thinking="low"` → `ValueError` (Claude has no native effort field; was: budget computed from `max_output_tokens`).
+* OpenAI `thinking=8192` → `ValueError` (OpenAI has no native budget field; was: silently translated to `effort:"high"` via thresholds).
+* Claude with `budget >= max_output_tokens` → `ValueError` (was: silently raised `max_output_tokens` to `budget + max(1024, budget//4)`).
+* `thinking=True` with neither catalog `max_output_tokens` nor an explicit `max_output_tokens` argument → `ValueError` (was: defaulted to `_DEFAULT_THINKING_BUDGET = 32768`).
+
+**Migration:** introspect the model's `capabilities.thinking_style`
+before picking a shape:
+
+```python
+from djinnite import load_model_catalog
+shapes = load_model_catalog().get_model("gemini", "gemini-2.5-flash").capabilities.thinking_style
+if "effort" in shapes:
+    resp = provider.generate(prompt, thinking="low")
+elif "budget" in shapes:
+    resp = provider.generate(prompt, thinking=2048)
+elif "adaptive" in shapes:
+    resp = provider.generate(prompt, thinking=True)
+```
+
+Or just pass `thinking=True` (and nothing else) — that works on every
+thinking-capable model. The `ValueError` on a mismatched shape names the
+offending shape and lists `caps.thinking_style`, so callers can fix
+their code without burning an API call to discover the constraint.
+
+**Catalog change:** Gemini 2.5+ models now advertise
+`thinking_style: ["budget", "effort"]` in `model_catalog.json` (was just
+`["budget"]`). Re-probe via `update_models --reprobe` to regenerate.
 
 ### May 2026: `max_tokens` → `max_output_tokens` on the public API
 

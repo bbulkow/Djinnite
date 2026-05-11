@@ -757,16 +757,9 @@ class BaseAIProvider(ABC):
     # Thinking & Temperature resolution helpers
     # ------------------------------------------------------------------
 
-    # Mapping from effort strings to approximate fractions of max_output_tokens,
-    # used when translating a string effort level to a thinking-token budget.
-    _EFFORT_FRACTIONS: Dict[str, float] = {
-        "low": 0.25,
-        "medium": 0.50,
-        "high": 0.80,
-    }
-
-    # Generous fallback when max_output_tokens is unknown from catalog.
-    _DEFAULT_THINKING_BUDGET: int = 32768
+    # Caller-facing canonical effort levels (the union of OpenAI's
+    # reasoning_effort vocabulary and Gemini's ThinkingLevel enum).
+    _EFFORT_LEVELS: frozenset[str] = frozenset({"minimal", "low", "medium", "high"})
 
     def _resolve_thinking(
         self,
@@ -823,22 +816,38 @@ class BaseAIProvider(ABC):
         if thinking is True:
             return True
 
-        # Note: ``capabilities.thinking_style`` is intentionally NOT enforced
-        # here. Djinnite's runtime contract accepts bool/int/str regardless
-        # of the model's native style — providers translate transparently
-        # (``_effort_to_budget`` for budget-style models, ``_budget_to_effort``
-        # for effort-style models). The style list is informational metadata
-        # the provider subclasses consult to pick the native request shape.
+        # ``capabilities.thinking_style`` IS enforced here. Each native
+        # provider field (Claude budget_tokens, OpenAI reasoning.effort,
+        # Gemini thinking_budget / thinking_level) accepts a specific
+        # caller shape; mismatches fail fast locally with a clear message
+        # rather than being silently translated into an arbitrary value.
+        styles = caps.thinking_style if caps is not None else None
+
+        # bool True is also an int subclass — handle bool before int.
+        # (Already handled above; arriving here means thinking is not bool.)
         if isinstance(thinking, int):
             if thinking <= 0:
                 raise ValueError("thinking token budget must be a positive integer.")
+            if styles is not None and "budget" not in styles:
+                raise ValueError(
+                    f"thinking=int (token budget) is not supported by model "
+                    f"'{self.model}'. Model accepts thinking_style={styles}. "
+                    f"Pass a string ({sorted(self._EFFORT_LEVELS)}) "
+                    f"or True/False/None instead."
+                )
             return thinking
         if isinstance(thinking, str):
             low = thinking.lower()
-            if low not in self._EFFORT_FRACTIONS:
+            if low not in self._EFFORT_LEVELS:
                 raise ValueError(
-                    f"thinking effort must be one of 'low', 'medium', 'high' — "
-                    f"got '{thinking}'."
+                    f"thinking effort must be one of "
+                    f"{sorted(self._EFFORT_LEVELS)} — got '{thinking}'."
+                )
+            if styles is not None and "effort" not in styles:
+                raise ValueError(
+                    f"thinking=str (effort level) is not supported by model "
+                    f"'{self.model}'. Model accepts thinking_style={styles}. "
+                    f"Pass an int token budget or True/False/None instead."
                 )
             return low
         raise TypeError(
@@ -870,21 +879,28 @@ class BaseAIProvider(ABC):
 
     def _get_max_thinking_budget(self, max_output_tokens: Optional[int]) -> int:
         """
-        Determine the maximum thinking budget for ``thinking=True``.
+        Determine the maximum thinking budget for ``thinking=True`` on
+        budget-style providers (Claude).
 
         Resolution order:
         1. Model catalog ``max_output_tokens`` (if available and > 0)
-        2. Caller's ``max_output_tokens`` (if provided)
-        3. ``_DEFAULT_THINKING_BUDGET`` fallback
+        2. Caller's ``max_output_tokens`` (if provided and > 0)
+        3. Raise — refuse to invent a budget.
 
-        Returns:
-            An integer token budget.
+        Raises:
+            ValueError: When neither the catalog nor the caller supplied a
+                positive ``max_output_tokens`` to size the budget against.
         """
         if self._model_info and self._model_info.max_output_tokens > 0:
             return self._model_info.max_output_tokens
         if max_output_tokens and max_output_tokens > 0:
             return max_output_tokens
-        return self._DEFAULT_THINKING_BUDGET
+        raise ValueError(
+            f"thinking=True on model '{self.model}' requires a model "
+            f"catalog entry with max_output_tokens, or an explicit "
+            f"max_output_tokens argument; cannot synthesize a thinking "
+            f"budget. Pass an explicit int token budget instead."
+        )
 
     def _resolve_temperature(
         self,
@@ -915,42 +931,6 @@ class BaseAIProvider(ABC):
             if cap is not None and "any" not in cap:
                 return None
         return temperature
-
-    def _effort_to_budget(self, effort: str, max_output_tokens: int) -> int:
-        """
-        Convert a string effort level to a thinking-token budget.
-
-        Uses ``_EFFORT_FRACTIONS`` to compute a fraction of
-        ``max_output_tokens``. Ensures a minimum of 1024 tokens.
-
-        Args:
-            effort: ``"low"``, ``"medium"``, or ``"high"``.
-            max_output_tokens: The output cap to base the fraction on.
-
-        Returns:
-            An integer token budget.
-        """
-        frac = self._EFFORT_FRACTIONS.get(effort, 0.50)
-        return max(1024, int(max_output_tokens * frac))
-
-    @staticmethod
-    def _budget_to_effort(budget: int) -> str:
-        """
-        Convert a token budget integer to an effort level string.
-
-        Thresholds:
-        - ≤ 2048 → ``"low"``
-        - ≤ 16384 → ``"medium"``
-        - > 16384 → ``"high"``
-
-        Returns:
-            ``"low"``, ``"medium"``, or ``"high"``.
-        """
-        if budget <= 2048:
-            return "low"
-        if budget <= 16384:
-            return "medium"
-        return "high"
 
     # ------------------------------------------------------------------
 

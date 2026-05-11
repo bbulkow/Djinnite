@@ -143,24 +143,25 @@ class GeminiProvider(BaseAIProvider):
     def _build_gemini_thinking(
         self,
         thinking: Union[bool, int, str, None],
-        max_output_tokens: Optional[int],
     ) -> Optional[dict]:
         """
         Translate the unified ``thinking`` parameter into Gemini's native
         ``thinking_config`` format.
 
-        Gemini uses ``thinking_config={"thinking_budget": N}`` where N is
-        a token count (separate from the request's ``max_output_tokens``).
+        Gemini's ``ThinkingConfig`` exposes two alternative fields:
+        ``thinking_budget`` (int token count, with ``0`` = disabled and
+        ``-1`` = automatic) and ``thinking_level`` (the ``ThinkingLevel``
+        enum: MINIMAL/LOW/MEDIUM/HIGH). Exactly one is set per request —
+        which one depends on the caller's shape:
 
-        Args:
-            thinking: The caller's thinking parameter (already validated).
-            max_output_tokens: The effective max output tokens for the
-                request — used only when translating a ``str`` effort into
-                a budget via ``_effort_to_budget``.
+        * ``int`` / ``True`` / ``False`` → ``thinking_budget``
+        * ``str`` (effort level) → ``thinking_level``
 
         Returns:
             A dict for ``thinking_config``, or ``None`` if not requested.
         """
+        from google.genai.types import ThinkingLevel
+
         if thinking is None:
             return None  # No opinion — let model use its default
 
@@ -177,13 +178,14 @@ class GeminiProvider(BaseAIProvider):
             return {"thinking_budget": -1}
 
         if isinstance(thinking, int):
-            budget = thinking
-        else:
-            # str effort → token budget
-            effective_max = max_output_tokens or 8192
-            budget = self._effort_to_budget(thinking, effective_max)
+            # bool is a subclass of int, but True/False were handled above.
+            return {"thinking_budget": thinking}
 
-        return {"thinking_budget": budget}
+        # str effort: dispatch to Gemini's native ThinkingLevel enum.
+        # _resolve_thinking has already lowercased the value and validated
+        # it against {"minimal","low","medium","high"} and the model's
+        # thinking_style list.
+        return {"thinking_level": ThinkingLevel[thinking.upper()]}
 
     def generate(
         self,
@@ -223,7 +225,7 @@ class GeminiProvider(BaseAIProvider):
                 config["system_instruction"] = system_prompt
 
             # Thinking: add thinking_config if requested
-            thinking_config = self._build_gemini_thinking(thinking, max_output_tokens)
+            thinking_config = self._build_gemini_thinking(thinking)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
             
@@ -445,7 +447,7 @@ class GeminiProvider(BaseAIProvider):
                 config["system_instruction"] = system_prompt
 
             # Thinking config
-            thinking_config = self._build_gemini_thinking(thinking, max_output_tokens)
+            thinking_config = self._build_gemini_thinking(thinking)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
             
@@ -653,14 +655,21 @@ class GeminiProvider(BaseAIProvider):
         """
         Probe which thinking styles this Gemini model supports.
 
-        Gemini exposes only ``thinking_config.thinking_budget`` — no effort
-        analogue — so the result is ``["budget"]`` or ``[]``.
+        Gemini exposes two alternative shapes on ``thinking_config``:
+        ``thinking_budget`` (int) and ``thinking_level`` (enum). Each is
+        probed independently so models that support one but not the other
+        are recorded accurately. Newer Gemini models (2.5+) accept both.
 
         Returns:
-            * ``["budget"]`` – thinking_config accepted with a positive budget.
-            * ``[]`` – cleanly rejected → no thinking support.
-            * ``None`` – inconclusive (rate limit / quota).
+            * Non-empty subset of ``["budget", "effort"]`` confirmed to work.
+            * ``[]`` – both probes cleanly rejected → no thinking support.
+            * ``None`` – inconclusive on either probe (rate limit / quota).
         """
+        from google.genai.types import ThinkingLevel
+
+        styles: list[str] = []
+
+        # Tier 1: integer budget
         try:
             self._client.models.generate_content(
                 model=self.model, contents="Say hi.",
@@ -669,12 +678,28 @@ class GeminiProvider(BaseAIProvider):
                     "thinking_config": {"thinking_budget": 1024},
                 },
             )
-            return ["budget"]
+            styles.append("budget")
         except Exception as e:
             err = str(e).lower()
             if "rate" in err or "quota" in err or "429" in err:
                 return None
-            return []
+
+        # Tier 2: ThinkingLevel enum (the caller-facing "effort" shape)
+        try:
+            self._client.models.generate_content(
+                model=self.model, contents="Say hi.",
+                config={
+                    "max_output_tokens": 100,
+                    "thinking_config": {"thinking_level": ThinkingLevel.LOW},
+                },
+            )
+            styles.append("effort")
+        except Exception as e:
+            err = str(e).lower()
+            if "rate" in err or "quota" in err or "429" in err:
+                return None
+
+        return styles
 
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Gemini model supports response_schema JSON mode."""

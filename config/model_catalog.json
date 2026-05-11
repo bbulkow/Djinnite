@@ -138,6 +138,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by Google; use gemini-2.5-flash",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -196,6 +198,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by Google; use gemini-2.5-flash",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -254,6 +258,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by Google; use gemini-2.5-flash-lite",
         "costing": {
           "score": 0.5,
           "source": "estimated",
@@ -312,6 +318,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by Google; use gemini-2.5-flash-lite",
         "costing": {
           "score": 0.5,
           "source": "estimated",
@@ -1415,7 +1423,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-07",
+          "updated": "2026-05-11",
           "search_cost_per_unit": null
         },
         "capabilities": {
@@ -2645,6 +2653,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 or gpt-4.1",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -2815,6 +2825,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini or gpt-4.1-mini",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3355,6 +3367,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3408,6 +3422,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -6103,6 +6119,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
         "costing": {
           "score": 13.33,
           "source": "estimated",
@@ -6156,6 +6174,8 @@
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -7052,7 +7072,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-07",
+          "updated": "2026-05-11",
           "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
@@ -7115,7 +7135,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-07",
+          "updated": "2026-05-11",
           "search_cost_per_unit": null
         },
         "max_output_tokens": 0,
@@ -7130,6 +7150,6 @@
         "vision_limits": null
       }
     ],
-    "last_updated": "2026-05-07"
+    "last_updated": "2026-05-11"
   }
 }

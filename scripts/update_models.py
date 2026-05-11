@@ -88,6 +88,62 @@ def _resolve_estimator(ai_config) -> tuple:
     return est_provider, est_model, est_api_key
 
 
+# ---------------------------------------------------------------------------
+# AI-estimation prompts and schemas.
+#
+# Both estimators use generate_json() with provider-native Constraint Decoding
+# so the response is guaranteed schema-valid. The schemas wrap results in a
+# top-level array (rather than using model IDs as object keys) because OpenAI
+# / Claude strict modes require pre-declared property names; arbitrary
+# model-ID keys aren't expressible. Callers transform the array back to a
+# {model_id: value} dict.
+# ---------------------------------------------------------------------------
+
+_MODALITY_VALUES = ["text", "vision", "audio", "video", "embedding"]
+
+OUTPUT_LIMIT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "limits": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "max_output_tokens": {"type": "integer"},
+                },
+                "required": ["id", "max_output_tokens"],
+            },
+        },
+    },
+    "required": ["limits"],
+}
+
+MODALITY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "models": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "input": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": _MODALITY_VALUES},
+                    },
+                    "output": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": _MODALITY_VALUES},
+                    },
+                },
+                "required": ["id", "input", "output"],
+            },
+        },
+    },
+    "required": ["models"],
+}
+
 # Template for AI-based output limit estimation
 OUTPUT_LIMIT_ESTIMATION_PROMPT = """You are an AI model specification expert.
 I need the maximum output token limits for these {provider_company} models.
@@ -95,8 +151,9 @@ I need the maximum output token limits for these {provider_company} models.
 IMPORTANT: Return the MAXIMUM output token count each model can generate in a single response.
 This is NOT the context window - it's the max_output_tokens / max_completion_tokens parameter limit.
 
-Return a JSON object where keys are model IDs and values are integers (the max output token count).
-If you are unsure about a model, use 0.
+Return a JSON object with a single key "limits" whose value is an array of
+objects, one per model, each with the model "id" and an integer
+"max_output_tokens" field. If you are unsure about a model, use 0.
 
 MODELS TO ANALYZE:
 {model_list}
@@ -104,19 +161,15 @@ MODELS TO ANALYZE:
 
 
 # Template for AI-based modality estimation
-MODALITY_ESTIMATION_PROMPT = """You are an AI model capability expert. 
-I have a list of AI model IDs from {provider_company}. 
+MODALITY_ESTIMATION_PROMPT = """You are an AI model capability expert.
+I have a list of AI model IDs from {provider_company}.
 For each model, determine its primary input and output modalities.
 
 MODALITIES: "text", "vision", "audio", "video", "embedding"
 
-Return a JSON object where keys are model IDs and values are objects with "input" and "output" lists.
-
-Example output:
-{{
-  "gpt-4o": {{ "input": ["text", "vision"], "output": ["text"] }},
-  "tts-1": {{ "input": ["text"], "output": ["audio"] }}
-}}
+Return a JSON object with a single key "models" whose value is an array of
+objects, one per model, each with the model "id" and "input" / "output"
+arrays drawn from the modality vocabulary above.
 
 MODELS TO ANALYZE:
 {model_list}
@@ -127,7 +180,13 @@ def estimate_modalities_with_ai(
     provider_name: str,
     ai_config
 ) -> dict:
-    """Use AI to estimate modalities for models that heuristics missed."""
+    """Use AI to estimate modalities for models that heuristics missed.
+
+    Uses ``generate_json`` with a strict schema; the response is
+    guaranteed to validate, so no manual parsing or markdown-stripping
+    is needed. Returns a ``{model_id: {"input": [...], "output": [...]}}``
+    dict (transformed from the schema's array shape).
+    """
     est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
     if not est_api_key:
         return {}
@@ -135,31 +194,34 @@ def estimate_modalities_with_ai(
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
     model_list = "\n".join(m["id"] for m in models)
     prompt = MODALITY_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
-    
+
     try:
-        # Use the Djinnite-internal estimator model.
+        # Use the Djinnite-internal estimator model with provider-native
+        # Constraint Decoding — the response is schema-valid by
+        # construction.
         print(f"    Querying {est_provider}/{est_model} for {len(models)} models...")
         instance = get_provider(est_provider, est_api_key, est_model)
-        resp = instance.generate(
+        resp = instance.generate_json(
             prompt=prompt,
-            system_prompt="You must respond with valid JSON only. No additional text or explanation.",
+            schema=MODALITY_SCHEMA,
             temperature=0.3,
         )
         print(f"    Response received, parsing...")
-        content = resp.content.strip()
-        # Handle markdown blocks if present
-        if content.startswith("```"):
-            lines = content.split("\n")
-            if lines[0].startswith("```json"):
-                content = "\n".join(lines[1:-1])
-            else:
-                content = "\n".join(lines[1:-1])
-
-        result = json.loads(content)
+        parsed = json.loads(resp.content)
+        # Transform the schema's array shape back to {id: {input, output}}.
+        result = {entry["id"]: {"input": entry["input"], "output": entry["output"]}
+                  for entry in parsed.get("models", [])}
         print(f"    Done. Got modalities for {len(result)} models")
         return result
     except Exception as e:
         print(f"  [WARN] Modality estimation failed: {e}")
+        # On failure, surface enough context to debug the next run.
+        try:
+            raw = (resp.content or "").strip() if 'resp' in locals() else ""
+            if raw:
+                print(f"  [WARN] Raw response (first 500 chars): {raw[:500]!r}")
+        except Exception:
+            pass
         return {}
 
 def estimate_output_limits_with_ai(
@@ -167,7 +229,14 @@ def estimate_output_limits_with_ai(
     provider_name: str,
     ai_config
 ) -> dict[str, int]:
-    """Use AI with web search to estimate max output token limits for unknown models."""
+    """Use AI with web search to estimate max output token limits for unknown models.
+
+    Uses ``generate_json`` with a strict schema; the response is
+    guaranteed to validate. Web search is requested first (current docs
+    > training data for this task); if the estimator model doesn't
+    support combining structured JSON with web search, falls back to a
+    JSON-only request and warns.
+    """
     est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
     if not est_api_key:
         return {}
@@ -175,34 +244,52 @@ def estimate_output_limits_with_ai(
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
     model_list = "\n".join(m["id"] for m in models)
     prompt = OUTPUT_LIMIT_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
-    
-    try:
-        # Use the Djinnite-internal estimator model with web search.
-        print(f"    Querying {est_provider}/{est_model} (web search) for {len(models)} models...")
-        instance = get_provider(est_provider, est_api_key, est_model)
-        resp = instance.generate(
-            prompt=prompt,
-            system_prompt="You must respond with valid JSON only. No additional text or explanation.",
-            temperature=0.3,
-            web_search=True,  # Critical: ground with current docs
-        )
-        print(f"    Response received, parsing...")
-        content = resp.content.strip()
-        # Handle markdown blocks if present
-        if content.startswith("```"):
-            lines = content.split("\n")
-            content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
 
-        estimates = json.loads(content)
-        # Validate: only keep positive integers
-        cleaned = {}
-        for model_id, limit in estimates.items():
-            if isinstance(limit, (int, float)) and limit > 0:
-                cleaned[model_id] = int(limit)
+    instance = get_provider(est_provider, est_api_key, est_model)
+
+    def _call(use_web_search: bool):
+        return instance.generate_json(
+            prompt=prompt,
+            schema=OUTPUT_LIMIT_SCHEMA,
+            temperature=0.3,
+            web_search=use_web_search,
+        )
+
+    resp = None
+    try:
+        # Prefer web-search grounding for current docs.
+        print(f"    Querying {est_provider}/{est_model} (web search) for {len(models)} models...")
+        try:
+            resp = _call(use_web_search=True)
+        except Exception as e:
+            err = str(e).lower()
+            # Pre-flight against capabilities.json_with_search may reject
+            # the combo on models that don't support it. Fall back to
+            # JSON-only (model uses cached training knowledge).
+            if "json_with_search" in err or "web search" in err or "web_search" in err:
+                print(f"  [WARN] {est_model} does not support JSON+web_search; "
+                      f"falling back to JSON-only: {e}")
+                resp = _call(use_web_search=False)
+            else:
+                raise
+        print(f"    Response received, parsing...")
+        parsed = json.loads(resp.content)
+        cleaned: dict[str, int] = {}
+        for entry in parsed.get("limits", []):
+            limit = entry.get("max_output_tokens")
+            mid = entry.get("id")
+            if isinstance(mid, str) and isinstance(limit, (int, float)) and limit > 0:
+                cleaned[mid] = int(limit)
         print(f"    Done. Got output limits for {len(cleaned)} models")
         return cleaned
     except Exception as e:
         print(f"  [WARN] Output limit estimation failed: {e}")
+        try:
+            raw = (resp.content or "").strip() if resp is not None else ""
+            if raw:
+                print(f"  [WARN] Raw response (first 500 chars): {raw[:500]!r}")
+        except Exception:
+            pass
         return {}
 
 
@@ -477,13 +564,19 @@ def merge_model_data(
 
         # Force-reprobe: wipe cached capabilities so the needs_probe gate
         # below re-queues this model and the fresh probe results win.
+        # Disabled models are exempt — their cached caps stay frozen and
+        # they are never sent to live probes (would burn tokens against
+        # a model the catalog says nobody should be calling).
         provider_scoped = f"{provider_instance.PROVIDER_NAME}:all"
         force_reprobe = reprobe and (
             "all" in reprobe
             or provider_scoped in reprobe
             or model_id in reprobe
         )
-        if force_reprobe:
+        is_disabled = bool(model.get("disabled"))
+        if force_reprobe and is_disabled:
+            print(f"  [SKIP] {model_id} is disabled; not reprobing")
+        elif force_reprobe:
             existing_caps = {}
             ssj = None
             print(f"  [REPROBE] Resetting capabilities for {model_id}")
@@ -523,11 +616,14 @@ def merge_model_data(
         else:
             model["vision_limits"] = None
 
-        # Queue for probing if any capability is still unknown
+        # Queue for probing if any capability is still unknown.
+        # Disabled models are never queued — calling a disabled model's
+        # API would bill tokens for a model the catalog says nobody
+        # should be using.
         needs_probe = (ssj is None or model["capabilities"]["temperature"] is None
                        or model["capabilities"]["thinking"] is None
                        or model["capabilities"]["json_with_search"] is None)
-        if needs_probe:
+        if needs_probe and not is_disabled:
             input_mods = model.get("modalities", {})
             if isinstance(input_mods, dict):
                 has_text = "text" in input_mods.get("input", [])
@@ -620,7 +716,30 @@ def update_models():
         "chatgpt": OpenAIProvider
     }
 
+    # When --reprobe is provided, scope the provider iteration to the
+    # targets so the user isn't billed for refresh work on providers they
+    # didn't ask to touch. When --reprobe is absent, refresh every
+    # provider (the "generic catalog refresh" mode).
+    def _provider_in_scope(provider_name: str) -> bool:
+        if reprobe_set is None:
+            return True
+        if "all" in reprobe_set:
+            return True
+        if f"{provider_name}:all" in reprobe_set:
+            return True
+        # Bare model IDs: include this provider if any matches its catalog
+        existing_ids = {m["id"] for m in catalog.get(provider_name, {}).get("models", [])}
+        for token in reprobe_set:
+            if ":" in token or token == "all":
+                continue
+            if token in existing_ids:
+                return True
+        return False
+
     for name, provider_cls in providers.items():
+        if not _provider_in_scope(name):
+            print(f"\n[SKIP] {name}: not in --reprobe scope")
+            continue
         print(f"\nUpdating {name} models...")
         p_config = ai_config.get_provider(name)
         if not p_config or not p_config.api_key:

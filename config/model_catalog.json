@@ -1163,6 +1163,50 @@
         }
       },
       {
+        "id": "gemini-3-pro-image",
+        "name": "Nano Banana Pro",
+        "context_window": 131072,
+        "max_output_tokens": 32768,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 2.0,
+          "output_per_1m": 12.0,
+          "source": "estimated",
+          "updated": "2026-06-02",
+          "search_cost_per_unit": 0.014
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gemini-3.1-flash-image-preview",
         "name": "Nano Banana 2",
         "context_window": 65536,
@@ -1195,6 +1239,112 @@
           "json_with_search": null,
           "thinking_style": null,
           "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gemini-3.1-flash-image",
+        "name": "Nano Banana 2",
+        "context_window": 65536,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 0.25,
+          "output_per_1m": 1.5,
+          "source": "estimated",
+          "updated": "2026-06-02",
+          "search_cost_per_unit": 0.014
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gemini-3.5-flash",
+        "name": "Gemini 3.5 Flash",
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 1.5,
+          "output_per_1m": 9.0,
+          "source": "estimated",
+          "updated": "2026-06-02",
+          "search_cost_per_unit": 0.014
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "any",
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "budget",
+            "effort"
+          ],
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": "inf",
@@ -1462,7 +1612,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-11",
+          "updated": "2026-06-02",
           "search_cost_per_unit": null
         },
         "capabilities": {
@@ -1669,10 +1819,67 @@
         }
       }
     ],
-    "last_updated": "2026-05-11"
+    "last_updated": "2026-06-02"
   },
   "claude": {
     "models": [
+      {
+        "id": "claude-opus-4-8",
+        "name": "Claude Opus 4.8",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 5.0,
+          "output_per_1m": 25.0,
+          "source": "estimated",
+          "updated": "2026-06-02",
+          "search_cost_per_unit": 0.01
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "adaptive"
+          ],
+          "incompatible": [
+            {
+              "thinking": "on",
+              "structured_json": "on"
+            },
+            {
+              "thinking": "on",
+              "web_search": "on"
+            }
+          ]
+        },
+        "vision_limits": null
+      },
       {
         "id": "claude-opus-4-7",
         "name": "Claude Opus 4.7",
@@ -2267,7 +2474,7 @@
         }
       }
     ],
-    "last_updated": "2026-05-11"
+    "last_updated": "2026-06-02"
   },
   "chatgpt": {
     "models": [
@@ -3048,382 +3255,6 @@
         }
       },
       {
-        "id": "gpt-4o-audio-preview",
-        "name": "gpt-4o-audio-preview",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "audio model",
-        "costing": {
-          "score": 33.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 2.5,
-          "output_per_1m": 10.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-realtime-preview",
-        "name": "gpt-4o-realtime-preview",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model",
-        "costing": {
-          "score": 66.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 5.0,
-          "output_per_1m": 20.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-realtime-preview-2024-12-17",
-        "name": "gpt-4o-realtime-preview-2024-12-17",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 66.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 5.0,
-          "output_per_1m": 20.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-audio-preview-2024-12-17",
-        "name": "gpt-4o-audio-preview-2024-12-17",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 220.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 2.5,
-          "output_per_1m": 10.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-mini-realtime-preview-2024-12-17",
-        "name": "gpt-4o-mini-realtime-preview-2024-12-17",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 8.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.6,
-          "output_per_1m": 2.4,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-mini-audio-preview-2024-12-17",
-        "name": "gpt-4o-mini-audio-preview-2024-12-17",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 2.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.15,
-          "output_per_1m": 0.6,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-mini-realtime-preview",
-        "name": "gpt-4o-mini-realtime-preview",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model",
-        "costing": {
-          "score": 8.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.6,
-          "output_per_1m": 2.4,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-mini-audio-preview",
-        "name": "gpt-4o-mini-audio-preview",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "audio model",
-        "costing": {
-          "score": 2.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.15,
-          "output_per_1m": 0.6,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
         "id": "gpt-4o-2024-11-20",
         "name": "gpt-4o-2024-11-20",
         "context_window": 128000,
@@ -4093,100 +3924,6 @@
           "incompatible": null
         },
         "vision_limits": null
-      },
-      {
-        "id": "gpt-4o-realtime-preview-2025-06-03",
-        "name": "gpt-4o-realtime-preview-2025-06-03",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 66.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 5.0,
-          "output_per_1m": 20.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-4o-audio-preview-2025-06-03",
-        "name": "gpt-4o-audio-preview-2025-06-03",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
-        "costing": {
-          "score": 33.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 2.5,
-          "output_per_1m": 10.0,
-          "search_cost_per_unit": null
-        },
-        "max_output_tokens": 16384,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
       },
       {
         "id": "gpt-4o-transcribe-diarize",
@@ -6730,7 +6467,7 @@
           "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6790,7 +6527,7 @@
           "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6850,7 +6587,7 @@
           "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6910,7 +6647,7 @@
           "updated": "2026-04-18",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7052,7 +6789,7 @@
           "updated": "2026-05-07",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7110,7 +6847,7 @@
           "updated": "2026-05-07",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7168,7 +6905,7 @@
           "updated": "2026-05-07",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7223,7 +6960,7 @@
           "updated": "2026-05-07",
           "search_cost_per_unit": 0.01
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7276,10 +7013,10 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-11",
+          "updated": "2026-06-02",
           "search_cost_per_unit": null
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 2000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7312,7 +7049,7 @@
           "updated": "2026-05-07",
           "search_cost_per_unit": null
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 32000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7341,10 +7078,10 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-05-11",
+          "updated": "2026-06-02",
           "search_cost_per_unit": null
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 2000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7357,6 +7094,6 @@
         "vision_limits": null
       }
     ],
-    "last_updated": "2026-05-11"
+    "last_updated": "2026-06-02"
   }
 }

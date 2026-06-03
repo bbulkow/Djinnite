@@ -18,6 +18,7 @@ from .base_provider import (
     AIRateLimitError,
     AIAuthenticationError,
     AIModelNotFoundError,
+    AIPricingError,
     DjinniteModalityError,
 )
 from .gemini_provider import GeminiProvider
@@ -172,6 +173,7 @@ __all__ = [
     "AIRateLimitError",
     "AIAuthenticationError",
     "AIModelNotFoundError",
+    "AIPricingError",
     "DjinniteModalityError",
     "GeminiProvider",
     "ClaudeProvider",

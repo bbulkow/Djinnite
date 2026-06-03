@@ -20,6 +20,7 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
+    AIPricingError,
 )
 
 
@@ -34,7 +35,7 @@ class OpenAIProvider(BaseAIProvider):
 
     PROVIDER_NAME = "chatgpt"
 
-    def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None, model_info=None):
+    def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None, model_info=None, require_pricing: bool = True):
         """
         Initialize the OpenAI provider.
 
@@ -45,9 +46,10 @@ class OpenAIProvider(BaseAIProvider):
                 OpenAI's native Responses API.  Kept for backward
                 compatibility with existing ``get_provider()`` calls.
             model_info: Optional ModelInfo from catalog for pre-flight checks
+            require_pricing: Fast-fail on missing/unknown/stale price (see base).
         """
         # gemini_api_key accepted but ignored — native web search now
-        super().__init__(api_key, model, model_info=model_info)
+        super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
 
     def _initialize_client(self) -> None:
         """Initialize the OpenAI client."""
@@ -361,7 +363,7 @@ class OpenAIProvider(BaseAIProvider):
 
             return ai_response
 
-        except (AIOutputTruncatedError, AIContextLengthError):
+        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
             raise
         except Exception as e:
             error_message = str(e).lower()

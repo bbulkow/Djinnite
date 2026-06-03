@@ -24,7 +24,9 @@
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -86,7 +88,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -149,7 +153,9 @@
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -210,7 +216,9 @@
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -271,7 +279,9 @@
           "tier": "",
           "input_per_1m": 0.075,
           "output_per_1m": 0.3,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -332,7 +342,9 @@
           "tier": "",
           "input_per_1m": 0.075,
           "output_per_1m": 0.3,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -390,7 +402,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -425,7 +439,9 @@
           "tier": "",
           "input_per_1m": 1.0,
           "output_per_1m": 20.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -456,12 +472,15 @@
         },
         "costing": {
           "score": 1.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
-          "input_per_1m": 0.5,
-          "output_per_1m": 3.0,
-          "search_cost_per_unit": 0.014
+          "input_per_1m": 1.5,
+          "output_per_1m": 9.0,
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
         },
         "capabilities": {
           "structured_json": [
@@ -520,12 +539,15 @@
         },
         "costing": {
           "score": 0.5,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 1.5,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
         },
         "capabilities": {
           "structured_json": [
@@ -584,12 +606,15 @@
         },
         "costing": {
           "score": 4.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
         },
         "capabilities": {
           "structured_json": [
@@ -652,7 +677,9 @@
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -714,7 +741,9 @@
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
-          "search_cost_per_unit": 0.035
+          "search_cost_per_unit": 0.035,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -760,7 +789,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -823,7 +854,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 3.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -887,7 +920,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -950,7 +985,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -1013,7 +1050,9 @@
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 1.5,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -1075,7 +1114,9 @@
           "output_per_1m": 1.5,
           "source": "estimated",
           "updated": "2026-05-07",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -1139,7 +1180,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1183,7 +1226,9 @@
           "output_per_1m": 12.0,
           "source": "estimated",
           "updated": "2026-06-02",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1229,7 +1274,9 @@
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 1.5,
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1273,7 +1320,9 @@
           "output_per_1m": 1.5,
           "source": "estimated",
           "updated": "2026-06-02",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1317,7 +1366,9 @@
           "output_per_1m": 9.0,
           "source": "estimated",
           "updated": "2026-06-02",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -1376,7 +1427,9 @@
           "output_per_1m": 20.0,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1412,7 +1465,9 @@
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1454,7 +1509,9 @@
           "output_per_1m": 2.5,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1502,7 +1559,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1547,7 +1606,9 @@
           "tier": "",
           "input_per_1m": null,
           "output_per_1m": null,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1582,7 +1643,9 @@
           "tier": "",
           "input_per_1m": null,
           "output_per_1m": null,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1612,8 +1675,11 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-06-02",
-          "search_cost_per_unit": null
+          "updated": "2026-06-03",
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "source_url": null
         },
         "capabilities": {
           "structured_json": null,
@@ -1651,7 +1717,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1699,7 +1767,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1747,7 +1817,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": null,
@@ -1793,7 +1865,9 @@
           "output_per_1m": 4.5,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": 0.014
+          "search_cost_per_unit": 0.014,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "capabilities": {
           "structured_json": [
@@ -1819,7 +1893,7 @@
         }
       }
     ],
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-03"
   },
   "claude": {
     "models": [
@@ -1841,7 +1915,9 @@
           "output_per_1m": 25.0,
           "source": "estimated",
           "updated": "2026-06-02",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1878,7 +1954,17 @@
             }
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "claude-opus-4-7",
@@ -1898,7 +1984,9 @@
           "output_per_1m": 25.0,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -1967,7 +2055,9 @@
           "tier": "",
           "input_per_1m": 3.0,
           "output_per_1m": 15.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -2034,7 +2124,9 @@
           "tier": "",
           "input_per_1m": 5.0,
           "output_per_1m": 25.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -2101,7 +2193,9 @@
           "tier": "",
           "input_per_1m": 5.0,
           "output_per_1m": 25.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -2167,7 +2261,9 @@
           "tier": "",
           "input_per_1m": 1.0,
           "output_per_1m": 5.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -2233,7 +2329,9 @@
           "tier": "",
           "input_per_1m": 3.0,
           "output_per_1m": 15.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -2299,7 +2397,9 @@
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 75.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32000,
         "capabilities": {
@@ -2365,7 +2465,9 @@
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 75.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32000,
         "capabilities": {
@@ -2429,7 +2531,9 @@
           "tier": "",
           "input_per_1m": 3.0,
           "output_per_1m": 15.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 64000,
         "capabilities": {
@@ -2474,7 +2578,7 @@
         }
       }
     ],
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-03"
   },
   "chatgpt": {
     "models": [
@@ -2499,7 +2603,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 1.5,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2544,7 +2650,9 @@
           "tier": "",
           "input_per_1m": 3.0,
           "output_per_1m": 4.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2589,7 +2697,9 @@
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 60.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 8192,
         "capabilities": {
@@ -2635,7 +2745,9 @@
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 60.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 8192,
         "capabilities": {
@@ -2690,7 +2802,9 @@
           "tier": "",
           "input_per_1m": 1.5,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2735,7 +2849,9 @@
           "tier": "",
           "input_per_1m": 1.5,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2780,7 +2896,9 @@
           "tier": "",
           "input_per_1m": 1.0,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2825,7 +2943,9 @@
           "tier": "",
           "input_per_1m": 0.5,
           "output_per_1m": 1.5,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2871,7 +2991,9 @@
           "tier": "",
           "input_per_1m": 10.0,
           "output_per_1m": 30.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2927,7 +3049,9 @@
           "tier": "",
           "input_per_1m": 10.0,
           "output_per_1m": 30.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -2983,7 +3107,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.03
+          "search_cost_per_unit": 0.03,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3042,7 +3168,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.03
+          "search_cost_per_unit": 0.03,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3099,7 +3227,9 @@
           "tier": "",
           "input_per_1m": 0.15,
           "output_per_1m": 0.6,
-          "search_cost_per_unit": 0.025
+          "search_cost_per_unit": 0.025,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3158,7 +3288,9 @@
           "tier": "",
           "input_per_1m": 0.15,
           "output_per_1m": 0.6,
-          "search_cost_per_unit": 0.025
+          "search_cost_per_unit": 0.025,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3217,7 +3349,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.03
+          "search_cost_per_unit": 0.03,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3276,7 +3410,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3335,7 +3471,9 @@
           "tier": "",
           "input_per_1m": 0.15,
           "output_per_1m": 0.6,
-          "search_cost_per_unit": 0.025
+          "search_cost_per_unit": 0.025,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3391,7 +3529,9 @@
           "tier": "",
           "input_per_1m": 0.15,
           "output_per_1m": 0.6,
-          "search_cost_per_unit": 0.025
+          "search_cost_per_unit": 0.025,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3447,7 +3587,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3493,7 +3635,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 5.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3538,7 +3682,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3572,7 +3718,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3624,12 +3772,15 @@
         },
         "costing": {
           "score": 26.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3686,7 +3837,9 @@
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3738,12 +3891,15 @@
         },
         "costing": {
           "score": 5.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3800,7 +3956,9 @@
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3850,12 +4008,15 @@
         },
         "costing": {
           "score": 1.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -3911,7 +4072,9 @@
           "tier": "",
           "input_per_1m": 10.0,
           "output_per_1m": 40.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -3947,7 +4110,9 @@
           "tier": "",
           "input_per_1m": null,
           "output_per_1m": null,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -3986,12 +4151,15 @@
         },
         "costing": {
           "score": 16.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://platform.openai.com/docs/models/gpt-5-chat-latest"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4046,7 +4214,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4100,12 +4270,15 @@
         },
         "costing": {
           "score": 16.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://platform.openai.com/docs/models/gpt-5"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4164,7 +4337,9 @@
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4218,12 +4393,15 @@
         },
         "costing": {
           "score": 3.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4282,7 +4460,9 @@
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4336,12 +4516,15 @@
         },
         "costing": {
           "score": 0.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4402,7 +4585,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4437,7 +4622,9 @@
           "tier": "",
           "input_per_1m": 4.0,
           "output_per_1m": 16.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4472,7 +4659,9 @@
           "tier": "",
           "input_per_1m": 5.0,
           "output_per_1m": 20.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4508,7 +4697,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4541,7 +4732,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4591,7 +4784,9 @@
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -4625,7 +4820,9 @@
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 272000,
         "capabilities": {
@@ -4677,12 +4874,15 @@
         },
         "costing": {
           "score": 400.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 272000,
         "capabilities": {
@@ -4741,7 +4941,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4777,7 +4979,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4805,12 +5009,15 @@
         },
         "costing": {
           "score": 33.33,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4855,7 +5062,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4890,7 +5099,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -4923,7 +5134,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -4962,12 +5175,15 @@
         },
         "costing": {
           "score": 4.17,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://platform.openai.com/docs/models/gpt-5.1-chat-latest"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5024,7 +5240,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5079,12 +5297,15 @@
         },
         "costing": {
           "score": 4.17,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5143,7 +5364,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5191,7 +5414,9 @@
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5239,7 +5464,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5289,7 +5516,9 @@
           "tier": "",
           "input_per_1m": 5.0,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -5323,7 +5552,9 @@
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5378,12 +5609,15 @@
         },
         "costing": {
           "score": 42.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5443,7 +5677,9 @@
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5495,12 +5731,15 @@
         },
         "costing": {
           "score": 504.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5552,12 +5791,15 @@
         },
         "costing": {
           "score": 42.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5616,7 +5858,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 5.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5662,7 +5906,9 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 5.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5707,7 +5953,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 12.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5742,7 +5990,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5777,7 +6027,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -5813,7 +6065,9 @@
           "tier": "",
           "input_per_1m": 0.6,
           "output_per_1m": 2.4,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -5848,7 +6102,9 @@
           "tier": "",
           "input_per_1m": null,
           "output_per_1m": null,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -5881,7 +6137,9 @@
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5929,7 +6187,9 @@
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5980,7 +6240,9 @@
           "tier": "",
           "input_per_1m": 4.0,
           "output_per_1m": 16.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
         "capabilities": {
@@ -6016,7 +6278,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6052,7 +6316,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.03
+          "search_cost_per_unit": 0.03,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6108,7 +6374,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": 0.03
+          "search_cost_per_unit": 0.03,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6157,12 +6425,15 @@
         },
         "costing": {
           "score": 42.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6221,7 +6492,9 @@
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6280,12 +6553,15 @@
         },
         "costing": {
           "score": 560.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6346,7 +6622,9 @@
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6400,12 +6678,15 @@
         },
         "costing": {
           "score": 46.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
+          "source": "published",
+          "updated": "2026-06-03",
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6465,7 +6746,9 @@
           "output_per_1m": 1.25,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6523,9 +6806,12 @@
         "costing": {
           "input_per_1m": 0.2,
           "output_per_1m": 1.25,
-          "source": "estimated",
-          "updated": "2026-04-18",
-          "search_cost_per_unit": 0.01
+          "source": "published",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6585,7 +6871,9 @@
           "output_per_1m": 4.5,
           "source": "estimated",
           "updated": "2026-04-18",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6643,9 +6931,12 @@
         "costing": {
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
-          "source": "estimated",
-          "updated": "2026-04-18",
-          "search_cost_per_unit": 0.01
+          "source": "published",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6699,11 +6990,14 @@
           ]
         },
         "costing": {
-          "input_per_1m": 5.0,
-          "output_per_1m": 30.0,
-          "source": "estimated",
-          "updated": "2026-05-07",
-          "search_cost_per_unit": null
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": null
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -6745,7 +7039,9 @@
           "output_per_1m": 30.0,
           "source": "estimated",
           "updated": "2026-05-07",
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
         "capabilities": {
@@ -6785,9 +7081,12 @@
         "costing": {
           "input_per_1m": 5.0,
           "output_per_1m": 30.0,
-          "source": "estimated",
-          "updated": "2026-05-07",
-          "search_cost_per_unit": 0.01
+          "source": "published",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6845,7 +7144,9 @@
           "output_per_1m": 30.0,
           "source": "estimated",
           "updated": "2026-05-07",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6901,9 +7202,12 @@
         "costing": {
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
-          "source": "estimated",
-          "updated": "2026-05-07",
-          "search_cost_per_unit": 0.01
+          "source": "published",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": null,
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "source_url": "https://openai.com/api/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6958,7 +7262,9 @@
           "output_per_1m": 180.0,
           "source": "estimated",
           "updated": "2026-05-07",
-          "search_cost_per_unit": 0.01
+          "search_cost_per_unit": 0.01,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7012,9 +7318,12 @@
         "costing": {
           "input_per_1m": null,
           "output_per_1m": null,
-          "source": "failed",
-          "updated": "2026-06-02",
-          "search_cost_per_unit": null
+          "source": "unknown",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "source_url": null
         },
         "max_output_tokens": 2000,
         "capabilities": {
@@ -7047,7 +7356,9 @@
           "output_per_1m": 64.0,
           "source": "estimated",
           "updated": "2026-05-07",
-          "search_cost_per_unit": null
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
         "max_output_tokens": 32000,
         "capabilities": {
@@ -7077,9 +7388,12 @@
         "costing": {
           "input_per_1m": null,
           "output_per_1m": null,
-          "source": "failed",
-          "updated": "2026-06-02",
-          "search_cost_per_unit": null
+          "source": "unknown",
+          "updated": "2026-06-03",
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "source_url": null
         },
         "max_output_tokens": 2000,
         "capabilities": {
@@ -7094,6 +7408,6 @@
         "vision_limits": null
       }
     ],
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-03"
   }
 }

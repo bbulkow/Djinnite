@@ -13,6 +13,7 @@ Where <project_root> is the parent directory of the djinnite package.
 """
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any, Final, Optional
 from dataclasses import dataclass, field
@@ -304,17 +305,53 @@ class ModelCosting:
         input_per_1m: Dollar cost per 1 million input tokens.
         output_per_1m: Dollar cost per 1 million output tokens.
             Thinking/reasoning tokens are billed at this rate.
-        source: How the pricing was determined
-            (estimated/manual/failed).
-        updated: ISO date when the pricing was last updated.
+        source: How the pricing was determined. One of:
+            ``default``   placeholder, never priced.
+            ``manual``    human-fixed; never touched by the updater.
+            ``published`` priced from an official page with a ``source_url``.
+            ``estimated`` priced via AI web search, weak/no source URL.
+            ``unknown``   no public per-1M-token price exists (specialty model);
+                          stable terminal state that requires human review.
+            ``failed``    estimation errored/malformed; transient, retried.
+        updated: ISO date (YYYY-MM-DD) when the pricing was last updated.
         search_cost_per_unit: Dollar cost per billable web search event.
             Varies by model.  None means unknown or web search not supported.
+        pricing_class: ``fixed`` or ``floating`` (see ``pricing_class.py``).
+            ``floating`` ids are re-priced every run; ``fixed`` ids only when
+            missing or stale.  None means not yet classified.
+        pricing_class_source: ``auto`` (classifier) or ``manual`` (human pinned).
+        source_url: Official pricing page the figure was taken from, if any.
     """
     input_per_1m: Optional[float] = None
     output_per_1m: Optional[float] = None
     source: str = "default"
     updated: str = ""
     search_cost_per_unit: Optional[float] = None
+    pricing_class: Optional[str] = None
+    pricing_class_source: str = "auto"
+    source_url: Optional[str] = None
+
+    def days_since_update(self, today: Optional[date] = None) -> Optional[int]:
+        """Days since ``updated``; None if missing or unparseable."""
+        if not self.updated:
+            return None
+        try:
+            updated_date = date.fromisoformat(self.updated)
+        except ValueError:
+            return None
+        ref = today or date.today()
+        return (ref - updated_date).days
+
+    def is_stale(self, max_age_days: int = 180, today: Optional[date] = None) -> bool:
+        """True if the price is older than ``max_age_days``.
+
+        A missing or unparseable ``updated`` counts as stale (we cannot prove
+        the price is fresh).
+        """
+        days = self.days_since_update(today)
+        if days is None:
+            return True
+        return days > max_age_days
 
 
 @dataclass
@@ -542,6 +579,9 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 source=costing_data.get("source", "default"),
                 updated=costing_data.get("updated", ""),
                 search_cost_per_unit=costing_data.get("search_cost_per_unit"),
+                pricing_class=costing_data.get("pricing_class"),
+                pricing_class_source=costing_data.get("pricing_class_source", "auto"),
+                source_url=costing_data.get("source_url"),
             )
 
             # Handle modalities schema evolution

@@ -18,6 +18,7 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
+    AIPricingError,
 )
 
 
@@ -471,8 +472,8 @@ class ClaudeProvider(BaseAIProvider):
             
             return ai_response
             
-        except (AIOutputTruncatedError, AIContextLengthError):
-            raise  # Never swallow our own semantic errors
+        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+            raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
             error_message = str(e).lower()
             error_type = type(e).__name__

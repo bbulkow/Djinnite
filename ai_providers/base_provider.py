@@ -258,6 +258,20 @@ class AIContextLengthError(AIProviderError):
     pass
 
 
+class AIPricingError(AIProviderError):
+    """
+    Raised when a model's catalog price is missing, ``unknown``, or stale, so a
+    trustworthy dollar cost cannot be computed.
+
+    Fast-fail rather than report a possibly-wrong number: this layer exists to
+    make upper code simpler, not to substitute incorrect values.  Production
+    providers raise this; maintenance tooling constructs providers with
+    ``require_pricing=False`` to opt out (e.g. the cost estimator itself, or
+    probes that exercise un-priced specialty models).
+    """
+    pass
+
+
 class DjinniteModalityError(AIProviderError):
     """Raised when a model is asked to handle an unsupported modality."""
     def __init__(self, message: str, provider: str, model: str, requested_modalities: list[str], supported_modalities: list[str]):
@@ -285,11 +299,17 @@ class BaseAIProvider(ABC):
     """
     
     PROVIDER_NAME: str = "base"
-    
-    def __init__(self, api_key: str, model: str, model_info=None):
+
+    # Prices older than this are treated as stale and trigger a fast-fail at
+    # request time (and re-estimation in the cost updater).  Even "fixed" model
+    # ids get this re-check because vendors occasionally cut prices on an
+    # existing id (e.g. OpenAI o3, gpt-3.5-turbo).
+    PRICING_STALENESS_DAYS: int = 180
+
+    def __init__(self, api_key: str, model: str, model_info=None, require_pricing: bool = True):
         """
         Initialize the provider.
-        
+
         Args:
             api_key: API key for authentication
             model: Model ID to use (Required)
@@ -297,13 +317,19 @@ class BaseAIProvider(ABC):
                         checks. Passed automatically by ``get_provider()``,
                         which requires the catalog to exist.  May be None
                         only for direct construction (tests/probes).
+            require_pricing: When True (default, production), cost computation
+                        fast-fails with ``AIPricingError`` if the model's price
+                        is missing, ``unknown``, or stale.  Maintenance tooling
+                        (the cost estimator, catalog updater, probes) passes
+                        False so it can drive un-priced models without raising.
         """
         if not model:
             raise ValueError(f"Model must be specified for {self.PROVIDER_NAME} provider. Check your ai_config.json.")
-            
+
         self.api_key = api_key
         self.model = model
         self._model_info = model_info  # From catalog — may be None
+        self._require_pricing = require_pricing
         self._client = None
         self._initialize_client()
     
@@ -335,12 +361,39 @@ class BaseAIProvider(ABC):
         Thinking tokens are billed at the output rate.  Anthropic reports
         them separately (``_thinking_billed_separately=True``), while
         OpenAI/Google include them in ``output_tokens`` already.
+
+        Fast-fails with ``AIPricingError`` when the price cannot be trusted
+        (missing / ``unknown`` / ``failed`` / stale), unless the provider was
+        constructed with ``require_pricing=False``.
         """
         if not self._model_info or not self._model_info.costing:
+            if self._require_pricing:
+                raise AIPricingError(
+                    f"No catalog pricing for model '{self.model}' -- cannot compute cost",
+                    provider=self.PROVIDER_NAME,
+                )
             return
         costing = self._model_info.costing
-        if costing.input_per_1m is None or costing.output_per_1m is None:
+
+        if costing.input_per_1m is None or costing.output_per_1m is None or \
+                costing.source in ("unknown", "failed"):
+            if self._require_pricing:
+                raise AIPricingError(
+                    f"No usable price for model '{self.model}' "
+                    f"(source={costing.source!r}) -- needs human review",
+                    provider=self.PROVIDER_NAME,
+                )
             return
+
+        if self._require_pricing and costing.is_stale(self.PRICING_STALENESS_DAYS):
+            days = costing.days_since_update()
+            age = f"{days} days" if days is not None else "unknown age"
+            raise AIPricingError(
+                f"Price for model '{self.model}' is stale "
+                f"({age} > {self.PRICING_STALENESS_DAYS}; updated {costing.updated or 'never'}) "
+                f"-- re-run update_model_costs",
+                provider=self.PROVIDER_NAME,
+            )
 
         input_t = usage.get("input_tokens", 0)
         output_t = usage.get("output_tokens", 0)

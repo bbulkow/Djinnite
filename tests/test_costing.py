@@ -12,7 +12,7 @@ Usage:
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 # Support direct execution
@@ -20,9 +20,91 @@ _project_root = str(Path(__file__).parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from djinnite.config_loader import load_ai_config, load_model_catalog
+from djinnite.config_loader import load_ai_config, load_model_catalog, ModelInfo, ModelCosting
 from djinnite.ai_providers import get_provider
-from djinnite.ai_providers.base_provider import AIProviderError
+from djinnite.ai_providers.base_provider import AIProviderError, AIPricingError, BaseAIProvider
+
+
+# ------------------------------------------------------------------
+# Offline fast-fail tests (no API keys required)
+# ------------------------------------------------------------------
+
+class _StubProvider(BaseAIProvider):
+    """Minimal concrete provider for exercising cost computation offline."""
+    PROVIDER_NAME = "stub"
+
+    def _initialize_client(self) -> None:
+        self._client = None
+
+    def generate(self, *args, **kwargs):  # pragma: no cover - not used
+        raise NotImplementedError
+
+    def is_available(self) -> bool:  # pragma: no cover - not used
+        return True
+
+    def list_models(self) -> list:  # pragma: no cover - not used
+        return []
+
+
+def _make_provider(costing: ModelCosting, require_pricing: bool = True) -> _StubProvider:
+    info = ModelInfo(id="stub-model", name="Stub", context_window=1000, costing=costing)
+    return _StubProvider(api_key="x", model="stub-model", model_info=info,
+                         require_pricing=require_pricing)
+
+
+def _fresh_today() -> str:
+    return date.today().isoformat()
+
+
+def _stale_date() -> str:
+    return (date.today() - timedelta(days=200)).isoformat()
+
+
+def test_fast_fail_offline() -> bool:
+    """Cost computation fast-fails on missing/unknown/stale price; computes when fresh."""
+    print("  [fast_fail] missing/unknown/stale/fresh/lenient...", end=" ", flush=True)
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+
+    # 1. No price -> raise.
+    p = _make_provider(ModelCosting(source="failed"))
+    try:
+        p._compute_token_cost(dict(usage)); print("FAIL (no raise on missing)"); return False
+    except AIPricingError:
+        pass
+
+    # 2. source=unknown with prices present -> raise.
+    p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                                    source="unknown", updated=_fresh_today()))
+    try:
+        p._compute_token_cost(dict(usage)); print("FAIL (no raise on unknown)"); return False
+    except AIPricingError:
+        pass
+
+    # 3. Stale (>180d) -> raise.
+    p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                                    source="estimated", updated=_stale_date()))
+    try:
+        p._compute_token_cost(dict(usage)); print("FAIL (no raise on stale)"); return False
+    except AIPricingError:
+        pass
+
+    # 4. Fresh + priced -> computes a positive cost.
+    p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                                    source="estimated", updated=_fresh_today()))
+    u = dict(usage)
+    p._compute_token_cost(u)
+    if u.get("token_cost") is None or u["token_cost"] <= 0:
+        print(f"FAIL (fresh price did not compute: {u.get('token_cost')})"); return False
+
+    # 5. require_pricing=False + unknown -> no raise, no token_cost.
+    p = _make_provider(ModelCosting(source="unknown"), require_pricing=False)
+    u = dict(usage)
+    p._compute_token_cost(u)
+    if u.get("token_cost") is not None:
+        print("FAIL (lenient mode produced a cost)"); return False
+
+    print("OK")
+    return True
 
 
 # ------------------------------------------------------------------
@@ -175,6 +257,13 @@ def run_costing_tests():
 
     total_pass = 0
     total_fail = 0
+
+    # Offline fast-fail behavior (no API keys needed).
+    print("\noffline fast-fail:")
+    if test_fast_fail_offline():
+        total_pass += 1
+    else:
+        total_fail += 1
 
     for name in provider_names:
         p_config = config.get_provider(name)

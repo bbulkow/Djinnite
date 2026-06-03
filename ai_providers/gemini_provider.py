@@ -17,6 +17,7 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
+    AIPricingError,
 )
 
 
@@ -30,19 +31,20 @@ class GeminiProvider(BaseAIProvider):
     
     PROVIDER_NAME = "gemini"
     
-    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None, model_info=None):
+    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None, model_info=None, require_pricing: bool = True):
         """
         Initialize the Gemini provider.
-        
+
         Args:
             api_key: The Google API key
             model: The model ID to use
             backend: The Google backend to use ('gemini' or 'vertexai')
             project_id: The Google Cloud project ID (required for Vertex AI)
+            require_pricing: Fast-fail on missing/unknown/stale price (see base).
         """
         self.backend = backend
         self.project_id = project_id
-        super().__init__(api_key, model, model_info=model_info)
+        super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
 
     def _initialize_client(self) -> None:
         """Initialize the Gemini client."""
@@ -335,8 +337,8 @@ class GeminiProvider(BaseAIProvider):
             
             return ai_response
             
-        except (AIOutputTruncatedError, AIContextLengthError):
-            raise  # Never swallow our own semantic errors
+        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+            raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
             error_message = str(e).lower()
             

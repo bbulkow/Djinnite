@@ -24,6 +24,7 @@ from .base_provider import (
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
+from .grok_provider import GrokProvider
 
 # Import config resolution and catalog loader.
 # _resolve_config_file checks the host project's config/ first, then falls
@@ -46,6 +47,7 @@ PROVIDERS = {
     "gemini": GeminiProvider,
     "claude": ClaudeProvider,
     "chatgpt": OpenAIProvider,
+    "grok": GrokProvider,
 }
 
 
@@ -178,6 +180,7 @@ __all__ = [
     "GeminiProvider",
     "ClaudeProvider",
     "OpenAIProvider",
+    "GrokProvider",
     "get_provider",
     "list_available_providers",
 ]

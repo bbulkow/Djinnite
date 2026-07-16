@@ -24,6 +24,12 @@
       "max_dimension_px": "inf",
       "max_images_per_request": "inf",
       "supported_formats": ["jpeg", "png", "gif", "webp"]
+    },
+    "grok": {
+      "max_image_bytes": 20971520,
+      "max_dimension_px": "inf",
+      "max_images_per_request": "inf",
+      "supported_formats": ["jpeg", "png"]
     }
   }
 }

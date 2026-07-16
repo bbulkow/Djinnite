@@ -24,6 +24,7 @@ try:
     from djinnite.ai_providers.gemini_provider import GeminiProvider
     from djinnite.ai_providers.claude_provider import ClaudeProvider
     from djinnite.ai_providers.openai_provider import OpenAIProvider
+    from djinnite.ai_providers.grok_provider import GrokProvider
 except ImportError:
     # Fallback for direct execution
     import sys
@@ -36,6 +37,7 @@ except ImportError:
     from ai_providers.gemini_provider import GeminiProvider
     from ai_providers.claude_provider import ClaudeProvider
     from ai_providers.openai_provider import OpenAIProvider
+    from ai_providers.grok_provider import GrokProvider
 
 # ============================================================================
 # POLICY: NO STATIC MODEL DATA IN PYTHON
@@ -765,7 +767,8 @@ def update_models():
     providers = {
         "gemini": GeminiProvider,
         "claude": ClaudeProvider,
-        "chatgpt": OpenAIProvider
+        "chatgpt": OpenAIProvider,
+        "grok": GrokProvider
     }
 
     # When --reprobe is provided, scope the provider iteration to the

@@ -1779,7 +1779,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-06-03",
+          "updated": "2026-07-16",
           "search_cost_per_unit": null,
           "pricing_class": "fixed",
           "pricing_class_source": "auto",
@@ -4419,7 +4419,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4539,7 +4539,7 @@
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
-          "search_cost_per_unit": null,
+          "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/models/gpt-5-mini"
@@ -4662,7 +4662,7 @@
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
-          "search_cost_per_unit": null,
+          "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/models/gpt-5-nano"
@@ -5020,7 +5020,7 @@
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
-          "search_cost_per_unit": null,
+          "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/models/gpt-5-pro"
@@ -5321,7 +5321,7 @@
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
-          "search_cost_per_unit": null,
+          "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1"
@@ -5446,7 +5446,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5758,7 +5758,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2"
+          "source_url": "https://platform.openai.com/docs/models/gpt-5.2"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5880,7 +5880,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+          "source_url": "https://platform.openai.com/docs/models/gpt-5.2-pro"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5940,7 +5940,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/deprecations"
+          "source_url": "https://openai.com/index/introducing-gpt-5-2/"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6574,7 +6574,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/deprecations"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 16384,
         "capabilities": {
@@ -6702,7 +6702,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-pro"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6952,7 +6952,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7077,7 +7077,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {

@@ -58,6 +58,7 @@ PROVIDER_COMPANIES = {
     "gemini": "Google Gemini",
     "claude": "Anthropic Claude",
     "chatgpt": "OpenAI ChatGPT",
+    "grok": "xAI Grok",
 }
 
 

@@ -114,10 +114,24 @@ def _classify_gemini(model_id: str, sibling_ids: Iterable[str]) -> PricingClass:
     return FIXED if has_numeric_version(model_id) else FLOATING
 
 
+def _classify_grok(model_id: str, sibling_ids: Iterable[str]) -> PricingClass:
+    # xAI ships versioned ids (grok-4, grok-4.5) and MMDD-stamped snapshots
+    # (grok-4-0709 -- NOT matched by the shared _DATE_PIN regex, which wants a
+    # year) alongside bare aliases (grok-4-fast). We have no confirmed evidence
+    # that xAI silently re-prices a stable id, so the conservative call is to
+    # pin every non-"-latest" id as fixed; the universal -latest rule (checked
+    # before this) already floats explicit aliases, and the 180-day staleness
+    # re-check upstream catches any quiet price cut. Revise to a dated-sibling
+    # rule (like _classify_chatgpt) if xAI's re-pricing behaviour is confirmed
+    # and the snapshot date format is taught to _DATE_PIN.
+    return FIXED
+
+
 _VENDOR_RULES = {
     "claude": _classify_claude,
     "chatgpt": _classify_chatgpt,
     "gemini": _classify_gemini,
+    "grok": _classify_grok,
 }
 
 

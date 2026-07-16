@@ -28,6 +28,15 @@
         "validation": "gpt-5-mini",
         "query": "gpt-5"
       }
+    },
+    "grok": {
+      "api_key": "your-xai-api-key-here",
+      "enabled": false,
+      "default_model": "grok-4.5",
+      "use_cases": {
+        "validation": "grok-4.5",
+        "query": "grok-4.5"
+      }
     }
   },
   "default_provider": "gemini"

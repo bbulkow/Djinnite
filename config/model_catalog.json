@@ -129,258 +129,6 @@
         }
       },
       {
-        "id": "gemini-2.0-flash",
-        "name": "Gemini 2.0 Flash",
-        "context_window": 1048576,
-        "max_output_tokens": 8192,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "deprecated by Google; use gemini-2.5-flash",
-        "costing": {
-          "score": 1.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.1,
-          "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.035,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gemini-2.0-flash-001",
-        "name": "Gemini 2.0 Flash 001",
-        "context_window": 1048576,
-        "max_output_tokens": 8192,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "deprecated by Google; use gemini-2.5-flash",
-        "costing": {
-          "score": 1.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.1,
-          "output_per_1m": 0.4,
-          "search_cost_per_unit": 0.035,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gemini-2.0-flash-lite-001",
-        "name": "Gemini 2.0 Flash-Lite 001",
-        "context_window": 1048576,
-        "max_output_tokens": 8192,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "deprecated by Google; use gemini-2.5-flash-lite",
-        "costing": {
-          "score": 0.5,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.075,
-          "output_per_1m": 0.3,
-          "search_cost_per_unit": 0.035,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gemini-2.0-flash-lite",
-        "name": "Gemini 2.0 Flash-Lite",
-        "context_window": 1048576,
-        "max_output_tokens": 8192,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "deprecated by Google; use gemini-2.5-flash-lite",
-        "costing": {
-          "score": 0.5,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.075,
-          "output_per_1m": 0.3,
-          "search_cost_per_unit": 0.035,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
         "id": "gemini-2.5-flash-preview-tts",
         "name": "Gemini 2.5 Flash Preview TTS",
         "context_window": 8192,
@@ -473,10 +221,10 @@
         "costing": {
           "score": 1.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.5,
-          "output_per_1m": 9.0,
+          "output_per_1m": 7.5,
           "search_cost_per_unit": 0.014,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -540,10 +288,10 @@
         "costing": {
           "score": 0.5,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
-          "input_per_1m": 0.25,
-          "output_per_1m": 1.5,
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
           "search_cost_per_unit": 0.014,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -607,7 +355,7 @@
         "costing": {
           "score": 4.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
@@ -753,71 +501,6 @@
           "json_with_search": null,
           "thinking_style": null,
           "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gemini-3-pro-preview",
-        "name": "Gemini 3 Pro Preview",
-        "context_window": 1048576,
-        "max_output_tokens": 65536,
-        "modalities": {
-          "input": [
-            "text",
-            "vision",
-            "audio",
-            "video"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 4.0,
-          "source": "estimated",
-          "updated": "2026-04-18",
-          "tier": "",
-          "input_per_1m": 2.0,
-          "output_per_1m": 12.0,
-          "search_cost_per_unit": 0.014,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "on"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "on",
-            "off"
-          ],
-          "thinking_style": [
-            "budget",
-            "effort"
-          ],
-          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": "inf",
@@ -1457,6 +1140,71 @@
         }
       },
       {
+        "id": "gemini-3.5-flash-lite",
+        "name": "Gemini 3.5 Flash Lite",
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 0.3,
+          "output_per_1m": 2.5,
+          "source": "published",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.014,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "any",
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "budget",
+            "effort"
+          ],
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gemini-omni-flash-preview",
         "name": "Gemini Omni Flash Preview",
         "context_window": 131072,
@@ -1514,6 +1262,71 @@
         }
       },
       {
+        "id": "gemini-3.6-flash",
+        "name": "Gemini 3.6 Flash",
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 1.5,
+          "output_per_1m": 7.5,
+          "source": "published",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.014,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "any",
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "budget",
+            "effort"
+          ],
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gemini-3.1-flash-tts-preview",
         "name": "Gemini 3.1 Flash TTS Preview",
         "context_window": 8192,
@@ -1547,9 +1360,9 @@
         "vision_limits": null
       },
       {
-        "id": "gemini-robotics-er-1.5-preview",
-        "name": "Gemini Robotics-ER 1.5 Preview",
-        "context_window": 1048576,
+        "id": "gemini-robotics-er-1.6-preview",
+        "name": "Gemini Robotics-ER 1.6 Preview",
+        "context_window": 131072,
         "max_output_tokens": 65536,
         "modalities": {
           "input": [
@@ -1560,16 +1373,12 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "robotics model",
         "costing": {
-          "score": 1.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
-          "search_cost_per_unit": null,
+          "source": "estimated",
+          "updated": "2026-04-18",
+          "search_cost_per_unit": 0.014,
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
@@ -1595,8 +1404,8 @@
         }
       },
       {
-        "id": "gemini-robotics-er-1.6-preview",
-        "name": "Gemini Robotics-ER 1.6 Preview",
+        "id": "gemini-robotics-er-2-preview",
+        "name": "Gemini Robotics-ER 2 Preview",
         "context_window": 131072,
         "max_output_tokens": 65536,
         "modalities": {
@@ -1609,13 +1418,14 @@
           ]
         },
         "costing": {
-          "input_per_1m": 0.3,
-          "output_per_1m": 2.5,
-          "source": "estimated",
-          "updated": "2026-04-18",
-          "search_cost_per_unit": 0.014,
+          "input_per_1m": 2.0,
+          "output_per_1m": 10.0,
+          "source": "published",
+          "updated": "2026-08-11",
           "pricing_class": "fixed",
-          "pricing_class_source": "auto"
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
         },
         "capabilities": {
           "structured_json": null,
@@ -1779,7 +1589,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "search_cost_per_unit": null,
           "pricing_class": "fixed",
           "pricing_class_source": "auto",
@@ -1997,6 +1807,51 @@
         }
       },
       {
+        "id": "gemini-robotics-er-2-streaming-preview",
+        "name": "Gemini Robotics-ER 2 Streaming Preview",
+        "context_window": 131072,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 2.0,
+          "output_per_1m": 10.0,
+          "source": "published",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gemini-3.5-live-translate-preview",
         "name": "Gemini 3.5 Live Translate Preview",
         "context_window": 16384,
@@ -2046,10 +1901,70 @@
         }
       }
     ],
-    "last_updated": "2026-07-16"
+    "last_updated": "2026-08-11"
   },
   "claude": {
     "models": [
+      {
+        "id": "claude-opus-5",
+        "name": "Claude Opus 5",
+        "context_window": 200000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 5.0,
+          "output_per_1m": 25.0,
+          "source": "published",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.01,
+          "source_url": "https://www.anthropic.com/pricing"
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "adaptive"
+          ],
+          "incompatible": [
+            {
+              "thinking": "on",
+              "structured_json": "on"
+            },
+            {
+              "thinking": "on",
+              "web_search": "on"
+            }
+          ]
+        },
+        "vision_limits": null
+      },
       {
         "id": "claude-sonnet-5",
         "name": "Claude Sonnet 5",
@@ -2108,7 +2023,17 @@
             }
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "claude-fable-5",
@@ -2168,7 +2093,17 @@
             }
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "claude-opus-4-8",
@@ -2649,77 +2584,9 @@
             "webp"
           ]
         }
-      },
-      {
-        "id": "claude-opus-4-1-20250805",
-        "name": "Claude Opus 4.1",
-        "context_window": 200000,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "score": 75.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 15.0,
-          "output_per_1m": 75.0,
-          "search_cost_per_unit": 0.01,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 32000,
-        "capabilities": {
-          "structured_json": [
-            "on",
-            "off"
-          ],
-          "temperature": [
-            "any",
-            "default"
-          ],
-          "thinking": [
-            "on",
-            "off"
-          ],
-          "web_search": [
-            "on",
-            "off"
-          ],
-          "json_with_search": [
-            "on",
-            "off"
-          ],
-          "thinking_style": [
-            "budget"
-          ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
-        },
-        "vision_limits": {
-          "max_image_bytes": 5242880,
-          "max_dimension_px": 8000,
-          "max_images_per_request": 100,
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
       }
     ],
-    "last_updated": "2026-07-16"
+    "last_updated": "2026-08-11"
   },
   "chatgpt": {
     "models": [
@@ -3914,14 +3781,14 @@
         "costing": {
           "score": 26.67,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -4033,14 +3900,14 @@
         "costing": {
           "score": 5.33,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-mini"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -4150,14 +4017,14 @@
         "costing": {
           "score": 1.33,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-nano"
         },
         "max_output_tokens": 32768,
         "capabilities": {
@@ -4293,19 +4160,18 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5-chat-latest"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5"
         },
         "max_output_tokens": 16384,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
@@ -4412,14 +4278,14 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4535,7 +4401,7 @@
         "costing": {
           "score": 3.33,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
@@ -4658,7 +4524,7 @@
         "costing": {
           "score": 0.67,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
@@ -5016,7 +4882,7 @@
         "costing": {
           "score": 400.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
@@ -5220,43 +5086,6 @@
         "vision_limits": null
       },
       {
-        "id": "gpt-realtime-mini-2025-10-06",
-        "name": "gpt-realtime-mini-2025-10-06",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "realtime dated snapshot",
-        "costing": {
-          "score": 2.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.6,
-          "output_per_1m": 2.4,
-          "search_cost_per_unit": null,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
         "id": "gpt-5-search-api-2025-10-14",
         "name": "gpt-5-search-api-2025-10-14",
         "context_window": 128000,
@@ -5317,19 +5146,18 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest"
         },
         "max_output_tokens": 16384,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
@@ -5339,11 +5167,9 @@
             "off"
           ],
           "web_search": [
-            "on",
             "off"
           ],
           "json_with_search": [
-            "on",
             "off"
           ],
           "thinking_style": null,
@@ -5439,7 +5265,7 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -5751,14 +5577,14 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://platform.openai.com/docs/models/gpt-5.2"
+          "source_url": "https://openai.com/index/introducing-gpt-5-2/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5873,14 +5699,14 @@
         "costing": {
           "score": 504.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://platform.openai.com/docs/models/gpt-5.2-pro"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5933,19 +5759,18 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://openai.com/index/introducing-gpt-5-2/"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 16384,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
@@ -5955,11 +5780,9 @@
             "off"
           ],
           "web_search": [
-            "on",
             "off"
           ],
           "json_with_search": [
-            "on",
             "off"
           ],
           "thinking_style": null,
@@ -6567,7 +6390,7 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
@@ -6579,7 +6402,6 @@
         "max_output_tokens": 16384,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
@@ -6589,11 +6411,9 @@
             "off"
           ],
           "web_search": [
-            "on",
             "off"
           ],
           "json_with_search": [
-            "on",
             "off"
           ],
           "thinking_style": null,
@@ -6695,14 +6515,14 @@
         "costing": {
           "score": 560.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-pro"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6820,7 +6640,7 @@
         "costing": {
           "score": 46.67,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
@@ -6948,7 +6768,7 @@
           "input_per_1m": 0.2,
           "output_per_1m": 1.25,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7073,7 +6893,7 @@
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7223,7 +7043,7 @@
           "input_per_1m": 5.0,
           "output_per_1m": 30.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7344,7 +7164,7 @@
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "source": "published",
-          "updated": "2026-07-16",
+          "updated": "2026-08-11",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7597,7 +7417,17 @@
           ],
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.6-terra",
@@ -7648,7 +7478,17 @@
           ],
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-5.6-luna",
@@ -7699,7 +7539,17 @@
           ],
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "gpt-realtime-2.1",
@@ -7772,8 +7622,76 @@
           "incompatible": null
         },
         "vision_limits": null
+      },
+      {
+        "id": "gpt-transcribe",
+        "name": "gpt-transcribe",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-live-transcribe",
+        "name": "gpt-live-transcribe",
+        "context_window": 128000,
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "incompatible": null
+        },
+        "vision_limits": null
       }
     ],
-    "last_updated": "2026-07-16"
+    "last_updated": "2026-08-11"
   }
 }

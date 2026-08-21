@@ -60,15 +60,16 @@ def _stale_date() -> str:
     return (date.today() - timedelta(days=200)).isoformat()
 
 
-def test_fast_fail_offline() -> bool:
+def _check_fast_fail_offline() -> list:
     """Cost computation fast-fails on missing/unknown/stale price; computes when fresh."""
     print("  [fast_fail] missing/unknown/stale/fresh/lenient...", end=" ", flush=True)
+    fails = []
     usage = {"input_tokens": 1000, "output_tokens": 1000}
 
     # 1. No price -> raise.
     p = _make_provider(ModelCosting(source="failed"))
     try:
-        p._compute_token_cost(dict(usage)); print("FAIL (no raise on missing)"); return False
+        p._compute_token_cost(dict(usage)); fails.append("no raise on missing price")
     except AIPricingError:
         pass
 
@@ -76,7 +77,7 @@ def test_fast_fail_offline() -> bool:
     p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
                                     source="unknown", updated=_fresh_today()))
     try:
-        p._compute_token_cost(dict(usage)); print("FAIL (no raise on unknown)"); return False
+        p._compute_token_cost(dict(usage)); fails.append("no raise on source=unknown")
     except AIPricingError:
         pass
 
@@ -84,7 +85,7 @@ def test_fast_fail_offline() -> bool:
     p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
                                     source="estimated", updated=_stale_date()))
     try:
-        p._compute_token_cost(dict(usage)); print("FAIL (no raise on stale)"); return False
+        p._compute_token_cost(dict(usage)); fails.append("no raise on stale price")
     except AIPricingError:
         pass
 
@@ -94,24 +95,24 @@ def test_fast_fail_offline() -> bool:
     u = dict(usage)
     p._compute_token_cost(u)
     if u.get("token_cost") is None or u["token_cost"] <= 0:
-        print(f"FAIL (fresh price did not compute: {u.get('token_cost')})"); return False
+        fails.append(f"fresh price did not compute: {u.get('token_cost')}")
 
     # 5. require_pricing=False + unknown -> no raise, no token_cost.
     p = _make_provider(ModelCosting(source="unknown"), require_pricing=False)
     u = dict(usage)
     p._compute_token_cost(u)
     if u.get("token_cost") is not None:
-        print("FAIL (lenient mode produced a cost)"); return False
+        fails.append("lenient mode produced a cost")
 
-    print("OK")
-    return True
+    print("OK" if not fails else "FAIL")
+    return fails
 
 
 # ------------------------------------------------------------------
 # Test definitions
 # ------------------------------------------------------------------
 
-def test_token_cost(provider, provider_name: str) -> bool:
+def _check_token_cost(provider, provider_name: str) -> bool:
     """
     Test 1: Basic generate() returns token_cost and total_cost.
     """
@@ -143,7 +144,7 @@ def test_token_cost(provider, provider_name: str) -> bool:
         return False
 
 
-def test_search_cost(provider, provider_name: str) -> bool:
+def _check_search_cost(provider, provider_name: str) -> bool:
     """
     Test 2: generate(web_search=True) returns search_cost > 0.
     """
@@ -188,19 +189,30 @@ def test_search_cost(provider, provider_name: str) -> bool:
         return False
 
 
-def test_thinking_cost(provider, provider_name: str) -> bool:
+def _check_thinking_cost(provider, provider_name: str) -> bool:
     """
     Test 3 (Claude only): generate(thinking=True) bills thinking tokens.
     """
     if provider_name != "claude":
         return True  # Skip for non-Claude
 
-    print(f"  [thinking_cost] Sending thinking request...", end=" ", flush=True)
+    # Claude models take different thinking shapes and reject the others
+    # outright: an int budget only works where thinking_style includes
+    # "budget". thinking=True is the one form every thinking-capable model
+    # accepts, so ask for it that way rather than hardcoding a budget.
+    thinking_arg = True
+    info = getattr(provider, "_model_info", None)
+    styles = info.capabilities.thinking_style if info and info.capabilities else None
+    if styles and "budget" in styles:
+        thinking_arg = 1024
+
+    print(f"  [thinking_cost] Sending thinking request (thinking={thinking_arg})...",
+          end=" ", flush=True)
 
     try:
         response = provider.generate(
             "What is 2+2? Think step by step.",
-            thinking=1024,
+            thinking=thinking_arg,
             max_output_tokens=4096,
         )
 
@@ -238,6 +250,31 @@ def test_thinking_cost(provider, provider_name: str) -> bool:
 # Main
 # ------------------------------------------------------------------
 
+# ------------------------------------------------------------------
+# pytest entry points
+#   * offline test runs always
+#   * live tests use the `provider` fixture (tests/conftest.py) and are
+#     skipped unless you pass --live
+# ------------------------------------------------------------------
+
+def test_fast_fail_offline():
+    """Cost computation fast-fails on missing/unknown/stale price."""
+    fails = _check_fast_fail_offline()
+    assert not fails, "pricing fast-fail regressions:\n  " + "\n  ".join(fails)
+
+
+def test_token_cost(provider, provider_name):
+    assert _check_token_cost(provider, provider_name)
+
+
+def test_search_cost(provider, provider_name):
+    assert _check_search_cost(provider, provider_name)
+
+
+def test_thinking_cost(provider, provider_name):
+    assert _check_thinking_cost(provider, provider_name)
+
+
 def run_costing_tests():
     parser = argparse.ArgumentParser(description="Test cost tracking across AI providers")
     parser.add_argument("--provider", type=str, help="Test only this provider (gemini/claude/chatgpt)")
@@ -260,7 +297,7 @@ def run_costing_tests():
 
     # Offline fast-fail behavior (no API keys needed).
     print("\noffline fast-fail:")
-    if test_fast_fail_offline():
+    if not _check_fast_fail_offline():
         total_pass += 1
     else:
         total_fail += 1
@@ -297,19 +334,19 @@ def run_costing_tests():
             continue
 
         # Test 1: Token cost
-        if test_token_cost(provider, name):
+        if _check_token_cost(provider, name):
             total_pass += 1
         else:
             total_fail += 1
 
         # Test 2: Search cost
-        if test_search_cost(provider, name):
+        if _check_search_cost(provider, name):
             total_pass += 1
         else:
             total_fail += 1
 
         # Test 3: Thinking cost (Claude only)
-        if test_thinking_cost(provider, name):
+        if _check_thinking_cost(provider, name):
             total_pass += 1
         else:
             total_fail += 1

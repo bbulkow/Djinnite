@@ -68,7 +68,12 @@ class ClaudeProvider(BaseAIProvider):
     """
     
     PROVIDER_NAME = "claude"
-    
+
+    # Claude's effort vocabulary is not the cross-provider default: it has no
+    # "minimal", and adds "xhigh" and "max". The API rejects anything else
+    # with "should be 'low', 'medium', 'high', 'xhigh' or 'max'".
+    _EFFORT_LEVELS: frozenset = frozenset({"low", "medium", "high", "xhigh", "max"})
+
     def _initialize_client(self) -> None:
         """Initialize the Anthropic client."""
         try:
@@ -172,28 +177,53 @@ class ClaudeProvider(BaseAIProvider):
         if thinking is None or thinking is False:
             return None
 
-        # str must not reach here for Claude (caught upstream by
-        # _resolve_thinking against the model's thinking_style). Defense
-        # in depth — surface a clear local error rather than emitting a
-        # malformed Claude request.
+        # An effort level is not a thinking block at all on Claude: it rides
+        # in ``output_config.effort``. Return None here and let
+        # _build_claude_effort() carry it. _resolve_thinking has already
+        # rejected str on models whose thinking_style lacks "effort".
         if isinstance(thinking, str):
-            raise ValueError(
-                f"thinking=str (effort level) is not supported on Claude "
-                f"model '{self.model}'. Claude's thinking block accepts "
-                f"only an integer budget_tokens. Pass an int, True, "
-                f"False, or None."
-            )
+            return None
 
-        # Determine thinking style from catalog. Priority: adaptive > budget.
-        style = "adaptive"
+        # Pick the block shape. The two Claude thinking shapes take
+        # different fields and are not interchangeable:
+        #
+        #   {"type": "adaptive"}                       - model sizes its own
+        #                                                reasoning; accepts NO
+        #                                                budget_tokens.
+        #   {"type": "enabled", "budget_tokens": N}    - explicit budget,
+        #                                                1024 <= N < max_tokens.
+        #
+        # An explicit int budget therefore *requires* the "enabled" shape;
+        # sending budget_tokens on an adaptive block is rejected outright
+        # ("thinking.adaptive.budget_tokens: Extra inputs are not
+        # permitted"). thinking=True has no budget to honor, so it prefers
+        # adaptive wherever the model offers it -- Anthropic deprecated
+        # "enabled" on adaptive-capable models.
+        #
+        # An int reaching this point is already known to be legal:
+        # _resolve_thinking rejects int on models whose thinking_style
+        # lacks "budget".
         styles = self._model_info.capabilities.thinking_style if self._model_info else None
-        if styles:
-            if "adaptive" in styles:
-                style = "adaptive"
-            elif "budget" in styles:
-                style = "budget"
+        wants_explicit_budget = thinking is not True
 
-        # Compute budget_tokens
+        if wants_explicit_budget:
+            style = "budget"
+        elif styles and "adaptive" in styles:
+            style = "adaptive"
+        elif styles and "budget" in styles:
+            style = "budget"
+        else:
+            # No catalog entry: adaptive is the current default shape and
+            # the only one that needs no budget to be well-formed.
+            style = "adaptive"
+
+        if style == "adaptive":
+            # No budget_tokens, and no max_output_tokens invariant to
+            # enforce -- the model allocates its own reasoning within the
+            # output cap.
+            return {"type": "adaptive"}
+
+        # Budget shape: compute or accept budget_tokens.
         if thinking is True:
             budget = self._get_max_thinking_budget(max_output_tokens)
         else:
@@ -212,8 +242,22 @@ class ClaudeProvider(BaseAIProvider):
                 f"budget or raise max_output_tokens."
             )
 
-        thinking_type = "adaptive" if style == "adaptive" else "enabled"
-        return {"type": thinking_type, "budget_tokens": budget}
+        return {"type": "enabled", "budget_tokens": budget}
+
+    def _build_claude_effort(self, thinking) -> Optional[str]:
+        """Extract the ``output_config.effort`` level, if the caller asked for one.
+
+        Claude carries reasoning effort in ``output_config``, alongside the
+        structured-output ``format`` key -- not in the ``thinking`` block.
+        The two compose: a request may set both an effort level and an
+        adaptive thinking block.
+
+        Returns the level string, or ``None`` when the caller did not pass
+        an effort level.
+        """
+        if isinstance(thinking, str):
+            return thinking
+        return None
 
     # ------------------------------------------------------------------
     # Multi-turn continuation for server-side tools (e.g. web_search)
@@ -392,7 +436,12 @@ class ClaudeProvider(BaseAIProvider):
             if temperature is not None:
                 effective_temp = self._resolve_temperature(temperature, thinking_active)
                 if effective_temp is not None:
-                    kwargs["temperature"] = effective_temp
+                    # anthropic>=1.0 dropped temperature/top_p/top_k from the
+                    # messages.create()/stream() signatures -- passing them is
+                    # a TypeError. The API still honors the parameter, so it
+                    # goes through extra_body, which the SDK merges into the
+                    # request JSON verbatim. See the SDK's MIGRATION.md.
+                    kwargs["extra_body"] = {"temperature": effective_temp}
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -400,6 +449,13 @@ class ClaudeProvider(BaseAIProvider):
             # Thinking: add the provider-native thinking block
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
+
+            # Effort rides in output_config, not the thinking block. Merge
+            # rather than assign -- output_config also carries `format` for
+            # constraint decoding.
+            effort = self._build_claude_effort(thinking)
+            if effort is not None:
+                kwargs.setdefault("output_config", {})["effort"] = effort
 
             # Web search: catalog decides support.
             if web_search:
@@ -639,7 +695,12 @@ class ClaudeProvider(BaseAIProvider):
             if temperature is not None:
                 effective_temp = self._resolve_temperature(temperature, thinking_active)
                 if effective_temp is not None:
-                    kwargs["temperature"] = effective_temp
+                    # anthropic>=1.0 dropped temperature/top_p/top_k from the
+                    # messages.create()/stream() signatures -- passing them is
+                    # a TypeError. The API still honors the parameter, so it
+                    # goes through extra_body, which the SDK merges into the
+                    # request JSON verbatim. See the SDK's MIGRATION.md.
+                    kwargs["extra_body"] = {"temperature": effective_temp}
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -647,6 +708,12 @@ class ClaudeProvider(BaseAIProvider):
             # Thinking block
             if thinking_block is not None:
                 kwargs["thinking"] = thinking_block
+
+            # Effort shares output_config with the constraint-decoding
+            # `format` key set above, so merge into it.
+            effort = self._build_claude_effort(thinking)
+            if effort is not None:
+                kwargs.setdefault("output_config", {})["effort"] = effort
 
             # Web search: combine output_config (constraint decoding) with
             # web_search tool in the same request — native JSON + search.
@@ -747,7 +814,7 @@ class ClaudeProvider(BaseAIProvider):
             return False
         
         try:
-            self._client.count_tokens(
+            self._client.messages.count_tokens(
                 model=self.model,
                 messages=[{"role": "user", "content": "test"}]
             )
@@ -802,7 +869,8 @@ class ClaudeProvider(BaseAIProvider):
         """
         try:
             self._client.messages.create(
-                model=self.model, max_tokens=10, temperature=0.5,
+                model=self.model, max_tokens=10,
+                extra_body={"temperature": 0.5},
                 messages=[{"role": "user", "content": "Say hi."}],
             )
             return True
@@ -824,7 +892,7 @@ class ClaudeProvider(BaseAIProvider):
             "messages": [{"role": "user", "content": "Say hi."}],
         }
         if active_states.get("temperature") == "any":
-            kwargs["temperature"] = 0.5
+            kwargs["extra_body"] = {"temperature": 0.5}
         if active_states.get("thinking") == "on":
             # Use "enabled" (budget) — every thinking-capable Claude
             # accepts it. budget_tokens (1024) < max_tokens (2048) to

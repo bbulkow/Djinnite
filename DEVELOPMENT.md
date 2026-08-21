@@ -28,7 +28,8 @@ in `pyproject.toml`. You only need to run this once (or after `uv lock --upgrade
 # Quick reference — full setup from scratch:
 uv sync --extra dev                              # Install all deps + dev tools
 uv run python -m djinnite.scripts.validate_ai    # Verify API keys & connectivity
-uv run pytest tests/ -v                           # Run unit tests
+uv run pytest tests/ -v                           # Offline tests (free, no keys)
+uv run pytest tests/ -v --live                    # Adds live provider tests (costs tokens)
 ```
 
 ## ⚠️ This is a Shared Package — Breaking Changes Affect Multiple Projects
@@ -216,7 +217,7 @@ before any API call is made. The caller introspects
 
 | Provider | `True` → "let the model decide" | `int` budget | `str` effort | `False` → disable | `None` → |
 |---|---|---|---|---|---|
-| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` at max budget)* | `thinking={"type": "enabled", "budget_tokens": N}` | **`ValueError`** — Claude is budget-only | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
+| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` with a budget sized to leave room for output)* | `thinking={"type": "enabled", "budget_tokens": N}` *(requires `"budget"` in `thinking_style`)* | `output_config={"effort": "low"\|"medium"\|"high"\|"xhigh"\|"max"}` *(requires `"effort"`; **not** a `thinking` block, and no `"minimal"`)* | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
 | **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | `thinking_config={"thinking_level": ThinkingLevel.<UPPER>}` *(native enum)* | `thinking_config={"thinking_budget": 0}` | omit (model default) |
 | **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | **`ValueError`** — OpenAI is effort-only | `reasoning={"effort": "minimal"\|"low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
 
@@ -443,6 +444,7 @@ class ModelCapabilities:
     web_search:       Optional[list[str]] = None   # subset of {"on","off"}
     json_with_search: Optional[list[str]] = None   # subset of {"on","off"}
     thinking_style:   Optional[list[str]] = None   # subset of {"adaptive","budget","effort"}
+    effort_levels:    Optional[list[str]] = None   # subset of {"minimal","low","medium","high","xhigh","max"}
     incompatible:     Optional[list[dict[str, str]]] = None  # forbidden cross-capability combos
 ```
 

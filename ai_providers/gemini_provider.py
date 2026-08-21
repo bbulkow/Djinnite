@@ -21,6 +21,16 @@ from .base_provider import (
 )
 
 
+# google-genai >=2.18 logs a warning on every direct ``models.generate_content``
+# call that leaves automatic function calling (AFC) enabled, steering callers
+# toward ``Chat.send_message``. AFC is a client-side loop that auto-executes
+# Python callables across multiple round trips; Djinnite is a single-shot
+# wrapper and registers no callable tools (``google_search`` is a server-side
+# tool), so AFC is inapplicable. Disabling it takes the SDK's early-return path
+# -- skipping machinery we never use, and the warning with it.
+_DISABLE_AFC = {"disable": True}
+
+
 class GeminiProvider(BaseAIProvider):
     """
     Google Gemini AI provider implementation.
@@ -233,7 +243,7 @@ class GeminiProvider(BaseAIProvider):
             max_output_tokens = self._resolve_max_output_tokens(max_output_tokens)
 
             # Build configuration
-            config = {}
+            config = {"automatic_function_calling": _DISABLE_AFC}
             if effective_temp is not None:
                 config["temperature"] = effective_temp
             if max_output_tokens:
@@ -471,6 +481,7 @@ class GeminiProvider(BaseAIProvider):
             config = {
                 "response_mime_type": "application/json",
                 "response_schema": json_schema,
+                "automatic_function_calling": _DISABLE_AFC,
             }
 
             # Auto-fill max_output_tokens from catalog if caller didn't provide one.
@@ -664,7 +675,8 @@ class GeminiProvider(BaseAIProvider):
         """
         from google.genai import types  # local import: SDK presence checked at init
 
-        config: dict = {"max_output_tokens": 2048}
+        config: dict = {"max_output_tokens": 2048,
+                        "automatic_function_calling": _DISABLE_AFC}
         if active_states.get("temperature") == "any":
             config["temperature"] = 0.5
         if active_states.get("thinking") == "on":

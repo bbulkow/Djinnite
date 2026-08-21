@@ -33,7 +33,7 @@ YESTERDAY = (datetime.now() - timedelta(days=1)).strftime("%B %d, %Y")
 # Test definitions
 # ------------------------------------------------------------------
 
-def test_freeform_web_search(provider, provider_name: str) -> bool:
+def _check_freeform_web_search(provider, provider_name: str) -> bool:
     """
     Test 1: Freeform text generation with web search.
     
@@ -52,17 +52,17 @@ def test_freeform_web_search(provider, provider_name: str) -> bool:
         if content and len(content) > 5:
             # Show a snippet of the response
             snippet = content[:80].replace("\n", " ")
-            print(f"✅ ({snippet}...)")
+            print(f"[OK] ({snippet}...)")
             return True
         else:
-            print(f"❌ Empty or too-short response: '{content}'")
+            print(f"[FAIL] Empty or too-short response: '{content}'")
             return False
     except AIOutputTruncatedError:
         # Truncation with web search is still a success — the API worked
-        print("✅ (truncated but API worked)")
+        print("[OK] (truncated but API worked)")
         return True
     except Exception as e:
-        print(f"❌ {e}")
+        print(f"[FAIL] {e}")
         return False
 
 
@@ -76,7 +76,7 @@ _JSON_SEARCH_KNOWN_LIMITATIONS = set()
 _GEMINI_JSON_SEARCH_MODEL = "gemini-3-flash-preview"
 
 
-def test_structured_web_search(provider, provider_name: str) -> bool:
+def _check_structured_web_search(provider, provider_name: str) -> bool:
     """
     Test 2: Structured JSON generation with web search.
     
@@ -116,31 +116,55 @@ def test_structured_web_search(provider, provider_name: str) -> bool:
         parsed = json.loads(content)
         headlines = parsed.get("headlines", [])
         if isinstance(headlines, list) and len(headlines) > 0:
-            print(f"✅ ({len(headlines)} headlines returned)")
+            print(f"[OK] ({len(headlines)} headlines returned)")
             return True
         else:
-            print(f"❌ JSON parsed but no headlines: {content[:60]}")
+            print(f"[FAIL] JSON parsed but no headlines: {content[:60]}")
             return False
     except AIOutputTruncatedError:
-        print("✅ (truncated but API worked)")
+        print("[OK] (truncated but API worked)")
         return True
     except json.JSONDecodeError as e:
         if provider_name in _JSON_SEARCH_KNOWN_LIMITATIONS:
-            print(f"⚠️  Expected limitation: JSON+search not combined ({provider_name})")
+            print(f"[WARN]  Expected limitation: JSON+search not combined ({provider_name})")
             return True  # Known limitation, not a failure
-        print(f"❌ Invalid JSON: {e}")
+        print(f"[FAIL] Invalid JSON: {e}")
         return False
     except Exception as e:
         if provider_name in _JSON_SEARCH_KNOWN_LIMITATIONS:
-            print(f"⚠️  Expected limitation: JSON+search not combined ({provider_name})")
+            print(f"[WARN]  Expected limitation: JSON+search not combined ({provider_name})")
             return True  # Known limitation, not a failure
-        print(f"❌ {e}")
+        print(f"[FAIL] {e}")
         return False
 
 
 # ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# pytest entry points -- live only; skipped unless --live is passed.
+# ------------------------------------------------------------------
+
+def test_freeform_web_search(provider, provider_name):
+    assert _check_freeform_web_search(provider, provider_name)
+
+
+def test_structured_web_search(provider, provider_name, ai_config):
+    """JSON + web search combined.
+
+    Gemini 2.x cannot combine structured output with grounding, so this test
+    switches to a 3.x model for Gemini -- mirroring run_web_search_tests().
+    """
+    target = provider
+    if provider_name == "gemini" and not provider.model.startswith("gemini-3"):
+        p_config = ai_config.get_provider("gemini")
+        target = get_provider(
+            "gemini", api_key=p_config.api_key, model=_GEMINI_JSON_SEARCH_MODEL,
+            backend=p_config.backend, project_id=p_config.project_id,
+        )
+    assert _check_structured_web_search(target, provider_name)
+
 
 def run_web_search_tests():
     parser = argparse.ArgumentParser(description="Test web search across AI providers")
@@ -155,7 +179,7 @@ def run_web_search_tests():
     if args.provider:
         provider_names = [args.provider]
 
-    print(f"\nDjinnite Web Search Test — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\nDjinnite Web Search Test -- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Test date: {YESTERDAY}")
     print("=" * 60)
 
@@ -165,7 +189,7 @@ def run_web_search_tests():
     for name in provider_names:
         p_config = config.get_provider(name)
         if not p_config or not p_config.api_key:
-            print(f"\n{name}: ⚪ Not configured (skipping)")
+            print(f"\n{name}: [--] Not configured (skipping)")
             continue
 
         print(f"\n{name} ({p_config.default_model}):")
@@ -178,12 +202,12 @@ def run_web_search_tests():
 
             provider = get_provider(name, api_key=p_config.api_key, model=p_config.default_model, **kwargs)
         except Exception as e:
-            print(f"  ❌ Provider init failed: {e}")
+            print(f"  [FAIL] Provider init failed: {e}")
             total_fail += 2
             continue
 
         # Test 1: Freeform
-        if test_freeform_web_search(provider, name):
+        if _check_freeform_web_search(provider, name):
             total_pass += 1
         else:
             total_fail += 1
@@ -199,9 +223,9 @@ def run_web_search_tests():
                     name, api_key=p_config.api_key, model=_GEMINI_JSON_SEARCH_MODEL, **kwargs
                 )
             except Exception as e:
-                print(f"  ⚠️  Could not init {_GEMINI_JSON_SEARCH_MODEL}: {e}")
+                print(f"  [WARN]  Could not init {_GEMINI_JSON_SEARCH_MODEL}: {e}")
 
-        if test_structured_web_search(json_search_provider, name):
+        if _check_structured_web_search(json_search_provider, name):
             total_pass += 1
         else:
             total_fail += 1

@@ -36,6 +36,13 @@ WEB_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
 JSON_WITH_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
 TEMPERATURE_STATES: Final[tuple[str, ...]] = ("any", "default")
 THINKING_STYLE_VALUES: Final[tuple[str, ...]] = ("adaptive", "budget", "effort")
+# Union of every provider's effort vocabulary. A model's `effort_levels`
+# is the subset it actually accepts -- these differ *within* a provider
+# (Claude Opus 4.5 stops at "high"; Opus 5 goes to "max"), which is why
+# the provider-wide set alone cannot pre-flight a request.
+EFFORT_LEVEL_VALUES: Final[tuple[str, ...]] = (
+    "minimal", "low", "medium", "high", "xhigh", "max",
+)
 
 
 # Maps each "activatable" capability to the state token that means "the
@@ -386,6 +393,13 @@ class ModelCapabilities:
         thinking_style: Subset of ``THINKING_STYLE_VALUES``. Identifies the
             provider-native thinking param style(s) the model accepts; a
             single model may support multiple (Claude 4.7: adaptive+budget).
+        effort_levels: The effort strings this model accepts, when
+            ``thinking_style`` contains ``"effort"``. Levels vary per model
+            within a provider -- Claude Opus 4.5 takes low/medium/high while
+            Opus 5 also takes xhigh/max -- so the provider-wide vocabulary
+            is not sufficient to pre-flight a request. ``None`` means
+            unknown (no pre-flight); the provider vocabulary is used as the
+            only check.
         incompatible: List of forbidden capability-state combinations.
             Each entry is a ``dict[str, str]`` mapping capability name to
             state token (from that capability's vocabulary). Semantics:
@@ -402,6 +416,7 @@ class ModelCapabilities:
     web_search: Optional[list[str]] = None
     json_with_search: Optional[list[str]] = None
     thinking_style: Optional[list[str]] = None
+    effort_levels: Optional[list[str]] = None
     incompatible: Optional[list[dict[str, str]]] = None
 
 
@@ -610,6 +625,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                     web_search=_coerce_states(raw_caps.get("web_search"), ON_OFF_STATES),
                     json_with_search=_coerce_states(raw_caps.get("json_with_search"), ON_OFF_STATES),
                     thinking_style=_coerce_states(raw_caps.get("thinking_style"), THINKING_STYLE_VALUES),
+                    effort_levels=_coerce_states(raw_caps.get("effort_levels"), EFFORT_LEVEL_VALUES),
                     incompatible=_coerce_incompatible(raw_caps.get("incompatible")),
                 )
             else:

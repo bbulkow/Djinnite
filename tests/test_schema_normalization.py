@@ -14,12 +14,20 @@ No API keys or network calls required — pure unit tests.
 
 import copy
 import json
+import sys
+from pathlib import Path
+
 import pytest
 
-from ai_providers.base_provider import BaseAIProvider
-from ai_providers.openai_provider import OpenAIProvider
-from ai_providers.gemini_provider import GeminiProvider
-from ai_providers.claude_provider import ClaudeProvider
+# Support direct execution (adds project root to path)
+_project_root = str(Path(__file__).parent.parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+from djinnite.ai_providers.base_provider import BaseAIProvider
+from djinnite.ai_providers.openai_provider import OpenAIProvider
+from djinnite.ai_providers.gemini_provider import GeminiProvider
+from djinnite.ai_providers.claude_provider import ClaudeProvider
 
 
 # ---------------------------------------------------------------------------

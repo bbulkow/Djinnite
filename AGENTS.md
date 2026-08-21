@@ -60,6 +60,48 @@ and any string written to stdout/stderr from code in this repo.
 (Markdown docs and JSON catalog values are unaffected — the rule is
 specifically about runtime Python output.)
 
+### Fix "pre-existing" test failures before starting new work
+
+When a test fails, errors during collection, or is skipped for a reason that
+isn't purely environmental, treat it as a real defect — fix it *before*
+embarking on the feature or upgrade you came here to do. Do not work around it,
+do not route around it with flags or `--ignore`, and do not write it off as
+"pre-existing" and move on. A red suite you inherit is still a red suite you
+ship.
+
+"Error collecting" is a failure, not a warning. It means pytest never ran those
+tests at all, so their result is unknown rather than passing.
+
+Two failure modes this repo has actually hit, both of which report green:
+
+* **A test that `return`s instead of asserting.** pytest ignores the return
+  value, so a function that returns a count of 99 failures still reports PASS.
+  `filterwarnings = ["error::pytest.PytestReturnNotNoneWarning"]` in
+  `pyproject.toml` now turns this into a hard error — leave it enabled.
+* **A module that fails to import.** The whole file is skipped with a
+  collection error while the summary line still says "N passed".
+
+The bar for finishing: `uv run pytest tests/` reports zero failures and zero
+errors, and the count of collected tests is the count you expect.
+
+### Anthropic's `models.list()` reports capabilities for free
+
+`client.models.list()` now returns a `capabilities` block per model —
+`thinking.types.{adaptive,enabled}.supported`, `effort.{low,medium,high,xhigh,max}`,
+`max_input_tokens`, `max_tokens`, `structured_outputs`, `image_input`, and more.
+Verified against live probing: it matched on all 10 Claude models.
+
+Prefer it over `update_models --reprobe` for anything it covers. Reprobing
+spends real tokens across three providers to rediscover facts one free,
+unauthenticated-cost list call already states. Probing is still needed for
+what the API does not report — notably cross-capability `incompatible`
+combinations.
+
+This is also how the catalog drifted: `context_window` sat at 200000 for
+eight Claude models the API reports as 1000000, and the `effort` capability
+was absent entirely, so `thinking="high"` was rejected on every Claude
+despite eight models supporting it.
+
 ### Risky actions still need confirmation
 
 `uv run python -m djinnite.scripts.update_models --reprobe all` makes live

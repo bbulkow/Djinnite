@@ -27,7 +27,7 @@ def probe_beta_access():
     claude_config = ai_config.get_provider("claude")
     
     if not claude_config or not claude_config.api_key:
-        print("❌ ERROR: No Claude API key configured in ai_config.json")
+        print("[FAIL] ERROR: No Claude API key configured in ai_config.json")
         return False
     
     client = anthropic.Anthropic(api_key=claude_config.api_key)
@@ -45,7 +45,7 @@ def probe_beta_access():
                 "name": "web_search",
             }],
         )
-        print("✅ SUCCESS: Your account has access to Native Web Search.")
+        print("[OK] SUCCESS: Your account has access to Native Web Search.")
         print(f"   Response stop_reason: {response.stop_reason}")
         
         # Check if search was used
@@ -58,18 +58,18 @@ def probe_beta_access():
     except anthropic.BadRequestError as e:
         error_str = str(e).lower()
         if "invalid header" in error_str or "beta" in error_str or "betas" in error_str:
-            print(f"❌ FAILED: Feature flag rejected.")
+            print(f"[FAIL] FAILED: Feature flag rejected.")
             print(f"   Reason: {e}")
-            print("👉 ACTION: Fallback to 'Manual Tool Injection' (Standard RAG).")
+            print("[ACTION] ACTION: Fallback to 'Manual Tool Injection' (Standard RAG).")
             return False
         else:
-            print(f"⚠️ ERROR: Unrelated error occurred: {e}")
+            print(f"[WARN] ERROR: Unrelated error occurred: {e}")
             return False
     except anthropic.APIError as e:
-        print(f"⚠️ API ERROR: {e}")
+        print(f"[WARN] API ERROR: {e}")
         return False
     except Exception as e:
-        print(f"⚠️ UNEXPECTED ERROR: {type(e).__name__}: {e}")
+        print(f"[WARN] UNEXPECTED ERROR: {type(e).__name__}: {e}")
         return False
 
 

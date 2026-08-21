@@ -25,15 +25,26 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-genai>=1.0.0",
-    "anthropic>=0.8.0",
-    "openai>=1.6.0",
+    "google-genai>=2.0",
+    "anthropic>=1.0",
+    "openai>=3.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: calls real provider APIs (needs keys and network; opt in with --live)",
+]
+# A test function that `return`s its result instead of asserting silently
+# PASSES under pytest -- every check inside it is ignored. Make that an error.
+filterwarnings = [
+    "error::pytest.PytestReturnNotNoneWarning",
 ]
 
 [tool.setuptools.package-dir]

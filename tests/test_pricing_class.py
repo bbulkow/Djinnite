@@ -62,19 +62,20 @@ CLASSIFY_CASES = [
 ]
 
 
-def test_classify() -> int:
-    fails = 0
+def _check_classify() -> list:
+    fails = []
     for provider, model_id, siblings, expected in CLASSIFY_CASES:
         got = classify_model(provider, model_id, siblings)
         ok = got == expected
-        print(f"  [{'OK' if ok else 'FAIL'}] {provider}/{model_id}: {got} (expected {expected})")
+        msg = f"{provider}/{model_id}: {got} (expected {expected})"
+        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
         if not ok:
-            fails += 1
+            fails.append(msg)
     return fails
 
 
-def test_strip_and_sibling() -> int:
-    fails = 0
+def _check_strip_and_sibling() -> list:
+    fails = []
     cases = [
         ("gpt-5.2-2025-12-11", "gpt-5.2"),          # ISO
         ("claude-opus-4-5-20251101", "claude-opus-4-5"),  # compact 8-digit
@@ -84,9 +85,10 @@ def test_strip_and_sibling() -> int:
     for model_id, expected in cases:
         got = strip_date_pin(model_id)
         ok = got == expected
-        print(f"  [{'OK' if ok else 'FAIL'}] strip_date_pin({model_id}) = {got} (expected {expected})")
+        msg = f"strip_date_pin({model_id}) = {got} (expected {expected})"
+        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
         if not ok:
-            fails += 1
+            fails.append(msg)
 
     # has_dated_sibling: bare alias detects its dated twin; dated id does not.
     sib_cases = [
@@ -98,14 +100,15 @@ def test_strip_and_sibling() -> int:
     for model_id, sibs, expected in sib_cases:
         got = has_dated_sibling(model_id, sibs)
         ok = got == expected
-        print(f"  [{'OK' if ok else 'FAIL'}] has_dated_sibling({model_id}) = {got} (expected {expected})")
+        msg = f"has_dated_sibling({model_id}) = {got} (expected {expected})"
+        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
         if not ok:
-            fails += 1
+            fails.append(msg)
     return fails
 
 
-def test_staleness() -> int:
-    fails = 0
+def _check_staleness() -> list:
+    fails = []
     today = date(2026, 6, 2)
     cases = [
         # (updated, expected_is_stale_at_180)
@@ -118,14 +121,15 @@ def test_staleness() -> int:
         c = ModelCosting(input_per_1m=1.0, output_per_1m=2.0, updated=updated)
         got = c.is_stale(180, today=today)
         ok = got == expected
-        print(f"  [{'OK' if ok else 'FAIL'}] is_stale(updated={updated!r}) = {got} (expected {expected})")
+        msg = f"is_stale(updated={updated!r}) = {got} (expected {expected})"
+        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
         if not ok:
-            fails += 1
+            fails.append(msg)
     return fails
 
 
-def test_helpers() -> int:
-    fails = 0
+def _check_helpers() -> list:
+    fails = []
     checks = [
         (has_date_pin("gpt-5.2-2025-12-11"), True),
         (has_date_pin("gpt-5.2"), False),
@@ -136,26 +140,51 @@ def test_helpers() -> int:
     ]
     for got, expected in checks:
         ok = got == expected
-        print(f"  [{'OK' if ok else 'FAIL'}] helper -> {got} (expected {expected})")
+        msg = f"helper -> {got} (expected {expected})"
+        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
         if not ok:
-            fails += 1
+            fails.append(msg)
     return fails
+
+
+# ------------------------------------------------------------------
+# pytest entry points -- these assert, so a regression actually fails.
+# ------------------------------------------------------------------
+
+def test_classify():
+    fails = _check_classify()
+    assert not fails, "classify_model mismatches:\n  " + "\n  ".join(fails)
+
+
+def test_strip_and_sibling():
+    fails = _check_strip_and_sibling()
+    assert not fails, "strip/sibling mismatches:\n  " + "\n  ".join(fails)
+
+
+def test_staleness():
+    fails = _check_staleness()
+    assert not fails, "staleness mismatches:\n  " + "\n  ".join(fails)
+
+
+def test_helpers():
+    fails = _check_helpers()
+    assert not fails, "helper mismatches:\n  " + "\n  ".join(fails)
 
 
 def run():
     print("\nDjinnite Pricing Classification Tests")
     print("=" * 60)
-    fails = 0
+    fails = []
     print("\nclassify_model:")
-    fails += test_classify()
+    fails += _check_classify()
     print("\nstrip_date_pin / has_dated_sibling:")
-    fails += test_strip_and_sibling()
+    fails += _check_strip_and_sibling()
     print("\nstaleness:")
-    fails += test_staleness()
+    fails += _check_staleness()
     print("\nhelpers:")
-    fails += test_helpers()
+    fails += _check_helpers()
     print("\n" + "=" * 60)
-    print(f"Result: {'ALL PASS' if fails == 0 else str(fails) + ' FAILED'}")
+    print(f"Result: {'ALL PASS' if not fails else str(len(fails)) + ' FAILED'}")
     if fails:
         sys.exit(1)
 

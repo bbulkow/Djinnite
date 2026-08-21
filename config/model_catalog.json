@@ -1908,7 +1908,7 @@
       {
         "id": "claude-opus-5",
         "name": "Claude Opus 5",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -1950,7 +1950,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "incompatible": [
             {
@@ -1961,6 +1962,13 @@
               "thinking": "on",
               "web_search": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
           ]
         },
         "vision_limits": null
@@ -1968,7 +1976,7 @@
       {
         "id": "claude-sonnet-5",
         "name": "Claude Sonnet 5",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2010,7 +2018,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "incompatible": [
             {
@@ -2021,6 +2030,13 @@
               "thinking": "on",
               "web_search": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2038,7 +2054,7 @@
       {
         "id": "claude-fable-5",
         "name": "Claude Fable 5",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2080,7 +2096,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "incompatible": [
             {
@@ -2091,6 +2108,13 @@
               "thinking": "on",
               "web_search": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2108,7 +2132,7 @@
       {
         "id": "claude-opus-4-8",
         "name": "Claude Opus 4.8",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2149,7 +2173,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "incompatible": [
             {
@@ -2160,6 +2185,13 @@
               "thinking": "on",
               "web_search": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2177,7 +2209,7 @@
       {
         "id": "claude-opus-4-7",
         "name": "Claude Opus 4.7",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2218,7 +2250,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "incompatible": [
             {
@@ -2229,6 +2262,13 @@
               "thinking": "on",
               "web_search": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2246,7 +2286,7 @@
       {
         "id": "claude-sonnet-4-6",
         "name": "Claude Sonnet 4.6",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2291,13 +2331,20 @@
           ],
           "thinking_style": [
             "adaptive",
-            "budget"
+            "budget",
+            "effort"
           ],
           "incompatible": [
             {
               "temperature": "any",
               "thinking": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2315,7 +2362,7 @@
       {
         "id": "claude-opus-4-6",
         "name": "Claude Opus 4.6",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",
@@ -2360,13 +2407,20 @@
           ],
           "thinking_style": [
             "adaptive",
-            "budget"
+            "budget",
+            "effort"
           ],
           "incompatible": [
             {
               "temperature": "any",
               "thinking": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "max"
           ]
         },
         "vision_limits": {
@@ -2428,13 +2482,19 @@
             "off"
           ],
           "thinking_style": [
-            "budget"
+            "budget",
+            "effort"
           ],
           "incompatible": [
             {
               "temperature": "any",
               "thinking": "on"
             }
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
           ]
         },
         "vision_limits": {
@@ -2520,7 +2580,7 @@
       {
         "id": "claude-sonnet-4-5-20250929",
         "name": "Claude Sonnet 4.5",
-        "context_window": 200000,
+        "context_window": 1000000,
         "modalities": {
           "input": [
             "text",

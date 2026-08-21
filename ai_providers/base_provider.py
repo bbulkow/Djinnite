@@ -817,6 +817,33 @@ class BaseAIProvider(ABC):
     # reasoning_effort vocabulary and Gemini's ThinkingLevel enum).
     _EFFORT_LEVELS: frozenset[str] = frozenset({"minimal", "low", "medium", "high"})
 
+    # Share of the output cap handed to thinking when the caller passes
+    # thinking=True on a budget-style model. The remainder is reserved for
+    # the visible response, which the API requires be non-empty
+    # (budget_tokens must be strictly less than max_tokens).
+    _THINKING_BUDGET_FRACTION: float = 0.75
+    # Anthropic's floor for extended thinking: budget_tokens must be >= 1024.
+    _MIN_THINKING_BUDGET: int = 1024
+
+    def _thinking_alternatives(self, styles) -> str:
+        """Name the thinking forms this model actually accepts.
+
+        Without this, the int- and str-rejection messages below each
+        recommended the other's shape, so a model advertising only
+        ``["adaptive"]`` told callers to pass a string, then told them to
+        pass an int, and accepted neither.
+        """
+        opts = []
+        if styles and "budget" in styles:
+            opts.append("an int token budget")
+        if styles and "effort" in styles:
+            opts.append(f"a string ({sorted(self._EFFORT_LEVELS)})")
+        if styles and "adaptive" in styles:
+            opts.append("thinking=True (the model sizes its own reasoning)")
+        if not opts:
+            opts.append("thinking=True")
+        return ", or ".join(opts)
+
     def _resolve_thinking(
         self,
         thinking: Union[bool, int, str, None],
@@ -888,8 +915,8 @@ class BaseAIProvider(ABC):
                 raise ValueError(
                     f"thinking=int (token budget) is not supported by model "
                     f"'{self.model}'. Model accepts thinking_style={styles}. "
-                    f"Pass a string ({sorted(self._EFFORT_LEVELS)}) "
-                    f"or True/False/None instead."
+                    f"Pass {self._thinking_alternatives(styles)}, "
+                    f"or False/None instead."
                 )
             return thinking
         if isinstance(thinking, str):
@@ -903,7 +930,18 @@ class BaseAIProvider(ABC):
                 raise ValueError(
                     f"thinking=str (effort level) is not supported by model "
                     f"'{self.model}'. Model accepts thinking_style={styles}. "
-                    f"Pass an int token budget or True/False/None instead."
+                    f"Pass {self._thinking_alternatives(styles)}, "
+                    f"or False/None instead."
+                )
+            # Effort levels vary per model *within* a provider (Claude Opus
+            # 4.5 stops at "high"; Opus 5 accepts "max"), so the
+            # provider-wide vocabulary checked above is not sufficient.
+            levels = caps.effort_levels if caps is not None else None
+            if levels is not None and low not in levels:
+                raise ValueError(
+                    f"thinking='{low}' is not supported by model "
+                    f"'{self.model}'. This model accepts effort levels "
+                    f"{sorted(levels)}."
                 )
             return low
         raise TypeError(
@@ -935,28 +973,57 @@ class BaseAIProvider(ABC):
 
     def _get_max_thinking_budget(self, max_output_tokens: Optional[int]) -> int:
         """
-        Determine the maximum thinking budget for ``thinking=True`` on
+        Determine the thinking budget for ``thinking=True`` on
         budget-style providers (Claude).
 
-        Resolution order:
-        1. Model catalog ``max_output_tokens`` (if available and > 0)
-        2. Caller's ``max_output_tokens`` (if provided and > 0)
+        The budget is sized against the *effective* output cap — the same
+        number the request will carry as ``max_tokens`` — and reserves
+        headroom for the visible answer. The API requires
+        ``budget_tokens < max_tokens``, so a budget equal to the whole cap
+        is always rejected: handing thinking the entire allowance leaves
+        the model no room to reply.
+
+        Resolution order for the cap:
+        1. Caller's effective ``max_output_tokens`` (if provided and > 0)
+        2. Model catalog ``max_output_tokens`` (if available and > 0)
         3. Raise — refuse to invent a budget.
+
+        The caller's value is consulted *first* because that is the value
+        the request actually carries; sizing the budget against a
+        different number than the one it is checked against is what made
+        ``thinking=True`` unusable on every Claude model.
 
         Raises:
             ValueError: When neither the catalog nor the caller supplied a
-                positive ``max_output_tokens`` to size the budget against.
+                positive ``max_output_tokens`` to size the budget against,
+                or when the resulting cap is too small to host a thinking
+                budget at all.
         """
-        if self._model_info and self._model_info.max_output_tokens > 0:
-            return self._model_info.max_output_tokens
+        cap = None
         if max_output_tokens and max_output_tokens > 0:
-            return max_output_tokens
-        raise ValueError(
-            f"thinking=True on model '{self.model}' requires a model "
-            f"catalog entry with max_output_tokens, or an explicit "
-            f"max_output_tokens argument; cannot synthesize a thinking "
-            f"budget. Pass an explicit int token budget instead."
-        )
+            cap = max_output_tokens
+        elif self._model_info and self._model_info.max_output_tokens > 0:
+            cap = self._model_info.max_output_tokens
+
+        if not cap:
+            raise ValueError(
+                f"thinking=True on model '{self.model}' requires a model "
+                f"catalog entry with max_output_tokens, or an explicit "
+                f"max_output_tokens argument; cannot synthesize a thinking "
+                f"budget. Pass an explicit int token budget instead."
+            )
+
+        budget = int(cap * self._THINKING_BUDGET_FRACTION)
+        if budget < self._MIN_THINKING_BUDGET:
+            needed = int(self._MIN_THINKING_BUDGET / self._THINKING_BUDGET_FRACTION) + 1
+            raise ValueError(
+                f"max_output_tokens ({cap}) is too small for thinking=True "
+                f"on model '{self.model}': it yields a {budget}-token "
+                f"budget, below the {self._MIN_THINKING_BUDGET}-token "
+                f"minimum for extended thinking. Raise max_output_tokens to "
+                f"at least {needed}, or pass an explicit int budget."
+            )
+        return budget
 
     def _resolve_temperature(
         self,

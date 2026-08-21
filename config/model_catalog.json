@@ -133,7 +133,7 @@
       {
         "id": "gemini-2.5-flash-preview-tts",
         "name": "Gemini 2.5 Flash Preview TTS",
-        "context_window": 32768,
+        "context_window": 8192,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -171,7 +171,7 @@
       {
         "id": "gemini-2.5-pro-preview-tts",
         "name": "Gemini 2.5 Pro Preview TTS",
-        "context_window": 32768,
+        "context_window": 8192,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -227,8 +227,8 @@
           "source": "published",
           "updated": "2026-08-21",
           "tier": "",
-          "input_per_1m": 0.75,
-          "output_per_1m": 3.75,
+          "input_per_1m": 1.5,
+          "output_per_1m": 9.0,
           "search_cost_per_unit": 0.014,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -953,8 +953,8 @@
       {
         "id": "gemini-3.1-flash-image-preview",
         "name": "Nano Banana 2",
-        "context_window": 131072,
-        "max_output_tokens": 32768,
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
         "modalities": {
           "input": [
             "text",
@@ -1002,8 +1002,8 @@
       {
         "id": "gemini-3.1-flash-image",
         "name": "Nano Banana 2",
-        "context_window": 131072,
-        "max_output_tokens": 32768,
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
         "modalities": {
           "input": [
             "text",
@@ -1050,7 +1050,7 @@
         "id": "gemini-3.1-flash-lite-image",
         "name": "Nano Banana 2 Lite",
         "context_window": 1048576,
-        "max_output_tokens": 32768,
+        "max_output_tokens": 65536,
         "modalities": {
           "input": [
             "text",
@@ -3013,7 +3013,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 1050000
       },
       {
         "id": "gpt-realtime-2.1",
@@ -4621,7 +4622,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-5",
@@ -4683,7 +4685,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-5-mini-2025-08-07",
@@ -4869,7 +4872,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-5-nano",
@@ -4931,7 +4935,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-audio-2025-08-28",
@@ -5135,7 +5140,8 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "context_window": 400000
       },
       {
         "id": "gpt-image-1-mini",
@@ -5199,6 +5205,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 272000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5259,6 +5266,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 272000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5585,6 +5593,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5648,6 +5657,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5709,6 +5719,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5810,6 +5821,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5899,6 +5911,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5959,9 +5972,10 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6024,6 +6038,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6081,9 +6096,10 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6514,7 +6530,8 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "context_window": 400000
       },
       {
         "id": "gpt-5.3-codex",
@@ -6565,7 +6582,8 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "context_window": 400000
       },
       {
         "id": "gpt-realtime-1.5",
@@ -6882,7 +6900,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 1050000
       },
       {
         "id": "gpt-5.4-pro",
@@ -6946,7 +6965,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 1050000
       },
       {
         "id": "gpt-5.4-pro-2026-03-05",
@@ -7009,7 +7029,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 1050000
       },
       {
         "id": "gpt-5.4",
@@ -7035,7 +7056,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7074,7 +7095,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 1050000
       },
       {
         "id": "gpt-5.4-nano-2026-03-17",
@@ -7136,7 +7158,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-5.4-nano",
@@ -7160,7 +7183,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7199,7 +7222,8 @@
             "gif",
             "webp"
           ]
-        }
+        },
+        "context_window": 400000
       },
       {
         "id": "gpt-5.4-mini-2026-03-17",
@@ -7286,7 +7310,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://platform.openai.com/docs/pricing/"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "context_window": 256000,
@@ -7439,9 +7463,10 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://platform.openai.com/docs/pricing/"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7502,6 +7527,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7560,9 +7586,10 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://platform.openai.com/docs/pricing/"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7620,6 +7647,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7787,6 +7815,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7848,6 +7877,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",

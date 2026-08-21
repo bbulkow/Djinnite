@@ -112,6 +112,15 @@ def _resolve_estimator(ai_config) -> tuple:
 # a correctness bound, not just a latency one.
 _ESTIMATOR_BATCH_SIZE = 10
 
+# Internal, in-memory only: marks a model whose context_window looks wrong
+# and should be re-derived. Never written to the catalog.
+_REESTIMATE_CTX = "_reestimate_context_window"
+
+# Numeric facts a refresh may correct but must never erase. Losing one
+# leaves the catalog unable to answer a question it could answer before,
+# which is strictly worse than holding a stale answer.
+_NEVER_DOWNGRADE_FIELDS = ("context_window", "max_output_tokens")
+
 _MODALITY_VALUES = ["text", "vision", "audio", "video", "embedding"]
 
 OUTPUT_LIMIT_SCHEMA = {
@@ -287,7 +296,11 @@ def estimate_output_limits_with_ai(
             got = estimate_output_limits_with_ai(sub, provider_name, ai_config)
             if not got:
                 ids = [m['id'] for m in sub]
-                print(f'    [WARN] batch {n}/{len(batches)} returned nothing for {ids}')
+                # Not a result -- the estimator gave up. It answers 0 for
+                # every model rather than erroring, so this is the only
+                # place the failure is visible.
+                print(f'    [ERROR] batch {n}/{len(batches)} returned NOTHING '
+                      f'for all {len(sub)} models: {ids}')
             combined.update(got)
         gap = [m['id'] for m in models if m['id'] not in combined]
         if gap:
@@ -660,9 +673,12 @@ def merge_model_data(
         implausible_ctx = bool(resolved_output) and bool(ctx_now) and ctx_now <= resolved_output
         if resolved_output == 0 or ctx_now == 0 or implausible_ctx:
             if implausible_ctx:
-                # Drop the bad value so the estimate is not blocked by the
-                # "only fill what the API did not supply" guard downstream.
-                model["context_window"] = 0
+                # Mark for re-derivation, but KEEP the existing value. Zeroing
+                # it here previously destroyed the number before knowing a
+                # replacement existed -- when estimation then came back empty,
+                # 30 GPT-5 models were left at context_window: 0. A suspect
+                # value still answers the question; a missing one does not.
+                model[_REESTIMATE_CTX] = True
             unknown_output_limit_models.append(model)
         
         # Resolve capabilities from existing catalog
@@ -810,9 +826,11 @@ def merge_model_data(
                 continue
             if vals.get("max_output_tokens"):
                 model["max_output_tokens"] = vals["max_output_tokens"]
-            # Only fill a context window the provider API did not supply.
-            if vals.get("context_window") and not model.get("context_window"):
-                model["context_window"] = vals["context_window"]
+            # Fill a missing context window, or replace one flagged as
+            # implausible -- but only ever with a real number.
+            if vals.get("context_window"):
+                if not model.get("context_window") or model.get(_REESTIMATE_CTX):
+                    model["context_window"] = vals["context_window"]
     
     # 4. Live probe ALL capabilities on models that need it
     if models_needing_ssj_probe:
@@ -832,6 +850,28 @@ def merge_model_data(
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
     
+    # Strip the in-memory re-estimation marker now that estimation has run.
+    # It must outlive the merge loop (that is where it is set) but must never
+    # reach the catalog file.
+    for model in merged:
+        model.pop(_REESTIMATE_CTX, None)
+
+    # Downgrade guard. A refresh may correct a value or fill a gap; it must
+    # never quietly turn a number the catalog already had into 0 or absent.
+    # That is the step that converted a wrong context_window into a missing
+    # one across 30 GPT-5 models: the old value was purged up front, the
+    # replacement never arrived, and the write went ahead anyway.
+    for model in merged:
+        prior = existing_by_id.get(model["id"])
+        if not prior:
+            continue
+        for fld in _NEVER_DOWNGRADE_FIELDS:
+            was, now = prior.get(fld) or 0, model.get(fld) or 0
+            if was and not now:
+                print(f"  [WARN] {model['id']}: refusing to blank {fld} "
+                      f"({was} -> {now}); keeping {was}")
+                model[fld] = was
+
     return merged
 
 def update_models():

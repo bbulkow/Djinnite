@@ -107,6 +107,11 @@ def _resolve_estimator(ai_config) -> tuple:
 # {model_id: value} dict.
 # ---------------------------------------------------------------------------
 
+# Max models per AI estimation request. Above roughly this size the estimator
+# stops answering and returns 0 for everything instead of erroring, so this is
+# a correctness bound, not just a latency one.
+_ESTIMATOR_BATCH_SIZE = 10
+
 _MODALITY_VALUES = ["text", "vision", "audio", "video", "embedding"]
 
 OUTPUT_LIMIT_SCHEMA = {
@@ -267,6 +272,29 @@ def estimate_output_limits_with_ai(
     model_list = "\n".join(m["id"] for m in models)
     prompt = OUTPUT_LIMIT_ESTIMATION_PROMPT.format(provider_company=provider_company, model_list=model_list)
 
+    # Batch. The estimator degrades silently on long model lists: rather
+    # than erroring it answers 0 ("unsure") for every entry, arriving as a
+    # well-formed response holding nothing usable. A 38-model request
+    # returned limits for 0 models while an 8-model request in the same run
+    # answered all 8. Keep requests small enough that the model does the work.
+    if len(models) > _ESTIMATOR_BATCH_SIZE:
+        combined: dict[str, dict] = {}
+        batches = [models[i:i + _ESTIMATOR_BATCH_SIZE]
+                   for i in range(0, len(models), _ESTIMATOR_BATCH_SIZE)]
+        print(f'    Splitting {len(models)} models into {len(batches)} batches')
+        for n, sub in enumerate(batches, 1):
+            print(f'    Batch {n}/{len(batches)} ({len(sub)} models)...')
+            got = estimate_output_limits_with_ai(sub, provider_name, ai_config)
+            if not got:
+                ids = [m['id'] for m in sub]
+                print(f'    [WARN] batch {n}/{len(batches)} returned nothing for {ids}')
+            combined.update(got)
+        gap = [m['id'] for m in models if m['id'] not in combined]
+        if gap:
+            print(f'    [WARN] no limits estimated for {len(gap)} models: {gap}')
+        print(f'    Done. Got limits for {len(combined)}/{len(models)} models')
+        return combined
+
     instance = get_provider(est_provider, est_api_key, est_model)
 
     def _call(use_web_search: bool):
@@ -313,7 +341,11 @@ def estimate_output_limits_with_ai(
                     vals["context_window"] = int(ctx)
             if vals:
                 cleaned[mid] = vals
-        print(f"    Done. Got limits for {len(cleaned)} models")
+        if len(cleaned) < len(models):
+            gap = [m['id'] for m in models if m['id'] not in cleaned]
+            print(f'    [WARN] estimator gave nothing for {len(gap)} of '
+                  f'{len(models)} models: {gap}')
+        print(f"    Done. Got limits for {len(cleaned)}/{len(models)} models")
         return cleaned
     except Exception as e:
         print(f"  [WARN] Output limit estimation failed: {e}")

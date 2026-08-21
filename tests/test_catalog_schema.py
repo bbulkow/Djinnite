@@ -116,3 +116,24 @@ def test_context_window_exceeds_output_cap(prov):
         and not _is_specialized(info.id)
     ]
     assert not bad, f"{prov}: context_window <= max_output_tokens for {bad}"
+
+
+@pytest.mark.parametrize("prov", ["gemini", "claude", "chatgpt"])
+def test_text_models_declare_a_context_window(prov):
+    """A text model with no context window is a gap, not a pass.
+
+    `test_context_window_exceeds_output_cap` skips falsy values, so a model
+    sitting at 0 satisfies it vacuously. That is how a missing number hides,
+    the same way a wrong one did: 30 GPT-5-family models lost their context
+    window when the invented 128000 was removed and the AI estimator -- fed
+    38 models in one request -- silently answered 0 for all of them.
+    """
+    catalog = load_model_catalog()
+    missing = [
+        info.id for info in catalog.list_models(prov)
+        if not _is_specialized(info.id)
+        and not info.disabled
+        and info.max_output_tokens          # a model we otherwise know about
+        and not info.context_window
+    ]
+    assert not missing, f"{prov}: no context_window for {missing}"

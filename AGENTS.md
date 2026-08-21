@@ -102,6 +102,65 @@ eight Claude models the API reports as 1000000, and the `effort` capability
 was absent entirely, so `thinking="high"` was rejected on every Claude
 despite eight models supporting it.
 
+### Running a model catalog update, observably
+
+`update_models` makes live API calls across every configured provider and can
+run for ten minutes or more. Run it so you can see what it did and prove what
+it changed.
+
+**Back up first, then run unbuffered, teed to a log:**
+
+```powershell
+cp config/model_catalog.json /tmp/catalog.before.json
+uv run python -u -m djinnite.scripts.update_models 2>&1 | tee /tmp/update.log
+```
+
+Two details that matter more than they look:
+
+* **`-u` is required.** Python block-buffers stdout when it is not a terminal,
+  so a redirected run shows *nothing* until it exits. A ten-minute run looks
+  identical to a hung one.
+* **Never pipe through `tail`/`head`.** `tail` buffers the whole stream and
+  discards everything but the end, so the estimation and probe lines — the
+  only record of what the run actually decided — are gone. `tee` keeps them.
+
+**Afterwards, diff against the backup.** The summary line is not sufficient:
+it reports counts, not which fields moved. A refresh rebuilds each model's
+`capabilities` dict wholesale, so a field the writer does not know about is
+dropped silently and the summary still says "Unchanged".
+
+```powershell
+uv run python -c "import json; a=json.load(open('/tmp/catalog.before.json')); b=json.load(open('config/model_catalog.json')); ..."
+```
+
+Check specifically that `context_window`, `max_output_tokens`, `thinking_style`
+and `effort_levels` survived. `uv run pytest tests/test_catalog_schema.py`
+covers the known cases.
+
+**Is it hung, or just slow?** Estimation blocks on web-search-backed API calls
+that take tens of seconds each, so low CPU is normal — a healthy run may use
+only ~6s of CPU in 9 minutes. Do not judge by CPU alone, and do not judge by
+the wrong process: `python.exe -m djinnite.scripts.update_models` is a launcher
+shim that sits at ~0.02s CPU and 4MB. The real worker is the `uv` python at
+100MB+. Sample it:
+
+```powershell
+$w = Get-CimInstance Win32_Process -Filter "Name like '%python%'" |
+     Sort-Object WorkingSetSize -Descending | Select-Object -First 1
+Get-NetTCPConnection | Where-Object { $_.OwningProcess -eq $w.ProcessId -and $_.State -eq 'Established' } |
+     Select-Object RemoteAddress, RemotePort, CreationTime
+```
+
+Established connections with `CreationTime` newer than the last thing you saw
+in the log mean it is still working. This is also how to tell whether a run
+survived the machine sleeping: new connections after the wake means yes.
+
+**Batch size is load-bearing.** The AI estimator degrades silently on large
+batches — it answers `0` ("unsure") for every model rather than erroring. A
+run that logs `Got limits for 0 models` did not fail; it gave up. Compare the
+model count in that line against a batch that succeeded before assuming the
+data was unavailable.
+
 ### Risky actions still need confirmation
 
 `uv run python -m djinnite.scripts.update_models --reprobe all` makes live

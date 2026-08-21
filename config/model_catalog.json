@@ -5959,7 +5959,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -6081,7 +6081,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7035,7 +7035,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7160,7 +7160,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7286,7 +7286,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://platform.openai.com/docs/pricing/"
         },
         "max_output_tokens": 128000,
         "context_window": 256000,
@@ -7439,7 +7439,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://platform.openai.com/docs/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -7560,7 +7560,7 @@
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://platform.openai.com/docs/pricing/"
         },
         "max_output_tokens": 128000,
         "capabilities": {

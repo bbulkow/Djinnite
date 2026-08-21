@@ -61,8 +61,8 @@ def audit_pricing():
     print(f"Staleness threshold: {args.staleness_days} days")
     print("=" * 70)
 
-    totals = {"floating": 0, "fixed_fresh": 0, "fixed_stale": 0, "unknown": 0,
-              "failed": 0, "manual": 0, "disabled": 0, "missing": 0}
+    totals = {"floating": 0, "fixed_fresh": 0, "fixed_stale": 0, "unverified": 0,
+              "unknown": 0, "failed": 0, "manual": 0, "disabled": 0, "missing": 0}
     would_reprice = []
     unknowns = []
     drifts = []
@@ -119,6 +119,15 @@ def audit_pricing():
                 totals["fixed_stale"] += 1
                 tag = "FIXED-STALE"
                 reprice = True
+            elif costing.is_unverified():
+                # Priced, in-date, but the figure was guessed rather than read
+                # off a published page. Age cannot distinguish the two, so
+                # without its own state a never-verified price reports as
+                # FIXED-FRESH forever and is never re-derived. That is how a
+                # 3x-wrong gemini-flash-latest estimate survived.
+                totals["unverified"] += 1
+                tag = "UNVERIFIED"
+                reprice = True
             else:
                 totals["fixed_fresh"] += 1
                 tag = "FIXED-FRESH"
@@ -133,8 +142,8 @@ def audit_pricing():
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("-" * 70)
-    for key in ("floating", "fixed_stale", "fixed_fresh", "missing", "unknown",
-                "failed", "manual", "disabled"):
+    for key in ("floating", "fixed_stale", "unverified", "fixed_fresh", "missing",
+                "unknown", "failed", "manual", "disabled"):
         print(f"  {key:14}: {totals[key]}")
 
     if drifts:

@@ -51,6 +51,7 @@
           "thinking_style": [
             "budget"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -114,6 +115,7 @@
           "thinking_style": [
             "budget"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -131,7 +133,7 @@
       {
         "id": "gemini-2.5-flash-preview-tts",
         "name": "Gemini 2.5 Flash Preview TTS",
-        "context_window": 8192,
+        "context_window": 32768,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -161,6 +163,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -168,7 +171,7 @@
       {
         "id": "gemini-2.5-pro-preview-tts",
         "name": "Gemini 2.5 Pro Preview TTS",
-        "context_window": 8192,
+        "context_window": 32768,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -198,6 +201,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -221,10 +225,10 @@
         "costing": {
           "score": 1.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
-          "input_per_1m": 1.5,
-          "output_per_1m": 7.5,
+          "input_per_1m": 0.75,
+          "output_per_1m": 3.75,
           "search_cost_per_unit": 0.014,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -255,6 +259,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -288,7 +293,7 @@
         "costing": {
           "score": 0.5,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
@@ -322,6 +327,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -355,7 +361,7 @@
         "costing": {
           "score": 4.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
@@ -388,6 +394,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -452,6 +459,7 @@
           "thinking_style": [
             "budget"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -500,6 +508,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -566,6 +575,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -631,6 +641,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -696,6 +707,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -762,6 +774,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -826,6 +839,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -874,6 +888,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -920,6 +935,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -937,8 +953,8 @@
       {
         "id": "gemini-3.1-flash-image-preview",
         "name": "Nano Banana 2",
-        "context_window": 65536,
-        "max_output_tokens": 65536,
+        "context_window": 131072,
+        "max_output_tokens": 32768,
         "modalities": {
           "input": [
             "text",
@@ -968,6 +984,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -985,8 +1002,8 @@
       {
         "id": "gemini-3.1-flash-image",
         "name": "Nano Banana 2",
-        "context_window": 65536,
-        "max_output_tokens": 65536,
+        "context_window": 131072,
+        "max_output_tokens": 32768,
         "modalities": {
           "input": [
             "text",
@@ -1014,6 +1031,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1031,8 +1049,8 @@
       {
         "id": "gemini-3.1-flash-lite-image",
         "name": "Nano Banana 2 Lite",
-        "context_window": 65536,
-        "max_output_tokens": 65536,
+        "context_window": 1048576,
+        "max_output_tokens": 32768,
         "modalities": {
           "input": [
             "text",
@@ -1061,6 +1079,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1125,6 +1144,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -1190,6 +1210,7 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -1247,6 +1268,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -1312,6 +1334,73 @@
             "budget",
             "effort"
           ],
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gemini-3.7-flash",
+        "name": "Gemini 3.7 Flash",
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 0.75,
+          "output_per_1m": 3.75,
+          "source": "published",
+          "updated": "2026-08-21",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.014,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "any",
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "budget",
+            "effort"
+          ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -1329,7 +1418,7 @@
       {
         "id": "gemini-3.1-flash-tts-preview",
         "name": "Gemini 3.1 Flash TTS Preview",
-        "context_window": 8192,
+        "context_window": 32768,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -1355,6 +1444,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -1389,6 +1479,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1434,6 +1525,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1484,6 +1576,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1531,6 +1624,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -1568,6 +1662,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -1589,7 +1684,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "search_cost_per_unit": null,
           "pricing_class": "fixed",
           "pricing_class_source": "auto",
@@ -1602,6 +1697,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -1642,6 +1738,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1692,6 +1789,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1742,6 +1840,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1792,6 +1891,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1837,6 +1937,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -1854,8 +1955,8 @@
       {
         "id": "gemini-3.5-live-translate-preview",
         "name": "Gemini 3.5 Live Translate Preview",
-        "context_window": 16384,
-        "max_output_tokens": 32768,
+        "context_window": 131072,
+        "max_output_tokens": 65536,
         "modalities": {
           "input": [
             "text",
@@ -1886,6 +1987,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -1901,7 +2003,7 @@
         }
       }
     ],
-    "last_updated": "2026-08-11"
+    "last_updated": "2026-08-21"
   },
   "claude": {
     "models": [
@@ -1918,6 +2020,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "input_per_1m": 5.0,
           "output_per_1m": 25.0,
@@ -1928,7 +2031,6 @@
           "search_cost_per_unit": 0.01,
           "source_url": "https://www.anthropic.com/pricing"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -1953,6 +2055,13 @@
             "adaptive",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
           "incompatible": [
             {
               "thinking": "on",
@@ -1962,16 +2071,19 @@
               "thinking": "on",
               "web_search": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
           ]
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "claude-sonnet-5",
@@ -1986,6 +2098,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "input_per_1m": 2.0,
           "output_per_1m": 10.0,
@@ -1996,7 +2109,6 @@
           "search_cost_per_unit": 0.01,
           "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2021,6 +2133,13 @@
             "adaptive",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
           "incompatible": [
             {
               "thinking": "on",
@@ -2030,13 +2149,6 @@
               "thinking": "on",
               "web_search": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
           ]
         },
         "vision_limits": {
@@ -2064,6 +2176,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "input_per_1m": 10.0,
           "output_per_1m": 50.0,
@@ -2074,7 +2187,6 @@
           "search_cost_per_unit": 0.01,
           "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2099,6 +2211,13 @@
             "adaptive",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
           "incompatible": [
             {
               "thinking": "on",
@@ -2108,13 +2227,6 @@
               "thinking": "on",
               "web_search": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
           ]
         },
         "vision_limits": {
@@ -2142,6 +2254,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "input_per_1m": 5.0,
           "output_per_1m": 25.0,
@@ -2151,7 +2264,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2176,6 +2288,13 @@
             "adaptive",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
           "incompatible": [
             {
               "thinking": "on",
@@ -2185,13 +2304,6 @@
               "thinking": "on",
               "web_search": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
           ]
         },
         "vision_limits": {
@@ -2219,6 +2331,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "input_per_1m": 5.0,
           "output_per_1m": 25.0,
@@ -2228,7 +2341,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2253,6 +2365,13 @@
             "adaptive",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
           "incompatible": [
             {
               "thinking": "on",
@@ -2262,13 +2381,6 @@
               "thinking": "on",
               "web_search": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
           ]
         },
         "vision_limits": {
@@ -2296,6 +2408,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "score": 45.0,
           "source": "estimated",
@@ -2307,7 +2420,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2334,17 +2446,17 @@
             "budget",
             "effort"
           ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ],
           "effort_levels": [
             "low",
             "medium",
             "high",
             "max"
+          ],
+          "incompatible": [
+            {
+              "temperature": "any",
+              "thinking": "on"
+            }
           ]
         },
         "vision_limits": {
@@ -2372,6 +2484,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 128000,
         "costing": {
           "score": 75.0,
           "source": "estimated",
@@ -2383,7 +2496,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2410,17 +2522,17 @@
             "budget",
             "effort"
           ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ],
           "effort_levels": [
             "low",
             "medium",
             "high",
             "max"
+          ],
+          "incompatible": [
+            {
+              "temperature": "any",
+              "thinking": "on"
+            }
           ]
         },
         "vision_limits": {
@@ -2448,6 +2560,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 64000,
         "costing": {
           "score": 75.0,
           "source": "estimated",
@@ -2459,7 +2572,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 64000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2485,16 +2597,16 @@
             "budget",
             "effort"
           ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
+          ],
           "incompatible": [
             {
               "temperature": "any",
               "thinking": "on"
             }
-          ],
-          "effort_levels": [
-            "low",
-            "medium",
-            "high"
           ]
         },
         "vision_limits": {
@@ -2522,6 +2634,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 64000,
         "costing": {
           "score": 8.75,
           "source": "estimated",
@@ -2533,7 +2646,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 64000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2558,6 +2670,7 @@
           "thinking_style": [
             "budget"
           ],
+          "effort_levels": null,
           "incompatible": [
             {
               "temperature": "any",
@@ -2590,6 +2703,7 @@
             "text"
           ]
         },
+        "max_output_tokens": 64000,
         "costing": {
           "score": 45.0,
           "source": "estimated",
@@ -2601,7 +2715,6 @@
           "pricing_class": "fixed",
           "pricing_class_source": "auto"
         },
-        "max_output_tokens": 64000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -2626,6 +2739,7 @@
           "thinking_style": [
             "budget"
           ],
+          "effort_levels": null,
           "incompatible": [
             {
               "temperature": "any",
@@ -2646,108 +2760,13 @@
         }
       }
     ],
-    "last_updated": "2026-08-11"
+    "last_updated": "2026-08-21"
   },
   "chatgpt": {
     "models": [
       {
-        "id": "gpt-3.5-turbo",
-        "name": "gpt-3.5-turbo",
-        "context_window": 16000,
-        "modalities": {
-          "input": [
-            "text"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated",
-        "costing": {
-          "score": 6.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 0.5,
-          "output_per_1m": 1.5,
-          "search_cost_per_unit": null,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": [
-            "off"
-          ],
-          "temperature": [
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-3.5-turbo-16k",
-        "name": "gpt-3.5-turbo-16k",
-        "context_window": 16000,
-        "modalities": {
-          "input": [
-            "text"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated",
-        "costing": {
-          "score": 18.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 3.0,
-          "output_per_1m": 4.0,
-          "search_cost_per_unit": null,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 4096,
-        "capabilities": {
-          "structured_json": [
-            "off"
-          ],
-          "temperature": [
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
         "id": "gpt-4-0613",
         "name": "gpt-4-0613",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -2770,6 +2789,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 8192,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -2787,6 +2807,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -2794,7 +2815,6 @@
       {
         "id": "gpt-4",
         "name": "gpt-4",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -2818,6 +2838,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 8192,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -2835,6 +2856,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -2850,9 +2872,261 @@
         }
       },
       {
+        "id": "gpt-3.5-turbo",
+        "name": "gpt-3.5-turbo",
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
+        "costing": {
+          "score": 6.67,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 0.5,
+          "output_per_1m": 1.5,
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
+        },
+        "max_output_tokens": 4096,
+        "context_window": 16000,
+        "capabilities": {
+          "structured_json": [
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "off"
+          ],
+          "web_search": [
+            "off"
+          ],
+          "json_with_search": [
+            "off"
+          ],
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-live-transcribe",
+        "name": "gpt-live-transcribe",
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "name": "gpt-5.6-luna",
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 1.0,
+          "output_per_1m": 6.0,
+          "source": "published",
+          "updated": "2026-07-16",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.01,
+          "source_url": "https://developers.openai.com/api/docs/pricing"
+        },
+        "max_output_tokens": 128000,
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "effort"
+          ],
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-realtime-2.1",
+        "name": "gpt-realtime-2.1",
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-07-16",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 32000,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-realtime-2.1-mini",
+        "name": "gpt-realtime-2.1-mini",
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-07-16",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 32000,
+        "context_window": 256000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
+        "id": "gpt-transcribe",
+        "name": "gpt-transcribe",
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null
+      },
+      {
         "id": "gpt-3.5-turbo-instruct",
         "name": "gpt-3.5-turbo-instruct",
-        "context_window": 16000,
         "modalities": {
           "input": [
             "text"
@@ -2875,6 +3149,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -2892,6 +3167,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -2899,7 +3175,6 @@
       {
         "id": "gpt-3.5-turbo-instruct-0914",
         "name": "gpt-3.5-turbo-instruct-0914",
-        "context_window": 16000,
         "modalities": {
           "input": [
             "text"
@@ -2922,6 +3197,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -2939,6 +3215,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -2946,7 +3223,6 @@
       {
         "id": "gpt-3.5-turbo-1106",
         "name": "gpt-3.5-turbo-1106",
-        "context_window": 16000,
         "modalities": {
           "input": [
             "text"
@@ -2969,6 +3245,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -2986,6 +3263,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -2993,7 +3271,6 @@
       {
         "id": "gpt-3.5-turbo-0125",
         "name": "gpt-3.5-turbo-0125",
-        "context_window": 16000,
         "modalities": {
           "input": [
             "text"
@@ -3016,6 +3293,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3033,6 +3311,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -3040,7 +3319,6 @@
       {
         "id": "gpt-4-turbo",
         "name": "gpt-4-turbo",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3064,6 +3342,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3081,6 +3360,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3098,7 +3378,6 @@
       {
         "id": "gpt-4-turbo-2024-04-09",
         "name": "gpt-4-turbo-2024-04-09",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3122,6 +3401,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3139,6 +3419,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3156,7 +3437,6 @@
       {
         "id": "gpt-4o",
         "name": "gpt-4o",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3180,6 +3460,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3200,6 +3481,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3217,7 +3499,6 @@
       {
         "id": "gpt-4o-2024-05-13",
         "name": "gpt-4o-2024-05-13",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3241,6 +3522,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3259,6 +3541,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3276,7 +3559,6 @@
       {
         "id": "gpt-4o-mini-2024-07-18",
         "name": "gpt-4o-mini-2024-07-18",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3300,6 +3582,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3320,6 +3603,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3337,7 +3621,6 @@
       {
         "id": "gpt-4o-mini",
         "name": "gpt-4o-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3361,6 +3644,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3381,6 +3665,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3398,7 +3683,6 @@
       {
         "id": "gpt-4o-2024-08-06",
         "name": "gpt-4o-2024-08-06",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3422,6 +3706,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3442,6 +3727,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3459,7 +3745,6 @@
       {
         "id": "gpt-4o-2024-11-20",
         "name": "gpt-4o-2024-11-20",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3483,6 +3768,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3503,6 +3789,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3520,7 +3807,6 @@
       {
         "id": "gpt-4o-mini-search-preview-2025-03-11",
         "name": "gpt-4o-mini-search-preview-2025-03-11",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3544,6 +3830,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3561,6 +3848,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3578,7 +3866,6 @@
       {
         "id": "gpt-4o-mini-search-preview",
         "name": "gpt-4o-mini-search-preview",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3602,6 +3889,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -3619,6 +3907,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3636,7 +3925,6 @@
       {
         "id": "gpt-4o-transcribe",
         "name": "gpt-4o-transcribe",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3660,6 +3948,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -3667,6 +3956,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3684,7 +3974,6 @@
       {
         "id": "gpt-4o-mini-transcribe",
         "name": "gpt-4o-mini-transcribe",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3708,6 +3997,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -3715,6 +4005,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -3732,7 +4023,6 @@
       {
         "id": "gpt-4o-mini-tts",
         "name": "gpt-4o-mini-tts",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -3755,6 +4045,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -3762,6 +4053,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -3769,7 +4061,6 @@
       {
         "id": "gpt-4.1-2025-04-14",
         "name": "gpt-4.1-2025-04-14",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3791,6 +4082,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3811,6 +4103,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -3828,7 +4121,6 @@
       {
         "id": "gpt-4.1",
         "name": "gpt-4.1",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -3841,16 +4133,17 @@
         "costing": {
           "score": 26.67,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 32768,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3871,6 +4164,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -3888,7 +4182,6 @@
       {
         "id": "gpt-4.1-mini-2025-04-14",
         "name": "gpt-4.1-mini-2025-04-14",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3910,6 +4203,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3930,6 +4224,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -3947,7 +4242,6 @@
       {
         "id": "gpt-4.1-mini",
         "name": "gpt-4.1-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -3960,16 +4254,17 @@
         "costing": {
           "score": 5.33,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-mini"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 32768,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -3990,6 +4285,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4007,7 +4303,6 @@
       {
         "id": "gpt-4.1-nano-2025-04-14",
         "name": "gpt-4.1-nano-2025-04-14",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4029,6 +4324,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 32768,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4047,6 +4343,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4064,7 +4361,6 @@
       {
         "id": "gpt-4.1-nano",
         "name": "gpt-4.1-nano",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4077,16 +4373,17 @@
         "costing": {
           "score": 1.33,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-nano"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 32768,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4105,6 +4402,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4122,7 +4420,6 @@
       {
         "id": "gpt-image-1",
         "name": "gpt-image-1",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -4145,6 +4442,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4152,6 +4450,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4159,7 +4458,6 @@
       {
         "id": "gpt-4o-transcribe-diarize",
         "name": "gpt-4o-transcribe-diarize",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4183,6 +4481,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4190,6 +4489,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -4207,7 +4507,6 @@
       {
         "id": "gpt-5-chat-latest",
         "name": "gpt-5-chat-latest",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4220,16 +4519,17 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -4247,6 +4547,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4264,7 +4565,6 @@
       {
         "id": "gpt-5-2025-08-07",
         "name": "gpt-5-2025-08-07",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4308,6 +4608,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4325,7 +4626,6 @@
       {
         "id": "gpt-5",
         "name": "gpt-5",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4338,14 +4638,14 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4370,6 +4670,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4387,7 +4688,6 @@
       {
         "id": "gpt-5-mini-2025-08-07",
         "name": "gpt-5-mini-2025-08-07",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -4409,6 +4709,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4431,6 +4732,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4448,7 +4750,6 @@
       {
         "id": "gpt-5-mini",
         "name": "gpt-5-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -4461,16 +4762,17 @@
         "costing": {
           "score": 3.33,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5-mini"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4493,6 +4795,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4510,7 +4813,6 @@
       {
         "id": "gpt-5-nano-2025-08-07",
         "name": "gpt-5-nano-2025-08-07",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4554,6 +4856,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4571,7 +4874,6 @@
       {
         "id": "gpt-5-nano",
         "name": "gpt-5-nano",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4584,14 +4886,14 @@
         "costing": {
           "score": 0.67,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5-nano"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -4616,6 +4918,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4633,7 +4936,6 @@
       {
         "id": "gpt-audio-2025-08-28",
         "name": "gpt-audio-2025-08-28",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4657,6 +4959,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4664,6 +4967,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4671,7 +4975,6 @@
       {
         "id": "gpt-realtime",
         "name": "gpt-realtime",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -4694,6 +4997,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4701,6 +5005,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4708,7 +5013,6 @@
       {
         "id": "gpt-realtime-2025-08-28",
         "name": "gpt-realtime-2025-08-28",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -4731,6 +5035,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4738,6 +5043,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4745,7 +5051,6 @@
       {
         "id": "gpt-audio",
         "name": "gpt-audio",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4769,6 +5074,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4776,6 +5082,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4783,7 +5090,6 @@
       {
         "id": "gpt-5-codex",
         "name": "gpt-5-codex",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -4826,6 +5132,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -4833,7 +5140,6 @@
       {
         "id": "gpt-image-1-mini",
         "name": "gpt-image-1-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -4856,6 +5162,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -4863,6 +5170,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -4870,7 +5178,6 @@
       {
         "id": "gpt-5-pro-2025-10-06",
         "name": "gpt-5-pro-2025-10-06",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4912,6 +5219,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4929,7 +5237,6 @@
       {
         "id": "gpt-5-pro",
         "name": "gpt-5-pro",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -4942,14 +5249,14 @@
         "costing": {
           "score": 400.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5-pro"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 272000,
         "capabilities": {
@@ -4972,6 +5279,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -4989,7 +5297,6 @@
       {
         "id": "gpt-audio-mini",
         "name": "gpt-audio-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -5013,6 +5320,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5020,6 +5328,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -5027,7 +5336,6 @@
       {
         "id": "gpt-audio-mini-2025-10-06",
         "name": "gpt-audio-mini-2025-10-06",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -5051,6 +5359,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5058,6 +5367,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -5065,7 +5375,6 @@
       {
         "id": "gpt-5-search-api",
         "name": "gpt-5-search-api",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -5087,6 +5396,7 @@
           "source_url": null
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -5104,6 +5414,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -5111,7 +5422,6 @@
       {
         "id": "gpt-realtime-mini",
         "name": "gpt-realtime-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -5134,6 +5444,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5141,6 +5452,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -5148,7 +5460,6 @@
       {
         "id": "gpt-5-search-api-2025-10-14",
         "name": "gpt-5-search-api-2025-10-14",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -5169,6 +5480,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -5186,6 +5498,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -5193,7 +5506,6 @@
       {
         "id": "gpt-5.1-chat-latest",
         "name": "gpt-5.1-chat-latest",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5206,16 +5518,17 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -5233,6 +5546,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5250,7 +5564,6 @@
       {
         "id": "gpt-5.1-2025-11-13",
         "name": "gpt-5.1-2025-11-13",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5295,6 +5608,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5312,7 +5626,6 @@
       {
         "id": "gpt-5.1",
         "name": "gpt-5.1",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5325,14 +5638,14 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.1"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5358,6 +5671,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5375,7 +5689,6 @@
       {
         "id": "gpt-5.1-codex",
         "name": "gpt-5.1-codex",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -5418,6 +5731,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -5425,7 +5739,6 @@
       {
         "id": "gpt-5.1-codex-mini",
         "name": "gpt-5.1-codex-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -5446,6 +5759,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5468,6 +5782,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -5475,7 +5790,6 @@
       {
         "id": "gpt-5.1-codex-max",
         "name": "gpt-5.1-codex-max",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -5518,6 +5832,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -5525,7 +5840,6 @@
       {
         "id": "gpt-image-1.5",
         "name": "gpt-image-1.5",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -5548,6 +5862,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5555,6 +5870,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -5562,7 +5878,6 @@
       {
         "id": "gpt-5.2-2025-12-11",
         "name": "gpt-5.2-2025-12-11",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5607,6 +5922,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5624,7 +5940,6 @@
       {
         "id": "gpt-5.2",
         "name": "gpt-5.2",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5637,14 +5952,14 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://openai.com/index/introducing-gpt-5-2/"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5670,6 +5985,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5687,7 +6003,6 @@
       {
         "id": "gpt-5.2-pro-2025-12-11",
         "name": "gpt-5.2-pro-2025-12-11",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5729,6 +6044,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5746,7 +6062,6 @@
       {
         "id": "gpt-5.2-pro",
         "name": "gpt-5.2-pro",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5759,14 +6074,14 @@
         "costing": {
           "score": 504.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
         "capabilities": {
@@ -5789,6 +6104,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5806,7 +6122,6 @@
       {
         "id": "gpt-5.2-chat-latest",
         "name": "gpt-5.2-chat-latest",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -5818,17 +6133,18 @@
         },
         "costing": {
           "score": 42.0,
-          "source": "published",
-          "updated": "2026-08-11",
+          "source": "unknown",
+          "updated": "2026-08-21",
           "tier": "",
-          "input_per_1m": 1.75,
-          "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01,
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": null
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -5846,6 +6162,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -5863,7 +6180,6 @@
       {
         "id": "gpt-4o-mini-transcribe-2025-12-15",
         "name": "gpt-4o-mini-transcribe-2025-12-15",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -5887,6 +6203,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5894,6 +6211,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -5911,7 +6229,6 @@
       {
         "id": "gpt-4o-mini-transcribe-2025-03-20",
         "name": "gpt-4o-mini-transcribe-2025-03-20",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -5935,6 +6252,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5942,6 +6260,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -5959,7 +6278,6 @@
       {
         "id": "gpt-4o-mini-tts-2025-03-20",
         "name": "gpt-4o-mini-tts-2025-03-20",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -5982,6 +6300,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -5989,6 +6308,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -5996,7 +6316,6 @@
       {
         "id": "gpt-4o-mini-tts-2025-12-15",
         "name": "gpt-4o-mini-tts-2025-12-15",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -6019,6 +6338,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6026,6 +6346,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6033,7 +6354,6 @@
       {
         "id": "gpt-realtime-mini-2025-12-15",
         "name": "gpt-realtime-mini-2025-12-15",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text"
@@ -6056,6 +6376,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6063,6 +6384,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6070,7 +6392,6 @@
       {
         "id": "gpt-audio-mini-2025-12-15",
         "name": "gpt-audio-mini-2025-12-15",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -6094,6 +6415,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6101,6 +6423,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6108,7 +6431,6 @@
       {
         "id": "chatgpt-image-latest",
         "name": "chatgpt-image-latest",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -6131,6 +6453,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6138,6 +6461,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6145,7 +6469,6 @@
       {
         "id": "gpt-5.2-codex",
         "name": "gpt-5.2-codex",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -6188,6 +6511,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -6195,7 +6519,6 @@
       {
         "id": "gpt-5.3-codex",
         "name": "gpt-5.3-codex",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -6239,6 +6562,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": null
@@ -6246,7 +6570,6 @@
       {
         "id": "gpt-realtime-1.5",
         "name": "gpt-realtime-1.5",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text"
@@ -6269,6 +6592,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 4096,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6276,6 +6600,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6283,7 +6608,6 @@
       {
         "id": "gpt-audio-1.5",
         "name": "gpt-audio-1.5",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6307,6 +6631,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -6314,6 +6639,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -6321,7 +6647,6 @@
       {
         "id": "gpt-4o-search-preview",
         "name": "gpt-4o-search-preview",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6345,6 +6670,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -6362,6 +6688,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -6379,7 +6706,6 @@
       {
         "id": "gpt-4o-search-preview-2025-03-11",
         "name": "gpt-4o-search-preview-2025-03-11",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6403,6 +6729,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -6420,6 +6747,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -6437,7 +6765,6 @@
       {
         "id": "gpt-5.3-chat-latest",
         "name": "gpt-5.3-chat-latest",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6449,17 +6776,18 @@
         },
         "costing": {
           "score": 42.0,
-          "source": "published",
-          "updated": "2026-08-11",
+          "source": "unknown",
+          "updated": "2026-08-21",
           "tier": "",
-          "input_per_1m": 1.75,
-          "output_per_1m": 14.0,
-          "search_cost_per_unit": 0.01,
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "search_cost_per_unit": null,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": null
         },
         "max_output_tokens": 16384,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -6477,6 +6805,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6494,7 +6823,6 @@
       {
         "id": "gpt-5.4-2026-03-05",
         "name": "gpt-5.4-2026-03-05",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6541,6 +6869,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6558,7 +6887,6 @@
       {
         "id": "gpt-5.4-pro",
         "name": "gpt-5.4-pro",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6575,7 +6903,7 @@
         "costing": {
           "score": 560.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
@@ -6605,6 +6933,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6622,7 +6951,6 @@
       {
         "id": "gpt-5.4-pro-2026-03-05",
         "name": "gpt-5.4-pro-2026-03-05",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6668,6 +6996,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6685,7 +7014,6 @@
       {
         "id": "gpt-5.4",
         "name": "gpt-5.4",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6700,7 +7028,7 @@
         "costing": {
           "score": 46.67,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
@@ -6733,6 +7061,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6750,7 +7079,6 @@
       {
         "id": "gpt-5.4-nano-2026-03-17",
         "name": "gpt-5.4-nano-2026-03-17",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6795,6 +7123,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6812,7 +7141,6 @@
       {
         "id": "gpt-5.4-nano",
         "name": "gpt-5.4-nano",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -6828,7 +7156,7 @@
           "input_per_1m": 0.2,
           "output_per_1m": 1.25,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -6858,6 +7186,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6875,7 +7204,6 @@
       {
         "id": "gpt-5.4-mini-2026-03-17",
         "name": "gpt-5.4-mini-2026-03-17",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -6897,6 +7225,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6920,6 +7249,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -6937,7 +7267,6 @@
       {
         "id": "gpt-5.4-mini",
         "name": "gpt-5.4-mini",
-        "context_window": 256000,
         "modalities": {
           "input": [
             "text",
@@ -6953,13 +7282,14 @@
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 256000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6983,6 +7313,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7000,7 +7331,6 @@
       {
         "id": "gpt-image-2",
         "name": "gpt-image-2",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7021,6 +7351,7 @@
           "source_url": null
         },
         "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7028,6 +7359,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -7045,7 +7377,6 @@
       {
         "id": "gpt-image-2-2026-04-21",
         "name": "gpt-image-2-2026-04-21",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7065,6 +7396,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7072,6 +7404,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": {
@@ -7089,7 +7422,6 @@
       {
         "id": "gpt-5.5",
         "name": "gpt-5.5",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7103,7 +7435,7 @@
           "input_per_1m": 5.0,
           "output_per_1m": 30.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7133,6 +7465,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7150,7 +7483,6 @@
       {
         "id": "gpt-5.5-2026-04-23",
         "name": "gpt-5.5-2026-04-23",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7193,6 +7525,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7210,7 +7543,6 @@
       {
         "id": "gpt-5.5-pro",
         "name": "gpt-5.5-pro",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7224,7 +7556,7 @@
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "source": "published",
-          "updated": "2026-08-11",
+          "updated": "2026-08-21",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7251,6 +7583,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7268,7 +7601,6 @@
       {
         "id": "gpt-5.5-pro-2026-04-23",
         "name": "gpt-5.5-pro-2026-04-23",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7308,6 +7640,7 @@
             "off"
           ],
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7325,7 +7658,6 @@
       {
         "id": "gpt-realtime-translate",
         "name": "gpt-realtime-translate",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7347,6 +7679,7 @@
           "source_url": null
         },
         "max_output_tokens": 2000,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7354,6 +7687,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -7361,7 +7695,6 @@
       {
         "id": "gpt-realtime-2",
         "name": "gpt-realtime-2",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7382,6 +7715,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 32000,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7389,6 +7723,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -7396,7 +7731,6 @@
       {
         "id": "gpt-realtime-whisper",
         "name": "gpt-realtime-whisper",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7417,6 +7751,7 @@
           "source_url": null
         },
         "max_output_tokens": 2000,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": null,
           "temperature": null,
@@ -7424,6 +7759,7 @@
           "web_search": null,
           "json_with_search": null,
           "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
@@ -7431,7 +7767,6 @@
       {
         "id": "gpt-5.6-sol",
         "name": "gpt-5.6-sol",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7451,7 +7786,7 @@
           "search_cost_per_unit": 0.01,
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7475,6 +7810,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7492,7 +7828,6 @@
       {
         "id": "gpt-5.6-terra",
         "name": "gpt-5.6-terra",
-        "context_window": 128000,
         "modalities": {
           "input": [
             "text",
@@ -7512,7 +7847,7 @@
           "search_cost_per_unit": 0.01,
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 128000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7536,6 +7871,7 @@
           "thinking_style": [
             "effort"
           ],
+          "effort_levels": null,
           "incompatible": []
         },
         "vision_limits": {
@@ -7551,207 +7887,54 @@
         }
       },
       {
-        "id": "gpt-5.6-luna",
-        "name": "gpt-5.6-luna",
-        "context_window": 128000,
+        "id": "gpt-3.5-turbo-16k",
+        "name": "gpt-3.5-turbo-16k",
         "modalities": {
           "input": [
-            "text",
-            "vision"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
         "costing": {
-          "input_per_1m": 1.0,
-          "output_per_1m": 6.0,
-          "source": "published",
-          "updated": "2026-07-16",
+          "score": 18.67,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 4.0,
+          "search_cost_per_unit": null,
           "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": 0.01,
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "pricing_class_source": "auto"
         },
-        "max_output_tokens": 0,
+        "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
             "default"
           ],
           "thinking": [
-            "on",
             "off"
           ],
           "web_search": [
-            "on",
             "off"
           ],
           "json_with_search": [
-            "on",
             "off"
           ],
-          "thinking_style": [
-            "effort"
-          ],
-          "incompatible": []
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
-      {
-        "id": "gpt-realtime-2.1",
-        "name": "gpt-realtime-2.1",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "text",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-07-16",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
           "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-realtime-2.1-mini",
-        "name": "gpt-realtime-2.1-mini",
-        "context_window": 256000,
-        "modalities": {
-          "input": [
-            "text",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-07-16",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-transcribe",
-        "name": "gpt-transcribe",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "audio"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-08-11",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-live-transcribe",
-        "name": "gpt-live-transcribe",
-        "context_window": 128000,
-        "modalities": {
-          "input": [
-            "audio"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-08-11",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 0,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
+          "effort_levels": null,
           "incompatible": null
         },
         "vision_limits": null
       }
     ],
-    "last_updated": "2026-08-11"
+    "last_updated": "2026-08-21"
   }
 }

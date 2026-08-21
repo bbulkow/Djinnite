@@ -14,12 +14,13 @@ Usage:
 import json
 import sys
 import argparse
+from dataclasses import fields as _dc_fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List
 
 try:
-    from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file
+    from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
     from djinnite.ai_providers import get_provider, BaseAIProvider
     from djinnite.ai_providers.gemini_provider import GeminiProvider
     from djinnite.ai_providers.claude_provider import ClaudeProvider
@@ -32,7 +33,7 @@ except ImportError:
     if _project_root not in sys.path:
         sys.path.insert(0, _project_root)
     
-    from config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file
+    from config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
     from ai_providers import get_provider, BaseAIProvider
     from ai_providers.gemini_provider import GeminiProvider
     from ai_providers.claude_provider import ClaudeProvider
@@ -53,6 +54,11 @@ except ImportError:
 # override is truly necessary, add it to config/known_model_defaults.json
 # with a comment explaining why dynamic discovery is impossible.
 # ============================================================================
+
+
+# Capability field names, taken from the dataclass so this script cannot
+# fall out of sync with the catalog schema.
+_CAPABILITY_FIELDS: tuple = tuple(f.name for f in _dc_fields(ModelCapabilities))
 
 
 def _load_known_defaults() -> dict:
@@ -113,8 +119,9 @@ OUTPUT_LIMIT_SCHEMA = {
                 "properties": {
                     "id": {"type": "string"},
                     "max_output_tokens": {"type": "integer"},
+                    "context_window": {"type": "integer"},
                 },
-                "required": ["id", "max_output_tokens"],
+                "required": ["id", "max_output_tokens", "context_window"],
             },
         },
     },
@@ -150,12 +157,20 @@ MODALITY_SCHEMA = {
 OUTPUT_LIMIT_ESTIMATION_PROMPT = """You are an AI model specification expert.
 I need the maximum output token limits for these {provider_company} models.
 
-IMPORTANT: Return the MAXIMUM output token count each model can generate in a single response.
-This is NOT the context window - it's the max_output_tokens / max_completion_tokens parameter limit.
+Return TWO distinct numbers per model. Do not confuse them:
+
+  max_output_tokens - the MAXIMUM tokens the model can generate in a single
+                      response (the max_output_tokens / max_completion_tokens
+                      parameter limit).
+  context_window    - the TOTAL token budget for a request: input plus output
+                      combined. This is always LARGER than max_output_tokens;
+                      a model cannot spend its whole context on output and
+                      have room left for a prompt.
 
 Return a JSON object with a single key "limits" whose value is an array of
-objects, one per model, each with the model "id" and an integer
-"max_output_tokens" field. If you are unsure about a model, use 0.
+objects, one per model, each with the model "id", an integer
+"max_output_tokens" and an integer "context_window". If you are unsure about
+either value for a model, use 0 for that value.
 
 MODELS TO ANALYZE:
 {model_list}
@@ -230,8 +245,13 @@ def estimate_output_limits_with_ai(
     models: list[dict],
     provider_name: str,
     ai_config
-) -> dict[str, int]:
-    """Use AI with web search to estimate max output token limits for unknown models.
+) -> dict[str, dict]:
+    """Estimate output limits and context windows for models the API omits.
+
+    Returns ``{model_id: {"max_output_tokens": int, "context_window": int}}``
+    with either key absent when the estimator was unsure. OpenAI's models
+    endpoint reports neither value, so this is the only non-inventing source
+    for them.
 
     Uses ``generate_json`` with a strict schema; the response is
     guaranteed to validate. Web search is requested first (current docs
@@ -276,13 +296,24 @@ def estimate_output_limits_with_ai(
                 raise
         print(f"    Response received, parsing...")
         parsed = json.loads(resp.content)
-        cleaned: dict[str, int] = {}
+        cleaned: dict[str, dict] = {}
         for entry in parsed.get("limits", []):
-            limit = entry.get("max_output_tokens")
             mid = entry.get("id")
-            if isinstance(mid, str) and isinstance(limit, (int, float)) and limit > 0:
-                cleaned[mid] = int(limit)
-        print(f"    Done. Got output limits for {len(cleaned)} models")
+            if not isinstance(mid, str):
+                continue
+            limit = entry.get("max_output_tokens")
+            ctx = entry.get("context_window")
+            vals: dict[str, int] = {}
+            if isinstance(limit, (int, float)) and limit > 0:
+                vals["max_output_tokens"] = int(limit)
+            # Only accept a context window that can actually hold the output
+            # it claims; an estimate that fails that is self-contradictory.
+            if isinstance(ctx, (int, float)) and ctx > 0:
+                if not vals.get("max_output_tokens") or ctx >= vals["max_output_tokens"]:
+                    vals["context_window"] = int(ctx)
+            if vals:
+                cleaned[mid] = vals
+        print(f"    Done. Got limits for {len(cleaned)} models")
         return cleaned
     except Exception as e:
         print(f"  [WARN] Output limit estimation failed: {e}")
@@ -579,9 +610,27 @@ def merge_model_data(
         # Resolve max_output_tokens from API, known table, or existing
         resolved_output = _resolve_max_output_tokens(model_id, api_output_limit, existing_output_limit)
         model["max_output_tokens"] = resolved_output
+
+        # Same for context_window: the provider API wins, then whatever the
+        # catalog already held. Never let a provider that reports nothing
+        # blank out a known value.
+        if not model.get("context_window"):
+            existing_ctx = (existing or {}).get("context_window") or 0
+            if existing_ctx:
+                model["context_window"] = existing_ctx
         
-        # Queue for AI estimation if still unknown
-        if resolved_output == 0:
+        # Queue for AI estimation when either limit is unknown, or when the
+        # pair is self-contradictory. context_window <= max_output_tokens
+        # means the model could spend its whole budget on output with no
+        # room for a prompt, which is never true -- it marks a guessed or
+        # stale value that needs re-deriving rather than preserving.
+        ctx_now = model.get("context_window") or 0
+        implausible_ctx = bool(resolved_output) and bool(ctx_now) and ctx_now <= resolved_output
+        if resolved_output == 0 or ctx_now == 0 or implausible_ctx:
+            if implausible_ctx:
+                # Drop the bad value so the estimate is not blocked by the
+                # "only fill what the API did not supply" guard downstream.
+                model["context_window"] = 0
             unknown_output_limit_models.append(model)
         
         # Resolve capabilities from existing catalog
@@ -612,15 +661,28 @@ def merge_model_data(
             ssj = None
             print(f"  [REPROBE] Resetting capabilities for {model_id}")
 
+        # effort_levels: a provider whose models endpoint enumerates the
+        # levels (Anthropic) supplies them on the list_models() entry. Only
+        # fall back to the cached value when the API said nothing -- and
+        # never drop the key, or the field silently disappears from the
+        # catalog on every refresh.
+        api_effort_levels = model.pop("effort_levels", None)
+
+        # Rebuild from ModelCapabilities' own field list rather than a
+        # hand-maintained literal. This assignment REPLACES the dict, so any
+        # capability missing from the key set is silently dropped on every
+        # refresh -- that is how `effort_levels` disappeared from all eight
+        # effort-capable Claude models the first time this ran. Deriving the
+        # keys means a newly added capability carries through by default.
         model["capabilities"] = {
-            "structured_json": ssj,
-            "temperature": existing_caps.get("temperature"),
-            "thinking": existing_caps.get("thinking"),
-            "web_search": existing_caps.get("web_search"),
-            "json_with_search": existing_caps.get("json_with_search"),
-            "thinking_style": existing_caps.get("thinking_style"),
-            "incompatible": existing_caps.get("incompatible"),
+            name: existing_caps.get(name)
+            for name in _CAPABILITY_FIELDS
         }
+        model["capabilities"]["structured_json"] = ssj
+        if api_effort_levels:
+            # The provider's models endpoint is authoritative when it
+            # enumerates levels; otherwise keep whatever was cached.
+            model["capabilities"]["effort_levels"] = api_effort_levels
         
         # Resolve vision_limits for vision-capable models
         input_modalities = model.get("modalities", {})
@@ -711,8 +773,14 @@ def merge_model_data(
             unknown_output_limit_models, provider_instance.PROVIDER_NAME, ai_config
         )
         for model in unknown_output_limit_models:
-            if model["id"] in limit_estimates:
-                model["max_output_tokens"] = limit_estimates[model["id"]]
+            vals = limit_estimates.get(model["id"])
+            if not vals:
+                continue
+            if vals.get("max_output_tokens"):
+                model["max_output_tokens"] = vals["max_output_tokens"]
+            # Only fill a context window the provider API did not supply.
+            if vals.get("context_window") and not model.get("context_window"):
+                model["context_window"] = vals["context_window"]
     
     # 4. Live probe ALL capabilities on models that need it
     if models_needing_ssj_probe:
@@ -726,7 +794,9 @@ def merge_model_data(
                 probed = probe_results[model["id"]]
                 # Merge probe results into capabilities (probe wins over None)
                 caps = model["capabilities"]
-                for key in ["structured_json", "temperature", "thinking", "web_search", "json_with_search", "thinking_style", "incompatible"]:
+                for key in ["structured_json", "temperature", "thinking", "web_search",
+                            "json_with_search", "thinking_style", "effort_levels",
+                            "incompatible"]:
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
     

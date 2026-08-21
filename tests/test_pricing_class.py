@@ -148,6 +148,65 @@ def _check_helpers() -> list:
 
 
 # ------------------------------------------------------------------
+# Price provenance
+#
+# `is_stale` answers "how old is this number", which cannot distinguish a
+# price read off the vendor's pricing page from one a model guessed. An
+# estimate re-dated yesterday looks fresher than a verified price from last
+# month. That gap let gemini-flash-latest sit at an estimated $0.50/$3.00
+# when the real price was $1.50/$7.50 -- a 3x error that never tripped the
+# staleness check because it was never old enough.
+# ------------------------------------------------------------------
+
+def test_unverified_is_independent_of_age():
+    """A brand-new estimate is unverified; a verified price never is."""
+    fresh_guess = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                               source="estimated", updated=date.today().isoformat())
+    assert not fresh_guess.is_stale(180), "guard: this fixture must look fresh by age"
+    assert fresh_guess.is_unverified(), "a never-checked price is not fresh"
+    assert fresh_guess.needs_repricing(180)
+
+    verified = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                            source="published", updated=date.today().isoformat(),
+                            source_url="https://example.invalid/pricing")
+    assert not verified.is_unverified()
+    assert not verified.needs_repricing(180)
+
+
+def test_manual_pricing_counts_as_verified():
+    """A human-entered price is deliberate, not a guess."""
+    manual = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                          source="manual", updated=date.today().isoformat())
+    assert not manual.is_unverified()
+
+
+def test_unpriced_entry_is_not_flagged_unverified():
+    """With no price there is nothing to verify -- that is `missing`, not stale."""
+    assert not ModelCosting(source="unknown").is_unverified()
+
+
+def test_needs_repricing_still_catches_plain_age():
+    """Provenance is an additional trigger, not a replacement for age."""
+    old_but_verified = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                                    source="published", updated="2020-01-01",
+                                    source_url="https://example.invalid/pricing")
+    assert old_but_verified.is_stale(180)
+    assert old_but_verified.needs_repricing(180)
+
+
+def test_runtime_staleness_stays_age_only():
+    """is_stale gates the runtime hard-fail, so provenance must not leak in.
+
+    Making every estimate instantly stale would turn ~73% of the catalog
+    into AIPricingError at request time.
+    """
+    guess = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                         source="estimated", updated=date.today().isoformat())
+    assert guess.is_unverified()
+    assert not guess.is_stale(180)
+
+
+# ------------------------------------------------------------------
 # pytest entry points -- these assert, so a regression actually fails.
 # ------------------------------------------------------------------
 

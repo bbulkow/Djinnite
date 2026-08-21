@@ -834,23 +834,47 @@ class ClaudeProvider(BaseAIProvider):
             for model in models:
                 model_id = model.id
                 name = getattr(model, "display_name", model_id)
-                context = 200000
+
+                # The models endpoint reports these directly; do not guess.
+                # A hardcoded 200000 here was writing the wrong context
+                # window into the catalog for every 1M-context model, and
+                # violated this repo's "no static model data in Python"
+                # policy for update_models.
+                context = getattr(model, "max_input_tokens", None) or 200000
+                api_max_output = getattr(model, "max_tokens", None) or 0
+
                 cost = "standard"
-                
                 if "opus" in model_id:
                     cost = "premium"
                 elif "haiku" in model_id:
                     cost = "economical"
-                
+
                 modalities = ["text", "vision"]
-                
-                models_list.append({
+
+                # Effort levels vary per model (Opus 4.5 stops at "high";
+                # Opus 5 accepts "max"), and the endpoint enumerates them,
+                # so no probing is needed to discover the set.
+                effort_levels = None
+                caps = getattr(model, "capabilities", None)
+                effort = getattr(caps, "effort", None) if caps else None
+                if effort is not None and getattr(effort, "supported", False):
+                    effort_levels = [
+                        lvl for lvl in ("low", "medium", "high", "xhigh", "max")
+                        if getattr(getattr(effort, lvl, None), "supported", False)
+                    ] or None
+
+                entry = {
                     "id": model_id,
                     "name": name,
                     "context_window": context,
                     "modalities": modalities,
-                    "cost_tier": cost
-                })
+                    "cost_tier": cost,
+                }
+                if api_max_output:
+                    entry["max_output_tokens"] = api_max_output
+                if effort_levels:
+                    entry["effort_levels"] = effort_levels
+                models_list.append(entry)
             
             return models_list
         except Exception as e:

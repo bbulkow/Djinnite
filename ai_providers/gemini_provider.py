@@ -658,7 +658,7 @@ class GeminiProvider(BaseAIProvider):
         try:
             self._client.models.generate_content(
                 model=self.model, contents="Say hi.",
-                config={"temperature": 0.5, "max_output_tokens": 10},
+                config={"automatic_function_calling": _DISABLE_AFC, "temperature": 0.5, "max_output_tokens": 10},
             )
             return True
         except Exception as e:
@@ -721,6 +721,7 @@ class GeminiProvider(BaseAIProvider):
             self._client.models.generate_content(
                 model=self.model, contents="Say hi.",
                 config={
+                    "automatic_function_calling": _DISABLE_AFC,
                     "max_output_tokens": 100,
                     "thinking_config": {"thinking_budget": 0},
                 },
@@ -777,6 +778,7 @@ class GeminiProvider(BaseAIProvider):
                 self._client.models.generate_content(
                     model=self.model, contents="Say hi.",
                     config={
+                        "automatic_function_calling": _DISABLE_AFC,
                         "max_output_tokens": 100,
                         "thinking_config": thinking_cfg,
                     },
@@ -803,6 +805,7 @@ class GeminiProvider(BaseAIProvider):
                 model=self.model,
                 contents="Return the number 1.",
                 config={
+                    "automatic_function_calling": _DISABLE_AFC,
                     "temperature": 0,
                     "max_output_tokens": 50,
                     "response_mime_type": "application/json",
@@ -826,6 +829,7 @@ class GeminiProvider(BaseAIProvider):
                 model=self.model,
                 contents="Say hi.",
                 config={
+                    "automatic_function_calling": _DISABLE_AFC,
                     "max_output_tokens": 50,
                     "tools": [types.Tool(google_search=types.GoogleSearch())],
                 },
@@ -856,6 +860,7 @@ class GeminiProvider(BaseAIProvider):
                 model=self.model,
                 contents="Return the number 1.",
                 config={
+                    "automatic_function_calling": _DISABLE_AFC,
                     "temperature": 0,
                     "max_output_tokens": 50,
                     "response_mime_type": "application/json",

@@ -354,11 +354,47 @@ class ModelCosting:
 
         A missing or unparseable ``updated`` counts as stale (we cannot prove
         the price is fresh).
+
+        Age only — deliberately. This gates the runtime hard-fail in
+        ``BaseAIProvider._compute_token_cost``, so it stays a pure
+        "how old is this number" question. Whether the number was ever
+        *checked* is a separate axis: see :meth:`is_unverified`.
         """
         days = self.days_since_update(today)
         if days is None:
             return True
         return days > max_age_days
+
+    def is_unverified(self) -> bool:
+        """True if this price was never checked against a published source.
+
+        ``source="estimated"`` means a model guessed the number. That is not
+        the same as a price read off the vendor's pricing page, but age alone
+        cannot tell them apart — an estimate made yesterday looks "fresher"
+        than a verified price from last month.
+
+        That gap is what let ``gemini-flash-latest`` sit at an estimated
+        $0.50/$3.00 while the real price was $1.50/$7.50: a 3x error that
+        never tripped the staleness check because it was never old enough,
+        and "estimated" was not itself a trigger.
+
+        A never-verified price is not fresh; it is unverified.
+        """
+        if self.input_per_1m is None and self.output_per_1m is None:
+            return False  # no price to verify
+        if self.source in ("manual", "published"):
+            return False
+        return True
+
+    def needs_repricing(self, max_age_days: int = 180,
+                        today: Optional[date] = None) -> bool:
+        """True if this price should be re-derived: too old, or never verified.
+
+        This is the trigger auditing and refresh tooling should use.
+        ``is_stale`` alone silently accepts a guess forever, provided the
+        guess keeps getting re-dated.
+        """
+        return self.is_stale(max_age_days, today) or self.is_unverified()
 
 
 @dataclass

@@ -627,18 +627,22 @@ class OpenAIProvider(BaseAIProvider):
                 model_id = model.id
                 if "gpt" not in model_id:
                     continue
-                context = 128000
-                if "gpt-3.5" in model_id:
-                    context = 16000
-                elif "mini" in model_id:
-                    context = 256000
+                # OpenAI's models endpoint does not report context windows,
+                # so there is nothing here to read. The previous guesses
+                # ("mini" implies 256000, everything else 128000) wrote
+                # invented numbers into the catalog that were
+                # indistinguishable from measured ones -- gpt-5 landed at
+                # context_window == max_output_tokens == 128000, leaving no
+                # room for input. Omit the key instead: update_models
+                # preserves the existing catalog value and falls back to
+                # web-search-backed estimation, per this repo's
+                # "no static model data in Python" policy.
                 modalities = ["text"]
                 if any(x in model_id.lower() for x in ["vision", "gpt-4", "4o"]):
                     modalities.append("vision")
                 models_list.append({
                     "id": model_id,
                     "name": model_id,
-                    "context_window": context,
                     "modalities": modalities,
                     "cost_tier": "standard",
                 })

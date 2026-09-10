@@ -1,0 +1,393 @@
+{
+  "_comment": "THE human-editable file for per-model decisions. Anything you want to pin about a specific model goes here -- disabled state, a corrected context window, a price you verified by hand -- and it is applied on top of whatever discovery produced, every time the catalog is written. model_catalog.json is GENERATED: do not hand-edit it, the edit will be lost. Compare with known_model_defaults.json, which holds inputs TO discovery (estimator choice, provider vision defaults) rather than decisions on top of it. After editing, run: uv run python -m djinnite.scripts.apply_overrides",
+  "_key_format": "provider/model-id (e.g. chatgpt/gpt-4o). A bare model-id is accepted for backwards compatibility but provider-qualified is preferred: model ids are unique across the hosted providers today, but local backends will not be.",
+  "_fields": "Any catalog field. Nested fields may be given as a nested object -- {\"costing\": {\"input_per_1m\": 2.5}} overrides only that number and leaves the discovered source_url and updated date alone. Keys starting with _ are notes and are ignored.",
+  "_example": {
+    "chatgpt/gpt-6-astra": {
+      "context_window": 1050000,
+      "_note": "estimator batch returned 128000/128000; single-model re-ask gave this"
+    }
+  },
+  "models": {
+    "chatgpt/gpt-3.5-turbo": {
+      "disabled": true,
+      "disabled_reason": "legacy model - deprecated"
+    },
+    "chatgpt/gpt-3.5-turbo-0125": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-3.5-turbo-1106": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-3.5-turbo-16k": {
+      "disabled": true,
+      "disabled_reason": "legacy model - deprecated"
+    },
+    "chatgpt/gpt-3.5-turbo-instruct": {
+      "disabled": true,
+      "disabled_reason": "legacy instruct model"
+    },
+    "chatgpt/gpt-3.5-turbo-instruct-0914": {
+      "disabled": true,
+      "disabled_reason": "legacy instruct model"
+    },
+    "chatgpt/gpt-4": {
+      "disabled": true,
+      "disabled_reason": "legacy model - use gpt-5"
+    },
+    "chatgpt/gpt-4-0613": {
+      "disabled": true,
+      "disabled_reason": "legacy model - deprecated"
+    },
+    "chatgpt/gpt-4-0125-preview": {
+      "disabled": true,
+      "disabled_reason": "legacy preview - deprecated"
+    },
+    "chatgpt/gpt-4-1106-preview": {
+      "disabled": true,
+      "disabled_reason": "legacy preview - deprecated"
+    },
+    "chatgpt/gpt-4-turbo": {
+      "disabled": true,
+      "disabled_reason": "legacy model - use gpt-5"
+    },
+    "chatgpt/gpt-4-turbo-preview": {
+      "disabled": true,
+      "disabled_reason": "legacy preview - deprecated"
+    },
+    "chatgpt/gpt-4-turbo-2024-04-09": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-2024-05-13": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-2024-08-06": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-2024-11-20": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-2024-07-18": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-audio-preview-2024-12-17": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-audio-preview-2024-12-17": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-realtime-preview-2024-12-17": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-realtime-preview-2024-12-17": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-realtime-preview-2025-06-03": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-audio-preview-2025-06-03": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-transcribe-2025-03-20": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-transcribe-2025-12-15": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-tts-2025-03-20": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-4o-mini-tts-2025-12-15": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-realtime-mini-2025-12-15": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-audio-mini-2025-12-15": {
+      "disabled": true,
+      "disabled_reason": "legacy dated snapshot"
+    },
+    "chatgpt/gpt-image-1": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-1-mini": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-1.5": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/chatgpt-image-latest": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-4o-audio-preview": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-4o-mini-audio-preview": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-audio": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-audio-2025-08-28": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-audio-mini": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-audio-mini-2025-10-06": {
+      "disabled": true,
+      "disabled_reason": "audio dated snapshot"
+    },
+    "chatgpt/gpt-audio-1.5": {
+      "disabled": true,
+      "disabled_reason": "audio model"
+    },
+    "chatgpt/gpt-4o-realtime-preview": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-4o-mini-realtime-preview": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-2025-08-28": {
+      "disabled": true,
+      "disabled_reason": "realtime dated snapshot"
+    },
+    "chatgpt/gpt-realtime-mini": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-mini-2025-10-06": {
+      "disabled": true,
+      "disabled_reason": "realtime dated snapshot"
+    },
+    "chatgpt/gpt-realtime-1.5": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-4o-transcribe": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "chatgpt/gpt-4o-transcribe-diarize": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "chatgpt/gpt-4o-mini-transcribe": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "chatgpt/gpt-4o-mini-tts": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "gemini/gemini-embedding-001": {
+      "disabled": true,
+      "disabled_reason": "embedding model"
+    },
+    "gemini/gemini-embedding-2-preview": {
+      "disabled": true,
+      "disabled_reason": "embedding model"
+    },
+    "gemini/gemini-embedding-2": {
+      "disabled": true,
+      "disabled_reason": "embedding model"
+    },
+    "gemini/gemini-robotics-er-1.5-preview": {
+      "disabled": true,
+      "disabled_reason": "robotics model"
+    },
+    "gemini/gemini-2.5-computer-use-preview-10-2025": {
+      "disabled": true,
+      "disabled_reason": "computer use model"
+    },
+    "gemini/gemini-2.5-flash-native-audio-latest": {
+      "disabled": true,
+      "disabled_reason": "native audio model"
+    },
+    "gemini/gemini-2.5-flash-native-audio-preview-09-2025": {
+      "disabled": true,
+      "disabled_reason": "native audio dated snapshot"
+    },
+    "gemini/gemini-2.5-flash-native-audio-preview-12-2025": {
+      "disabled": true,
+      "disabled_reason": "native audio dated snapshot"
+    },
+    "gemini/gemini-2.5-flash-preview-tts": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "gemini/gemini-2.5-pro-preview-tts": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "claude/claude-3-haiku-20240307": {
+      "disabled": true,
+      "disabled_reason": "legacy model - deprecated"
+    },
+    "gemini/gemini-3.1-flash-live-preview": {
+      "disabled": true,
+      "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path"
+    },
+    "chatgpt/gpt-4o": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5 or gpt-4.1"
+    },
+    "chatgpt/gpt-4o-mini": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5-mini or gpt-4.1-mini"
+    },
+    "chatgpt/gpt-4o-mini-search-preview-2025-03-11": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool"
+    },
+    "chatgpt/gpt-4o-mini-search-preview": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool"
+    },
+    "chatgpt/gpt-4o-search-preview": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool"
+    },
+    "chatgpt/gpt-4o-search-preview-2025-03-11": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool"
+    },
+    "chatgpt/gpt-image-2": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-2-2026-04-21": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-2.5-flare": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-2.5-flare-2026-09-08": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-2.5-sunburst": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-image-2.5-sunburst-2026-09-08": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "chatgpt/gpt-realtime-2": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-2.1": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-2.1-mini": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-translate": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-realtime-whisper": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    },
+    "chatgpt/gpt-transcribe": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "chatgpt/gpt-live-transcribe": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "gemini/gemini-3.1-flash-tts-preview": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "gemini/gemini-3.5-transcribe": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "gemini/gemini-3.5-transcribe-live": {
+      "disabled": true,
+      "disabled_reason": "transcription model"
+    },
+    "gemini/gemini-3.5-live-translate-preview": {
+      "disabled": true,
+      "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path"
+    },
+    "gemini/gemini-2.5-flash-image": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-3-pro-image": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-3-pro-image-preview": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-3.1-flash-image": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-3.1-flash-image-preview": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-3.1-flash-lite-image": {
+      "disabled": true,
+      "disabled_reason": "image generation model"
+    },
+    "gemini/gemini-robotics-er-2-preview": {
+      "disabled": true,
+      "disabled_reason": "robotics model"
+    },
+    "gemini/gemini-robotics-er-2-streaming-preview": {
+      "disabled": true,
+      "disabled_reason": "robotics model"
+    },
+    "chatgpt/gpt-live-1": {
+      "disabled": true,
+      "disabled_reason": "realtime/streaming model"
+    }
+  }
+}

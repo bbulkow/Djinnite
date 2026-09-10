@@ -21,6 +21,7 @@ from typing import Optional, Dict, List
 
 try:
     from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
+    from djinnite.scripts.model_overrides import load_overrides, lookup, save_catalog
     from djinnite.ai_providers import get_provider, BaseAIProvider
     from djinnite.ai_providers.gemini_provider import GeminiProvider
     from djinnite.ai_providers.claude_provider import ClaudeProvider
@@ -34,6 +35,7 @@ except ImportError:
         sys.path.insert(0, _project_root)
     
     from config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
+    from scripts.model_overrides import load_overrides, lookup, save_catalog
     from ai_providers import get_provider, BaseAIProvider
     from ai_providers.gemini_provider import GeminiProvider
     from ai_providers.claude_provider import ClaudeProvider
@@ -120,6 +122,38 @@ _REESTIMATE_CTX = "_reestimate_context_window"
 # leaves the catalog unable to answer a question it could answer before,
 # which is strictly worse than holding a stale answer.
 _NEVER_DOWNGRADE_FIELDS = ("context_window", "max_output_tokens")
+
+# ---------------------------------------------------------------------------
+# Human decisions live in exactly one file: config/model_overrides.json.
+#
+# The catalog is GENERATED. Everything a human chooses about a specific model
+# -- disabled state, a corrected context window, a hand-verified price -- goes
+# in the overrides file and is applied by save_catalog() as the final step of
+# every catalog write. See scripts/model_overrides.py for the full rationale.
+#
+# This module needs the overrides for one thing before that final step:
+# `disabled` gates live probing, and a model listed as disabled must not be
+# billed for probes on the very run that disables it. So the merge consults
+# the override entry directly (read-only) rather than mutating the half-built
+# model dict, which would record provenance against fields that discovery has
+# not finished writing yet.
+# ---------------------------------------------------------------------------
+
+_OVERRIDES_CACHE: Optional[dict] = None
+
+
+def _overrides() -> dict:
+    """Load model_overrides.json once per process."""
+    global _OVERRIDES_CACHE
+    if _OVERRIDES_CACHE is None:
+        try:
+            _OVERRIDES_CACHE = load_overrides()
+        except Exception as e:
+            print(f"  [WARN] could not load model_overrides.json ({e}); "
+                  f"proceeding with no human overrides")
+            _OVERRIDES_CACHE = {}
+    return _OVERRIDES_CACHE
+
 
 _MODALITY_VALUES = ["text", "vision", "audio", "video", "embedding"]
 
@@ -255,6 +289,37 @@ def estimate_modalities_with_ai(
             pass
         return {}
 
+def sanitize_estimated_limits(entry: dict) -> dict:
+    """Reduce one estimator entry to the limit values that are self-consistent.
+
+    Returns a dict with ``max_output_tokens`` and/or ``context_window``, each
+    key present only when that number is usable. An estimate is dropped rather
+    than corrected: a wrong number written into the catalog is harder to notice
+    than an absent one, which the unknown-limit queue picks up on the next run.
+
+    The context window must be STRICTLY greater than the output cap. A model
+    whose entire context could be spent on output, leaving zero tokens for a
+    prompt, does not exist -- so ``ctx == max_out`` is a guess, not a fact.
+    This boundary is deliberately identical to the pre-estimation
+    ``implausible_ctx`` guard in ``merge_model_data`` and to
+    ``test_context_window_exceeds_output_cap``; when it was ``>=`` here and
+    ``<=`` in those two, an exactly-equal estimate passed the writer and failed
+    the suite. gpt-6-astra landed in the catalog at 128000/128000 that way.
+    """
+    vals: dict[str, int] = {}
+
+    limit = entry.get("max_output_tokens")
+    if isinstance(limit, (int, float)) and not isinstance(limit, bool) and limit > 0:
+        vals["max_output_tokens"] = int(limit)
+
+    ctx = entry.get("context_window")
+    if isinstance(ctx, (int, float)) and not isinstance(ctx, bool) and ctx > 0:
+        if not vals.get("max_output_tokens") or ctx > vals["max_output_tokens"]:
+            vals["context_window"] = int(ctx)
+
+    return vals
+
+
 def estimate_output_limits_with_ai(
     models: list[dict],
     provider_name: str,
@@ -342,16 +407,7 @@ def estimate_output_limits_with_ai(
             mid = entry.get("id")
             if not isinstance(mid, str):
                 continue
-            limit = entry.get("max_output_tokens")
-            ctx = entry.get("context_window")
-            vals: dict[str, int] = {}
-            if isinstance(limit, (int, float)) and limit > 0:
-                vals["max_output_tokens"] = int(limit)
-            # Only accept a context window that can actually hold the output
-            # it claims; an estimate that fails that is self-contradictory.
-            if isinstance(ctx, (int, float)) and ctx > 0:
-                if not vals.get("max_output_tokens") or ctx >= vals["max_output_tokens"]:
-                    vals["context_window"] = int(ctx)
+            vals = sanitize_estimated_limits(entry)
             if vals:
                 cleaned[mid] = vals
         if len(cleaned) < len(models):
@@ -596,7 +652,19 @@ def merge_model_data(
     merged = []
     for model in new_models:
         model_id = model["id"]
-        
+
+        # Resolve the disable decision FIRST. Every paid discovery path below
+        # -- modality estimation, output-limit estimation, capability probing
+        # -- must be gated on it. It used to be computed after the estimation
+        # queues were built, so only probing respected it: a refresh still
+        # sent disabled models to the AI estimator, and a single run burned a
+        # web-search call asking for the text output limits of ten image and
+        # transcription models that do not have any.
+        is_disabled = bool(
+            lookup(_overrides(), provider_instance.PROVIDER_NAME, model_id)
+            .get("disabled")
+        )
+
         # 1. Start with Modalities from Provider Heuristics
         discovered = provider_instance.discover_modalities(model_id)
         
@@ -624,10 +692,14 @@ def merge_model_data(
                 # Migrate or overwrite
                 model["modalities"] = discovered
                 
-            # Preserve disabled status
-            if existing.get("disabled"):
-                model["disabled"] = True
-                model["disabled_reason"] = existing.get("disabled_reason", "")
+            # NOTE: disabled status is deliberately NOT carried over from the
+            # previous catalog here. See _apply_disable_state below -- the
+            # catalog's `disabled` field is a projection of
+            # disabled_models.json, never an independent record. Copying the
+            # old value forward is what let seven models stay disabled for
+            # months with their reasons recorded ONLY in the catalog, where
+            # the next `disable_models` run would have silently re-enabled
+            # them.
 
             # Preserve costing
             if "costing" in existing:
@@ -648,8 +720,11 @@ def merge_model_data(
                 "source": "",
                 "updated": "",
             }
-            # Queue for AI check if it seems too generic
-            if discovered["input"] == ["text"] and discovered["output"] == ["text"]:
+            # Queue for AI check if it seems too generic. Disabled models
+            # are never queued -- nobody may call them, so refining their
+            # modalities buys nothing and costs an estimator request.
+            if (discovered["input"] == ["text"] and discovered["output"] == ["text"]
+                    and not is_disabled):
                  uncertain_models.append(model)
         
         # Resolve max_output_tokens from API, known table, or existing
@@ -679,7 +754,13 @@ def merge_model_data(
                 # 30 GPT-5 models were left at context_window: 0. A suspect
                 # value still answers the question; a missing one does not.
                 model[_REESTIMATE_CTX] = True
-            unknown_output_limit_models.append(model)
+            # Same gate: a disabled model's limits are never consulted, and
+            # the disabled set is dominated by image / audio / transcription
+            # models whose "max output tokens" is not a meaningful number, so
+            # the estimator correctly returns nothing for them -- repeatedly,
+            # every run, at web-search prices.
+            if not is_disabled:
+                unknown_output_limit_models.append(model)
         
         # Resolve capabilities from existing catalog
         ssj = _resolve_structured_json_support(model_id, existing_ssj)
@@ -701,7 +782,6 @@ def merge_model_data(
             or provider_scoped in reprobe
             or model_id in reprobe
         )
-        is_disabled = bool(model.get("disabled"))
         if force_reprobe and is_disabled:
             print(f"  [SKIP] {model_id} is disabled; not reprobing")
         elif force_reprobe:
@@ -962,9 +1042,11 @@ def update_models():
         except Exception as e:
             print(f"[FAIL] Failed: {e}")
 
-    with open(catalog_path, 'w', encoding='utf-8') as f:
-        json.dump(catalog, f, indent=2)
-    print(f"\n[SAVE] Saved to {catalog_path}")
+    # save_catalog() applies model_overrides.json and then writes. Every human
+    # decision enters the catalog here and only here -- writing the file
+    # directly would let a refresh land with the overrides missing, which is
+    # the exact failure this design exists to prevent.
+    save_catalog(catalog, catalog_path)
 
     # Auto-estimate costs for new/unknown models
     try:

@@ -328,6 +328,22 @@ class ModelCosting:
             missing or stale.  None means not yet classified.
         pricing_class_source: ``auto`` (classifier) or ``manual`` (human pinned).
         source_url: Official pricing page the figure was taken from, if any.
+        published_figure: The vendor's price text, quoted verbatim, naming the
+            tier it came from (e.g. ``"$30 / $180 per 1M (Standard)"``). Human
+            cross-check only -- never used for computation.
+
+            Vendors publish several rates for one model: a Standard service
+            tier, a discounted Flex/Batch tier, and a higher context-length
+            tier above some input-token threshold. All three are "the price"
+            on the same page. This field records WHICH one the stored number
+            is, so a tier mix-up is visible instead of looking like a price
+            change. gpt-5.4-pro oscillated $30/$180 <-> $15/$90 across two
+            consecutive runs -- Standard vs Flex -- and nothing in the catalog
+            could tell them apart.
+
+            NOTE: ``input_per_1m`` / ``output_per_1m`` are ALWAYS the Standard
+            service tier at the BASE context tier. See DEVELOPMENT.md
+            "Known limitation: context-length pricing tiers".
     """
     input_per_1m: Optional[float] = None
     output_per_1m: Optional[float] = None
@@ -337,6 +353,7 @@ class ModelCosting:
     pricing_class: Optional[str] = None
     pricing_class_source: str = "auto"
     source_url: Optional[str] = None
+    published_figure: Optional[str] = None
 
     def days_since_update(self, today: Optional[date] = None) -> Optional[int]:
         """Days since ``updated``; None if missing or unparseable."""
@@ -633,6 +650,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 pricing_class=costing_data.get("pricing_class"),
                 pricing_class_source=costing_data.get("pricing_class_source", "auto"),
                 source_url=costing_data.get("source_url"),
+                published_figure=costing_data.get("published_figure"),
             )
 
             # Handle modalities schema evolution

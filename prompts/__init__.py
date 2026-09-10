@@ -42,7 +42,18 @@ CRITICAL RULES:
 - Always include "source_url" pointing to the official page. If you cannot find an official page with a
   per-token price, set "no_public_price": true.
 - If a model has separate "cached input" pricing, use the standard (non-cached) rate.
-- If a model uses a tiered scheme (different rate after N tokens), use the base tier rate.
+- If a model uses a CONTEXT-LENGTH tier (a different rate above N input tokens, e.g. ">272k"),
+  report the BASE tier rate -- the one that applies to an ordinary short request.
+- Report the STANDARD service tier ONLY. Vendors publish several rates for the same model and
+  they differ by 2x or more. Do NOT report, and do NOT blend in, any of:
+    * "Flex" / "Flex processing"      (off-peak, roughly half price)
+    * "Batch" / "Batch API"           (asynchronous, discounted)
+    * "Priority" / "Scale" / "Provisioned"
+    * regional / data-residency rates (these carry a surcharge, often +10%)
+  If the page shows a table of tiers, take the row labelled Standard (or the default,
+  unlabelled row), never the cheapest row.
+- "published_figure" MUST name the tier you took the number from, e.g.
+  "$30 / $180 per 1M (Standard)". This is the field a human uses to catch a tier mix-up.
 
 Return JSON mapping model_id to an object with these fields.
 Example: {{"model-a": {{"input_per_1m": 3.00, "output_per_1m": 15.00, "search_cost_per_unit": 0.01, "source_url": "https://example.com/pricing", "published_figure": "$3 / $15 per 1M", "no_public_price": false}}, "model-b": {{"input_per_1m": null, "output_per_1m": null, "search_cost_per_unit": null, "source_url": "https://example.com/pricing", "published_figure": "priced per image", "no_public_price": true}}}}""",

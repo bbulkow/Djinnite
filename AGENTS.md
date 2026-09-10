@@ -115,7 +115,7 @@ cp config/model_catalog.json /tmp/catalog.before.json
 uv run python -u -m djinnite.scripts.update_models 2>&1 | tee /tmp/update.log
 ```
 
-Two details that matter more than they look:
+Three details that matter more than they look:
 
 * **`-u` is required.** Python block-buffers stdout when it is not a terminal,
   so a redirected run shows *nothing* until it exits. A ten-minute run looks
@@ -123,6 +123,36 @@ Two details that matter more than they look:
 * **Never pipe through `tail`/`head`.** `tail` buffers the whole stream and
   discards everything but the end, so the estimation and probe lines — the
   only record of what the run actually decided — are gone. `tee` keeps them.
+* **Relay the script's raw output, verbatim, as it runs.** The `tee` is for
+  the agent's own diffing; the user wants to *watch the run*. Do not start
+  the update and then go quiet for ten minutes.
+
+  Paste the actual log lines. Do not summarize them, do not reword them,
+  do not replace a run of probe lines with a count of them, and do not
+  append an interpretation of what a `[WARN]` means. The output format was
+  designed in this repo by the people reading it — they already know what
+  `json=[OK] temp=[FAIL] think=[OK](adaptive) incompat=2` means, and a
+  paraphrase is strictly less information than the line it replaced.
+  Analysis is welcome *later*, if asked; it is not a substitute for the
+  transcript.
+
+  A silent ten-minute run is indistinguishable from a hung one *for the
+  person watching*, and this pipeline spends real money on live API calls
+  across three providers. Frequent verbatim excerpts (the new lines since
+  last time) beat one large dump at the end.
+
+  **Give the user the log path when you start, not when you finish.** A
+  background task's output pane does not stream, so relaying excerpts is the
+  agent's half of the job and the user still has no window of their own.
+  Hand them the tail command up front so they are never dependent on the
+  agent's polling cadence:
+
+  ```powershell
+  Get-Content -Wait -Tail 60 <path to the tee'd log>
+  ```
+
+  `-Wait` is PowerShell's `tail -f`. Say this in the same message that starts
+  the run.
 
 **Afterwards, diff against the backup.** The summary line is not sufficient:
 it reports counts, not which fields moved. A refresh rebuilds each model's
@@ -161,6 +191,107 @@ run that logs `Got limits for 0 models` did not fail; it gave up. Compare the
 model count in that line against a batch that succeeded before assuming the
 data was unavailable.
 
+Degradation has a second, nastier signature: **plausible-looking wrong
+numbers, not zeros.** In the 2026-09-10 run a 10-model batch returned
+`gpt-6-astra` at `max_output_tokens: 128000, context_window: 128000` — two
+real numbers, both wrong together. Re-asking for that *one* model returned
+`context_window: 1050000`, matching the rest of the GPT-5.x/6 family. So
+`Got limits for N/N models` is not evidence the values are right; a batch can
+answer confidently and badly. When a new model's limits look like a round
+default, or the two numbers match each other, re-ask for it alone before
+believing them:
+
+```powershell
+uv run python -c "from djinnite.config_loader import load_ai_config; from djinnite.scripts.update_models import estimate_output_limits_with_ai; print(estimate_output_limits_with_ai([{'id':'MODEL_ID'}],'chatgpt',load_ai_config()))"
+```
+
+`ctx == max_output_tokens` specifically is always wrong — no model can spend
+its entire context on output with nothing left for a prompt.
+`sanitize_estimated_limits` now drops that case, and
+`test_context_window_exceeds_output_cap` catches any that reach the catalog.
+
+### The catalog is generated. Humans edit `model_overrides.json`.
+
+Four config files, each with a distinct **role**. The role is what keeps this
+from becoming a file per parameter:
+
+| file | role | edited by |
+|---|---|---|
+| `ai_config.json` | which providers, which keys | human |
+| `known_model_defaults.json` | **inputs to** discovery: estimator choice, provider vision defaults | human |
+| `model_overrides.json` | **decisions on top of** discovery: any field, any model | human |
+| `model_catalog.json` | generated output of the three above plus the provider APIs | **nobody** |
+
+The line to hold onto: *defaults feed into discovery; overrides sit on top of
+it.* Anything a human wants to pin about a specific model goes in
+`model_overrides.json` regardless of which field it is — disabled state, a
+corrected context window, a hand-verified price. It is named for the
+relationship, not the parameter, so it never needs a sibling.
+
+**Never hand-edit `model_catalog.json`.** It is regenerated, and an edit there
+is lost with no error. To make the generated file still readable, every
+overridden model carries an `_overridden` block recording which fields a human
+set and what discovery had said:
+
+```json
+"_overridden": {
+  "context_window": { "was": 128000 }
+}
+```
+
+So you *read* the catalog and *edit* the overrides. `apply_overrides --list`
+prints that view directly.
+
+**One write path.** `model_overrides.save_catalog()` applies the overrides and
+then writes; `update_models`, `update_model_costs` and `apply_overrides` all go
+through it. `test_every_write_path_routes_through_save_catalog` fails if
+anything calls `json.dump(catalog, ...)` directly — that bypass is how a
+refresh would land with human decisions silently missing.
+
+**Removing an override reverts immediately**, without waiting for a refresh:
+the `was` value in the provenance block is restored. That is what the `was`
+record is for.
+
+To change something:
+
+```powershell
+# 1. edit config/model_overrides.json
+# 2. preview -- read the [OVERRIDE] and [REVERT] lines
+uv run python -m djinnite.scripts.apply_overrides --dry-run
+# 3. apply
+uv run python -m djinnite.scripts.apply_overrides
+```
+
+#### Why this replaced `disabled_models.json`
+
+Disable state used to live in its own file *and* in the catalog. Runtime read
+only the catalog; the maintenance command re-enabled anything absent from the
+file. Seven models — `gpt-4o`, `gpt-4o-mini`, four `*-search-preview` variants
+and `gemini-3.1-flash-live-preview` — carried disable reasons recorded **only**
+in the catalog, one command away from being silently re-enabled. The mechanism
+that hid it: `merge_model_data` copied `disabled` forward on every refresh, so
+the state renewed itself indefinitely while the file knew nothing.
+
+The first fix attempt — make the catalog value a projection of the disable
+file — was not a fix. The catalog is still a readable, editable JSON file, so
+that change only converted "your edit drifts" into "your edit vanishes
+silently," and it left three different override mechanisms in place
+(`disabled_models.json`, `known_model_defaults.json`, and an in-catalog
+`costing.source: "manual"` sentinel that had zero users). A file per parameter
+does not scale: "disabled models" has no sensible sibling for a pinned context
+window or a verified price.
+
+`scripts/disable_models.py` is now a shim that exits non-zero with a pointer,
+so old habits fail loudly instead of quietly doing nothing.
+
+#### Stale override entries are fine
+
+16 of the migrated entries reference models the providers have delisted. That
+is not an error and is not a test failure — providers retire dated preview
+snapshots constantly, and a defensive entry for one that may return is
+legitimate. `apply_overrides` reports them as `[INFO] ... match no catalog
+model` so the file can be pruned deliberately rather than automatically.
+
 ### Risky actions still need confirmation
 
 `uv run python -m djinnite.scripts.update_models --reprobe all` makes live
@@ -180,3 +311,13 @@ first. The user has paid for surprise probes more than once.
   `max_output_tokens`, `context_window`, and `thinking` each control a
   different budget and the per-provider semantics differ.
 * **Breaking change log:** [DEVELOPMENT.md § Breaking Changes Log](DEVELOPMENT.md).
+* **Pricing has more than one number per model.** Vendors publish Standard,
+  Flex, Batch and long-context rates on the same page; the catalog stores
+  **Standard at the base context tier**, and `ModelCosting.published_figure`
+  records which row the number came from. A large DIVERGENT swing is more often
+  a tier mix-up than a real price change — check the quoted figure before
+  believing it. Open work (service tiers, context-length tiers, and why they
+  wait on multi-request contexts) is recorded in
+  [SERVICE_TIER_DESIGN.md](SERVICE_TIER_DESIGN.md); the current limitation is
+  in [DEVELOPMENT.md § Known limitation: context-length pricing
+  tiers](DEVELOPMENT.md).

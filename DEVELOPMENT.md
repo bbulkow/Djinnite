@@ -640,6 +640,80 @@ Do **NOT** add per-model data tables (dicts, lists of model IDs with hardcoded v
 
 If a truly un-discoverable override is needed (e.g. the cost anchor reference point), place it in `config/known_model_defaults.json` with a comment explaining why dynamic discovery is impossible. This file should remain **minimal**.
 
+### ⚠️ Known limitation: context-length pricing tiers
+
+**`ModelCosting.input_per_1m` / `output_per_1m` are always the STANDARD service
+tier at the BASE context tier.** `AIResponse.token_cost` therefore
+under-reports for a request whose input exceeds a model's context-tier
+threshold.
+
+Vendors publish several prices for one model on the same page:
+
+| axis | example (`gpt-5.4-pro`) | applies to Djinnite? |
+|---|---|---|
+| Standard, base context | $30 / $180 per 1M | **yes — this is what we store** |
+| Context length above threshold | $60 / $270 above 272k input tokens | **yes, and it is not modelled** |
+| Flex (off-peak) | $15 / $90 | no — Djinnite never sends `service_tier` |
+| Batch / Priority | varies | no — same reason |
+| Regional data residency | +10% | no |
+
+**Why this is tolerable for now.** `generate()` takes a single `prompt` string;
+there is no message-history parameter and no accumulating conversation, so
+input size is bounded by what one caller passes in one call. Requests above
+272k input tokens are rare in practice.
+
+**It is not impossible, though.** A caller may legitimately pass a single
+300k-token prompt — that is well under the 1,050,000 context window, so it
+succeeds, and `token_cost` will report roughly half the true amount. Treat
+`token_cost` as exact for ordinary requests and as a *lower bound* for very
+large ones.
+
+**How a tier mix-up is caught.** `ModelCosting.published_figure` stores the
+vendor's price text verbatim, naming the tier it came from. Without it, reading
+the Flex row instead of the Standard row looks identical to a price cut:
+`gpt-5.4-pro` oscillated $30/$180 -> $15/$90 -> $30/$180 across consecutive
+runs, reported each time as a legitimate DIVERGENT change. The estimator prompt
+now pins the Standard tier by name and the divergence report prints the quoted
+figure.
+
+**Fixing it properly** means adding a `context_tiers` list to `costing` and
+selecting the bracket from actual `input_tokens` in
+`BaseAIProvider._compute_token_cost`. Note the subtlety: the threshold is on
+*input* tokens but changes the *output* rate too. See
+[SERVICE_TIER_DESIGN.md](SERVICE_TIER_DESIGN.md).
+
+### ⛔ `model_catalog.json` Is Generated — Do Not Hand-Edit It
+
+The companion to the rule above. Discovery writes the catalog; humans write
+`config/model_overrides.json`. Four config files, separated by **role**, which
+is what stops this becoming a file per parameter:
+
+| file | role | edited by |
+|---|---|---|
+| `ai_config.json` | which providers, which keys | human |
+| `known_model_defaults.json` | **inputs to** discovery (estimator choice, provider vision defaults) | human |
+| `model_overrides.json` | **decisions on top of** discovery — any field, any model | human |
+| `model_catalog.json` | generated output of the above plus the provider APIs | **nobody** |
+
+*Defaults feed into discovery; overrides sit on top of it.* Anything a human
+pins about a specific model goes in `model_overrides.json` whatever the field —
+disabled state, a corrected context window, a hand-verified price. The file is
+named for the relationship, not the parameter, so it never needs a sibling.
+
+Entries are keyed `provider/model-id`; nested fields may be nested, so
+`{"costing": {"input_per_1m": 2.5}}` overrides that number alone. Keys starting
+with `_` are notes.
+
+**One write path.** `scripts/model_overrides.save_catalog()` applies the
+overrides and then writes; every script that persists the catalog routes
+through it. Calling `json.dump(catalog, ...)` directly bypasses human decisions
+and is caught by `test_every_write_path_routes_through_save_catalog`.
+
+**The generated file stays readable.** Each overridden model carries an
+`_overridden` block recording which fields a human set and what discovery had
+said, so you read the catalog and edit the overrides. Removing an override
+restores the discovered value immediately, without waiting for a refresh.
+
 ### ✅ Safe Changes (Go Ahead)
 
 - **Adding** new functions, methods, or classes
@@ -772,6 +846,40 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### September 2026: human overrides consolidated into `model_overrides.json`
+
+**Removed:** `config/disabled_models.json`. `scripts/disable_models.py` is now
+a shim that exits non-zero with a pointer to the replacement rather than
+silently doing nothing.
+
+**Added:** `config/model_overrides.json` — the single human-editable record of
+per-model decisions — plus `scripts/model_overrides.py` (the engine and the
+sole catalog write path) and `scripts/apply_overrides.py` (the CLI).
+
+**Migration:** all 69 disable entries were migrated automatically and verified
+byte-for-byte against the old file; keys gained a `provider/` prefix
+(`gpt-4o` -> `chatgpt/gpt-4o`), and bare model IDs are still accepted. No
+model's effective state changed. If you call `disable_models` from a script,
+switch to `apply_overrides`.
+
+**Why:** disable state lived in `disabled_models.json` *and* in the catalog.
+Runtime read only the catalog, while the maintenance command re-enabled
+anything absent from the file — so seven models (`gpt-4o`, `gpt-4o-mini`, four
+`*-search-preview` variants, `gemini-3.1-flash-live-preview`) carried disable
+reasons recorded only in the catalog and were one command away from being
+silently re-enabled. `merge_model_data` copying `disabled` forward on every
+refresh is what let that state renew itself indefinitely.
+
+Making the catalog value a projection of the disable file was not a sufficient
+fix: the catalog is still a readable, editable JSON file, so that only turned
+"your edit drifts" into "your edit vanishes silently." It also left three
+override mechanisms coexisting — `disabled_models.json`, the `known_model_defaults.json`
+sidecar, and an in-catalog `costing.source: "manual"` sentinel with zero
+users. A file per parameter does not scale: "disabled models" has no sensible
+sibling for a pinned context window or a verified price. Naming the file for
+the relationship rather than the parameter fixes that permanently.
+
 
 ### May 2026: drop silent shape translation for `thinking`
 

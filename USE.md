@@ -118,15 +118,39 @@ uv run python -m djinnite.scripts.update_model_costs --dry-run # Preview without
 *   **Gemini models:** Use algorithmic pricing derived from the anchor model (Gemini 2.5 Flash).
 *   **Output:** Each model gets `input_per_1m`, `output_per_1m`, and `search_cost_per_unit` stored in the catalog.
 
-### Disable Obsolete Models
-Mark models as disabled so they are skipped during cost estimation and blocked at runtime:
+### Override Model Facts (including disabling models)
+`config/model_overrides.json` is the one file you edit to pin anything about a
+specific model -- disable it, correct a context window, lock in a price you
+verified by hand:
 ```bash
-uv run python -m djinnite.scripts.disable_models              # Apply disable list to catalog
-uv run python -m djinnite.scripts.disable_models --dry-run    # Preview only
-uv run python -m djinnite.scripts.disable_models --list       # Show disabled models
+uv run python -m djinnite.scripts.apply_overrides              # Apply overrides to catalog
+uv run python -m djinnite.scripts.apply_overrides --dry-run    # Preview only
+uv run python -m djinnite.scripts.apply_overrides --list       # Show every human-set field
 ```
-*   **How it works:** Edit `config/disabled_models.json` to add/remove model IDs with reasons. Run the script to apply. The JSON file is the single source of truth -- removing a model from the file re-enables it.
-*   **Effect:** Disabled models are skipped by `update_model_costs` and blocked by `get_provider()` at runtime.
+*   **How it works:** Add an entry keyed by `provider/model-id`. Any catalog field can be
+    overridden; nested fields may be given as a nested object, so
+    `{"costing": {"input_per_1m": 2.5}}` changes only that number and leaves the
+    discovered `source_url` alone. Keys starting with `_` are notes and ignored.
+    ```json
+    "chatgpt/gpt-4o": {
+      "disabled": true,
+      "disabled_reason": "deprecated by OpenAI; use gpt-5 or gpt-4.1"
+    }
+    ```
+*   **`model_catalog.json` is generated -- do not hand-edit it.** Your edit is lost
+    on the next refresh with no error. Overrides are applied automatically as the
+    last step of `update_models` and `update_model_costs`, so a refresh can never
+    drop them.
+*   **Reading what a human changed:** each overridden model carries an `_overridden`
+    block recording the field and what discovery had said, so the generated catalog
+    is still legible. `--list` prints that view.
+*   **Removing an override reverts immediately** to the discovered value -- no refresh
+    needed.
+*   **Effect of `disabled`:** the model is skipped by `update_model_costs` and blocked
+    by `get_provider()` at runtime.
+*   **Superseded:** `config/disabled_models.json` is gone and `scripts/disable_models.py` is
+    now a shim that exits with a pointer here. A file per parameter did not scale --
+    "disabled models" has no sensible sibling for a pinned context window.
 
 ---
 

@@ -133,7 +133,7 @@
       {
         "id": "gemini-2.5-flash-preview-tts",
         "name": "Gemini 2.5 Flash Preview TTS",
-        "context_window": 8192,
+        "context_window": 24576,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -143,8 +143,6 @@
             "audio"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -166,12 +164,22 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gemini-2.5-pro-preview-tts",
         "name": "Gemini 2.5 Pro Preview TTS",
-        "context_window": 8192,
+        "context_window": 24576,
         "max_output_tokens": 16384,
         "modalities": {
           "input": [
@@ -181,8 +189,6 @@
             "audio"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 4.0,
           "source": "estimated",
@@ -204,7 +210,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gemini-flash-latest",
@@ -225,10 +241,10 @@
         "costing": {
           "score": 1.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
-          "input_per_1m": 1.5,
-          "output_per_1m": 9.0,
+          "input_per_1m": 0.75,
+          "output_per_1m": 3.75,
           "search_cost_per_unit": 0.014,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -293,7 +309,7 @@
         "costing": {
           "score": 0.5,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
@@ -361,7 +377,7 @@
         "costing": {
           "score": 4.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
@@ -521,6 +537,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -901,6 +927,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -948,12 +984,22 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
         "id": "gemini-3.1-flash-image-preview",
         "name": "Nano Banana 2",
-        "context_window": 1048576,
+        "context_window": 65536,
         "max_output_tokens": 65536,
         "modalities": {
           "input": [
@@ -997,12 +1043,22 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
         "id": "gemini-3.1-flash-image",
         "name": "Nano Banana 2",
-        "context_window": 1048576,
+        "context_window": 131072,
         "max_output_tokens": 65536,
         "modalities": {
           "input": [
@@ -1044,12 +1100,22 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
         "id": "gemini-3.1-flash-lite-image",
         "name": "Nano Banana 2 Lite",
-        "context_window": 1048576,
+        "context_window": 65536,
         "max_output_tokens": 65536,
         "modalities": {
           "input": [
@@ -1092,6 +1158,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1284,6 +1360,122 @@
         }
       },
       {
+        "id": "gemini-omni-1.1-flash",
+        "name": "Gemini Omni 1.1 Flash",
+        "context_window": 131072,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "capabilities": {
+          "structured_json": [
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "off"
+          ],
+          "web_search": [
+            "off"
+          ],
+          "json_with_search": [
+            "off"
+          ],
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gemini-3.5-transcribe",
+        "name": "Gemini 3.5 Transcribe",
+        "context_window": 98304,
+        "max_output_tokens": 32768,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
         "id": "gemini-3.6-flash",
         "name": "Gemini 3.6 Flash",
         "context_window": 1048576,
@@ -1416,6 +1608,72 @@
         }
       },
       {
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash",
+        "context_window": 1048576,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 0.75,
+          "output_per_1m": 3.75,
+          "source": "published",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.014,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "any",
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "budget",
+            "effort"
+          ],
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
         "id": "gemini-3.1-flash-tts-preview",
         "name": "Gemini 3.1 Flash TTS Preview",
         "context_window": 32768,
@@ -1447,51 +1705,16 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
-      },
-      {
-        "id": "gemini-robotics-er-1.6-preview",
-        "name": "Gemini Robotics-ER 1.6 Preview",
-        "context_window": 131072,
-        "max_output_tokens": 65536,
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "input_per_1m": 0.3,
-          "output_per_1m": 2.5,
-          "source": "estimated",
-          "updated": "2026-04-18",
-          "search_cost_per_unit": 0.014,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1538,6 +1761,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "robotics model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1556,8 +1789,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "computer use model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1589,6 +1820,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "computer use model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1604,8 +1845,6 @@
             "embedding"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "embedding model",
         "costing": {
           "score": 0.1,
           "source": "failed",
@@ -1627,7 +1866,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "embedding model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gemini-embedding-2-preview",
@@ -1642,8 +1891,6 @@
             "embedding"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "embedding model",
         "costing": {
           "score": 0.1,
           "source": "failed",
@@ -1665,7 +1912,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "embedding model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gemini-embedding-2",
@@ -1684,7 +1941,7 @@
           "input_per_1m": null,
           "output_per_1m": null,
           "source": "failed",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "search_cost_per_unit": null,
           "pricing_class": "fixed",
           "pricing_class_source": "auto",
@@ -1700,7 +1957,75 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "embedding model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gemini-3.5-transcribe-live",
+        "name": "Gemini 3.5 Transcribe Live",
+        "context_window": 131072,
+        "max_output_tokens": 65536,
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 3.5,
+          "output_per_1m": 21.0,
+          "source": "published",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": "https://ai.google.dev/gemini-api/docs/pricing"
+        },
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gemini-2.5-flash-native-audio-latest",
@@ -1718,8 +2043,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "native audio model",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1751,6 +2074,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "native audio model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1769,8 +2102,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "native audio dated snapshot",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1802,6 +2133,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1820,8 +2161,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "native audio dated snapshot",
         "costing": {
           "score": 1.0,
           "source": "estimated",
@@ -1853,6 +2192,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "native audio dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1871,8 +2220,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path",
         "costing": {
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
@@ -1904,6 +2251,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -1950,6 +2307,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "robotics model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -2000,13 +2367,100 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "Live API model (bidirectional websocket via BidiGenerateContent); not compatible with Djinnite REST generate_content path",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       }
     ],
-    "last_updated": "2026-08-21"
+    "last_updated": "2026-09-10"
   },
   "claude": {
     "models": [
+      {
+        "id": "claude-fable-5-1",
+        "name": "Claude Fable 5.1",
+        "context_window": 1000000,
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "max_output_tokens": 128000,
+        "costing": {
+          "input_per_1m": 10.0,
+          "output_per_1m": 50.0,
+          "source": "published",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.01,
+          "source_url": "https://www.anthropic.com/claude/fable"
+        },
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "adaptive"
+          ],
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "incompatible": [
+            {
+              "thinking": "on",
+              "structured_json": "on"
+            },
+            {
+              "thinking": "on",
+              "web_search": "on"
+            }
+          ]
+        },
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
       {
         "id": "claude-opus-5",
         "name": "Claude Opus 5",
@@ -2760,117 +3214,10 @@
         }
       }
     ],
-    "last_updated": "2026-08-21"
+    "last_updated": "2026-09-10"
   },
   "chatgpt": {
     "models": [
-      {
-        "id": "gpt-4-0613",
-        "name": "gpt-4-0613",
-        "modalities": {
-          "input": [
-            "text"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated",
-        "costing": {
-          "score": 240.0,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 30.0,
-          "output_per_1m": 60.0,
-          "search_cost_per_unit": null,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 8192,
-        "context_window": 128000,
-        "capabilities": {
-          "structured_json": [
-            "off"
-          ],
-          "temperature": [
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-4",
-        "name": "gpt-4",
-        "modalities": {
-          "input": [
-            "text",
-            "vision"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "disabled": true,
-        "disabled_reason": "legacy model - use gpt-5",
-        "costing": {
-          "score": 66.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 30.0,
-          "output_per_1m": 60.0,
-          "search_cost_per_unit": null,
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto"
-        },
-        "max_output_tokens": 8192,
-        "context_window": 128000,
-        "capabilities": {
-          "structured_json": [
-            "off"
-          ],
-          "temperature": [
-            "default"
-          ],
-          "thinking": [
-            "off"
-          ],
-          "web_search": [
-            "off"
-          ],
-          "json_with_search": [
-            "off"
-          ],
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": {
-          "max_image_bytes": "inf",
-          "max_dimension_px": "inf",
-          "max_images_per_request": "inf",
-          "supported_formats": [
-            "jpeg",
-            "png",
-            "gif",
-            "webp"
-          ]
-        }
-      },
       {
         "id": "gpt-3.5-turbo",
         "name": "gpt-3.5-turbo",
@@ -2882,8 +3229,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated",
         "costing": {
           "score": 6.67,
           "source": "estimated",
@@ -2917,46 +3262,133 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
-        "id": "gpt-live-transcribe",
-        "name": "gpt-live-transcribe",
+        "id": "gpt-3.5-turbo-16k",
+        "name": "gpt-3.5-turbo-16k",
         "modalities": {
           "input": [
-            "audio"
+            "text"
           ],
           "output": [
             "text"
           ]
         },
         "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-08-11",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
+          "score": 18.67,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 3.0,
+          "output_per_1m": 4.0,
           "search_cost_per_unit": null,
-          "source_url": null
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
         },
-        "max_output_tokens": 0,
-        "context_window": 128000,
+        "max_output_tokens": 4096,
+        "context_window": 16000,
         "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
+          "structured_json": [
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "off"
+          ],
+          "web_search": [
+            "off"
+          ],
+          "json_with_search": [
+            "off"
+          ],
           "thinking_style": null,
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
-        "id": "gpt-5.6-luna",
-        "name": "gpt-5.6-luna",
+        "id": "gpt-4-0613",
+        "name": "gpt-4-0613",
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "score": 240.0,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 60.0,
+          "search_cost_per_unit": null,
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto"
+        },
+        "max_output_tokens": 8192,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": [
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "off"
+          ],
+          "web_search": [
+            "off"
+          ],
+          "json_with_search": [
+            "off"
+          ],
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy model - deprecated",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-4",
+        "name": "gpt-4",
         "modalities": {
           "input": [
             "text",
@@ -2967,41 +3399,37 @@
           ]
         },
         "costing": {
-          "input_per_1m": 1.0,
-          "output_per_1m": 6.0,
-          "source": "published",
-          "updated": "2026-07-16",
+          "score": 66.67,
+          "source": "estimated",
+          "updated": "2026-03-23",
+          "tier": "",
+          "input_per_1m": 30.0,
+          "output_per_1m": 60.0,
+          "search_cost_per_unit": null,
           "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": 0.01,
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "pricing_class_source": "auto"
         },
-        "max_output_tokens": 128000,
+        "max_output_tokens": 8192,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
-            "on",
             "off"
           ],
           "temperature": [
             "default"
           ],
           "thinking": [
-            "on",
             "off"
           ],
           "web_search": [
-            "on",
             "off"
           ],
           "json_with_search": [
-            "on",
             "off"
           ],
-          "thinking_style": [
-            "effort"
-          ],
+          "thinking_style": null,
           "effort_levels": null,
-          "incompatible": []
+          "incompatible": null
         },
         "vision_limits": {
           "max_image_bytes": "inf",
@@ -3014,116 +3442,16 @@
             "webp"
           ]
         },
-        "context_window": 1050000
-      },
-      {
-        "id": "gpt-realtime-2.1",
-        "name": "gpt-realtime-2.1",
-        "modalities": {
-          "input": [
-            "text",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-07-16",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 32000,
-        "context_window": 128000,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-realtime-2.1-mini",
-        "name": "gpt-realtime-2.1-mini",
-        "modalities": {
-          "input": [
-            "text",
-            "audio"
-          ],
-          "output": [
-            "text",
-            "audio"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-07-16",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 32000,
-        "context_window": 256000,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": null
-      },
-      {
-        "id": "gpt-transcribe",
-        "name": "gpt-transcribe",
-        "modalities": {
-          "input": [
-            "audio"
-          ],
-          "output": [
-            "text"
-          ]
-        },
-        "costing": {
-          "input_per_1m": null,
-          "output_per_1m": null,
-          "source": "unknown",
-          "updated": "2026-08-11",
-          "pricing_class": "fixed",
-          "pricing_class_source": "auto",
-          "search_cost_per_unit": null,
-          "source_url": null
-        },
-        "max_output_tokens": 0,
-        "context_window": 128000,
-        "capabilities": {
-          "structured_json": null,
-          "temperature": null,
-          "thinking": null,
-          "web_search": null,
-          "json_with_search": null,
-          "thinking_style": null,
-          "effort_levels": null,
-          "incompatible": null
-        },
-        "vision_limits": null
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-3.5-turbo-instruct",
@@ -3136,8 +3464,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy instruct model",
         "costing": {
           "score": 9.33,
           "source": "estimated",
@@ -3171,7 +3497,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy instruct model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-3.5-turbo-instruct-0914",
@@ -3184,8 +3520,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy instruct model",
         "costing": {
           "score": 9.33,
           "source": "estimated",
@@ -3219,7 +3553,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy instruct model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-3.5-turbo-1106",
@@ -3232,8 +3576,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -3267,7 +3609,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-3.5-turbo-0125",
@@ -3280,8 +3632,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 5.33,
           "source": "estimated",
@@ -3315,7 +3665,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-4-turbo",
@@ -3329,8 +3689,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy model - use gpt-5",
         "costing": {
           "score": 116.67,
           "source": "estimated",
@@ -3374,6 +3732,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy model - use gpt-5",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3388,8 +3756,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 116.67,
           "source": "estimated",
@@ -3433,6 +3799,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3447,8 +3823,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5 or gpt-4.1",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3495,6 +3869,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 or gpt-4.1",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3509,8 +3893,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 66.67,
           "source": "estimated",
@@ -3555,6 +3937,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3569,8 +3961,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3617,6 +4007,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3631,8 +4031,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini or gpt-4.1-mini",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3679,6 +4077,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini or gpt-4.1-mini",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3693,8 +4101,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3741,6 +4147,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3755,8 +4171,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3803,6 +4217,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3817,8 +4241,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3862,6 +4284,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3876,8 +4308,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
         "costing": {
           "score": 2.0,
           "source": "estimated",
@@ -3921,6 +4351,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5-mini with web_search tool",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3935,8 +4375,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "transcription model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -3970,6 +4408,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -3984,8 +4432,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "transcription model",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -4019,6 +4465,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -4032,8 +4488,6 @@
             "audio"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "text-to-speech model",
         "costing": {
           "score": 33.6,
           "source": "estimated",
@@ -4057,7 +4511,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "text-to-speech model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-4.1-2025-04-14",
@@ -4134,14 +4598,15 @@
         "costing": {
           "score": 26.67,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/pricing",
+          "published_figure": "$2.00 / $8.00 per 1M tokens (Standard, per GPT-4.1 model page and pricing page)"
         },
         "max_output_tokens": 32768,
         "context_window": 128000,
@@ -4255,14 +4720,15 @@
         "costing": {
           "score": 5.33,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/pricing",
+          "published_figure": "$0.40 / $1.60 per 1M tokens (Standard); web search billed as fixed 8,000 input tokens per call + $10/1K tool calls"
         },
         "max_output_tokens": 32768,
         "context_window": 256000,
@@ -4374,7 +4840,7 @@
         "costing": {
           "score": 1.33,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
@@ -4429,8 +4895,6 @@
             "vision"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "image generation model",
         "costing": {
           "score": 120.0,
           "source": "estimated",
@@ -4454,7 +4918,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-4o-transcribe-diarize",
@@ -4468,8 +4942,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "transcription model",
         "costing": {
           "score": 40.0,
           "source": "failed",
@@ -4503,6 +4975,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -4520,7 +5002,7 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -4587,6 +5069,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4622,8 +5105,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-5",
@@ -4640,7 +5122,7 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -4650,6 +5132,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4685,8 +5168,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-5-mini-2025-08-07",
@@ -4765,7 +5247,7 @@
         "costing": {
           "score": 3.33,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
@@ -4837,6 +5319,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4872,8 +5355,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-5-nano",
@@ -4890,7 +5372,7 @@
         "costing": {
           "score": 0.67,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
@@ -4900,6 +5382,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -4935,8 +5418,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-audio-2025-08-28",
@@ -4950,8 +5432,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -4975,7 +5455,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-realtime",
@@ -4988,8 +5478,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -5013,7 +5501,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-realtime-2025-08-28",
@@ -5026,8 +5524,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "realtime dated snapshot",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -5051,7 +5547,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-audio",
@@ -5065,8 +5571,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -5090,7 +5594,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5-codex",
@@ -5115,6 +5629,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -5140,8 +5655,7 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null,
-        "context_window": 400000
+        "vision_limits": null
       },
       {
         "id": "gpt-image-1-mini",
@@ -5154,8 +5668,6 @@
             "vision"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "image generation model",
         "costing": {
           "score": 26.67,
           "source": "estimated",
@@ -5179,7 +5691,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5-pro-2025-10-06",
@@ -5256,7 +5778,7 @@
         "costing": {
           "score": 400.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
@@ -5314,8 +5836,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "audio model",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5339,7 +5859,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-audio-mini-2025-10-06",
@@ -5353,8 +5883,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "audio dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5378,7 +5906,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5-search-api",
@@ -5438,8 +5976,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -5463,7 +5999,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5-search-api-2025-10-14",
@@ -5526,7 +6072,7 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -5647,7 +6193,7 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -5860,8 +6406,6 @@
             "vision"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "image generation model",
         "costing": {
           "score": 11.33,
           "source": "estimated",
@@ -5885,7 +6429,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5.2-2025-12-11",
@@ -5965,7 +6519,7 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
@@ -6089,14 +6643,14 @@
         "costing": {
           "score": 504.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
         },
         "max_output_tokens": 128000,
         "context_window": 400000,
@@ -6205,8 +6759,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -6240,6 +6792,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -6254,8 +6816,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 16.67,
           "source": "estimated",
@@ -6289,6 +6849,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -6302,8 +6872,6 @@
             "audio"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -6327,7 +6895,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-4o-mini-tts-2025-12-15",
@@ -6340,8 +6918,6 @@
             "audio"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -6365,7 +6941,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-realtime-mini-2025-12-15",
@@ -6378,8 +6964,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -6403,7 +6987,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-audio-mini-2025-12-15",
@@ -6417,8 +7011,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy dated snapshot",
         "costing": {
           "score": 8.0,
           "source": "estimated",
@@ -6442,7 +7034,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "legacy dated snapshot",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "chatgpt-image-latest",
@@ -6455,8 +7057,6 @@
             "vision"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "image generation model",
         "costing": {
           "score": 40.0,
           "source": "failed",
@@ -6480,7 +7080,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5.2-codex",
@@ -6505,6 +7115,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6530,8 +7141,7 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null,
-        "context_window": 400000
+        "vision_limits": null
       },
       {
         "id": "gpt-5.3-codex",
@@ -6556,6 +7166,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6582,8 +7193,7 @@
           "effort_levels": null,
           "incompatible": []
         },
-        "vision_limits": null,
-        "context_window": 400000
+        "vision_limits": null
       },
       {
         "id": "gpt-realtime-1.5",
@@ -6596,8 +7206,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "realtime/streaming model",
         "costing": {
           "score": 53.33,
           "source": "estimated",
@@ -6621,7 +7229,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-audio-1.5",
@@ -6635,8 +7253,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "audio model",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -6660,7 +7276,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "audio model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-4o-search-preview",
@@ -6674,8 +7300,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
         "costing": {
           "score": 13.33,
           "source": "estimated",
@@ -6719,6 +7343,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -6733,8 +7367,6 @@
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
         "costing": {
           "score": 33.33,
           "source": "estimated",
@@ -6778,6 +7410,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "deprecated by OpenAI; use gpt-5 with web_search tool",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -6864,6 +7506,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6900,8 +7543,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 1050000
+        }
       },
       {
         "id": "gpt-5.4-pro",
@@ -6922,16 +7564,18 @@
         "costing": {
           "score": 560.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/pricing"
+          "source_url": "https://developers.openai.com/api/docs/pricing",
+          "published_figure": "$30.00 / $180.00 per 1M tokens (Standard, short context, per GPT-5.5 Pro model page comparison table showing GPT-5.4 Pro at $30.00 input)"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -6965,8 +7609,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 1050000
+        }
       },
       {
         "id": "gpt-5.4-pro-2026-03-05",
@@ -6996,6 +7639,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7029,8 +7673,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 1050000
+        }
       },
       {
         "id": "gpt-5.4",
@@ -7049,7 +7692,7 @@
         "costing": {
           "score": 46.67,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
@@ -7059,6 +7702,7 @@
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 1050000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7095,8 +7739,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 1050000
+        }
       },
       {
         "id": "gpt-5.4-nano-2026-03-17",
@@ -7122,6 +7765,7 @@
           "pricing_class_source": "auto"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7158,8 +7802,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-5.4-nano",
@@ -7179,13 +7822,14 @@
           "input_per_1m": 0.2,
           "output_per_1m": 1.25,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://developers.openai.com/api/docs/pricing"
         },
         "max_output_tokens": 128000,
+        "context_window": 400000,
         "capabilities": {
           "structured_json": [
             "on",
@@ -7222,8 +7866,7 @@
             "gif",
             "webp"
           ]
-        },
-        "context_window": 400000
+        }
       },
       {
         "id": "gpt-5.4-mini-2026-03-17",
@@ -7306,7 +7949,7 @@
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7396,6 +8039,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -7441,6 +8094,16 @@
             "gif",
             "webp"
           ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
         }
       },
       {
@@ -7459,7 +8122,7 @@
           "input_per_1m": 5.0,
           "output_per_1m": 30.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7582,7 +8245,7 @@
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "source": "published",
-          "updated": "2026-08-21",
+          "updated": "2026-09-10",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -7718,7 +8381,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-realtime-2",
@@ -7754,7 +8427,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-realtime-whisper",
@@ -7790,7 +8473,17 @@
           "effort_levels": null,
           "incompatible": null
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       },
       {
         "id": "gpt-5.6-sol",
@@ -7917,31 +8610,567 @@
         }
       },
       {
-        "id": "gpt-3.5-turbo-16k",
-        "name": "gpt-3.5-turbo-16k",
+        "id": "gpt-5.6-luna",
+        "name": "gpt-5.6-luna",
         "modalities": {
           "input": [
-            "text"
+            "text",
+            "vision"
           ],
           "output": [
             "text"
           ]
         },
-        "disabled": true,
-        "disabled_reason": "legacy model - deprecated",
         "costing": {
-          "score": 18.67,
-          "source": "estimated",
-          "updated": "2026-03-23",
-          "tier": "",
-          "input_per_1m": 3.0,
-          "output_per_1m": 4.0,
-          "search_cost_per_unit": null,
+          "input_per_1m": 1.0,
+          "output_per_1m": 6.0,
+          "source": "published",
+          "updated": "2026-07-16",
           "pricing_class": "fixed",
-          "pricing_class_source": "auto"
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.01,
+          "source_url": "https://developers.openai.com/api/docs/pricing"
         },
-        "max_output_tokens": 4096,
-        "context_window": 16000,
+        "max_output_tokens": 128000,
+        "context_window": 1050000,
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on",
+            "off"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "effort"
+          ],
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-realtime-2.1",
+        "name": "gpt-realtime-2.1",
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-07-16",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 32000,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-realtime-2.1-mini",
+        "name": "gpt-realtime-2.1-mini",
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-07-16",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 32000,
+        "context_window": 256000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-transcribe",
+        "name": "gpt-transcribe",
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-live-transcribe",
+        "name": "gpt-live-transcribe",
+        "modalities": {
+          "input": [
+            "audio"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-08-11",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "transcription model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-6-astra",
+        "name": "gpt-6-astra",
+        "modalities": {
+          "input": [
+            "text",
+            "vision",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": 10.0,
+          "output_per_1m": 50.0,
+          "source": "published",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": 0.01,
+          "source_url": "https://platform.openai.com/pricing"
+        },
+        "max_output_tokens": 128000,
+        "context_window": 1050000,
+        "capabilities": {
+          "structured_json": [
+            "on",
+            "off"
+          ],
+          "temperature": [
+            "default"
+          ],
+          "thinking": [
+            "on"
+          ],
+          "web_search": [
+            "on",
+            "off"
+          ],
+          "json_with_search": [
+            "on",
+            "off"
+          ],
+          "thinking_style": [
+            "effort"
+          ],
+          "effort_levels": null,
+          "incompatible": []
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
+      },
+      {
+        "id": "gpt-image-2.5-flare",
+        "name": "gpt-image-2.5-flare",
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text",
+            "vision"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-image-2.5-sunburst",
+        "name": "gpt-image-2.5-sunburst",
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text",
+            "vision"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "floating",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-image-2.5-flare-2026-09-08",
+        "name": "gpt-image-2.5-flare-2026-09-08",
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text",
+            "vision"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-image-2.5-sunburst-2026-09-08",
+        "name": "gpt-image-2.5-sunburst-2026-09-08",
+        "modalities": {
+          "input": [
+            "text",
+            "vision"
+          ],
+          "output": [
+            "text",
+            "vision"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
+        "capabilities": {
+          "structured_json": null,
+          "temperature": null,
+          "thinking": null,
+          "web_search": null,
+          "json_with_search": null,
+          "thinking_style": null,
+          "effort_levels": null,
+          "incompatible": null
+        },
+        "vision_limits": {
+          "max_image_bytes": "inf",
+          "max_dimension_px": "inf",
+          "max_images_per_request": "inf",
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        },
+        "disabled": true,
+        "disabled_reason": "image generation model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
+      },
+      {
+        "id": "gpt-live-1",
+        "name": "gpt-live-1",
+        "modalities": {
+          "input": [
+            "text",
+            "audio"
+          ],
+          "output": [
+            "text",
+            "audio"
+          ]
+        },
+        "costing": {
+          "input_per_1m": null,
+          "output_per_1m": null,
+          "source": "unknown",
+          "updated": "2026-09-10",
+          "pricing_class": "fixed",
+          "pricing_class_source": "auto",
+          "search_cost_per_unit": null,
+          "source_url": null
+        },
+        "max_output_tokens": 0,
+        "context_window": 128000,
         "capabilities": {
           "structured_json": [
             "off"
@@ -7960,11 +9189,21 @@
           ],
           "thinking_style": null,
           "effort_levels": null,
-          "incompatible": null
+          "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": null,
+        "disabled": true,
+        "disabled_reason": "realtime/streaming model",
+        "_overridden": {
+          "disabled": {
+            "was": "__absent__"
+          },
+          "disabled_reason": {
+            "was": "__absent__"
+          }
+        }
       }
     ],
-    "last_updated": "2026-08-21"
+    "last_updated": "2026-09-10"
   }
 }

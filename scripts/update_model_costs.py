@@ -129,7 +129,7 @@ def _run_estimation_pass(
         {"no_public_price": True}                       -- specialty model, no price
         {"input_per_1m", "output_per_1m",
          "search_cost_per_unit", "source_url",
-         "no_public_price": False}                      -- a usable estimate
+         "published_figure", "no_public_price": False}  -- a usable estimate
     Models the estimator omits or returns malformed are absent from the result.
     """
     BATCH_SIZE = 5
@@ -216,11 +216,23 @@ def _run_estimation_pass(
                     raw_search = pricing.get("search_cost_per_unit")
                     search = float(raw_search) if isinstance(raw_search, (int, float)) and raw_search > 0 else None
                     url = pricing.get("source_url")
+                    # published_figure is the estimator's verbatim quote of the
+                    # price text, including which tier it came from. It was
+                    # already being requested and then thrown away -- which is
+                    # why gpt-5.4-pro could oscillate between $30/$180
+                    # (Standard) and $15/$90 (Flex) across consecutive runs
+                    # with nothing in the catalog to show a tier had been
+                    # swapped. Persist it: it is the human cross-check.
+                    figure = pricing.get("published_figure")
                     all_estimates[model_id] = {
                         "input_per_1m": float(inp),
                         "output_per_1m": float(out),
                         "search_cost_per_unit": search,
                         "source_url": url if isinstance(url, str) and url.strip() else None,
+                        "published_figure": (
+                            figure.strip() if isinstance(figure, str) and figure.strip()
+                            else None
+                        ),
                         "no_public_price": False,
                     }
 
@@ -243,6 +255,19 @@ def _run_estimation_pass(
             # Continue to next batch
 
     return all_estimates
+
+
+def _figure_note(est: dict) -> str:
+    """Render the estimator's verbatim price quote for a report line.
+
+    A large swing is far more often a TIER swap than a real price change --
+    gpt-5.4-pro moved $30/$180 -> $15/$90 across two runs because the
+    estimator read the Flex row once and the Standard row the next time.
+    Showing the quoted text next to the percentage is what makes those two
+    cases distinguishable at a glance instead of by re-reading the vendor page.
+    """
+    figure = est.get("published_figure")
+    return f'  quoted: "{figure}"' if figure else ""
 
 
 def estimate_costs_with_ai(
@@ -315,10 +340,20 @@ def load_catalog(catalog_path: Optional[Path] = None) -> dict:
 
 
 def save_catalog(catalog: dict, catalog_path: Optional[Path] = None) -> None:
-    """Save the model catalog to disk."""
+    """Save the model catalog to disk, applying human overrides first.
+
+    Delegates to scripts.model_overrides.save_catalog so that this script
+    cannot write a catalog with model_overrides.json unapplied. A cost refresh
+    that silently reverted a hand-verified price would be exactly the kind of
+    quiet data loss the overrides file exists to prevent -- and pricing is the
+    field most likely to be pinned by hand.
+    """
     path = catalog_path or CONFIG_DIR / "model_catalog.json"
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(catalog, f, indent=2)
+    try:
+        from djinnite.scripts.model_overrides import save_catalog as _save
+    except ImportError:
+        from scripts.model_overrides import save_catalog as _save
+    _save(catalog, path, verbose=False)
 
 
 def update_model_costs(
@@ -528,6 +563,7 @@ def update_model_costs(
                     costing["output_per_1m"] = None
                     costing["search_cost_per_unit"] = None
                     costing["source_url"] = None
+                    costing["published_figure"] = None
                     costing["source"] = "failed"
                     costing["updated"] = today
                     print(f"  [FAIL] {model_id}: None (FAILED - needs re-estimation)")
@@ -540,6 +576,7 @@ def update_model_costs(
                     costing["output_per_1m"] = None
                     costing["search_cost_per_unit"] = None
                     costing["source_url"] = None
+                    costing["published_figure"] = None
                     costing["source"] = "unknown"
                     costing["updated"] = today
                     print(f"  [UNKNOWN] {model_id}: no public per-1M price (needs manual search)")
@@ -588,6 +625,7 @@ def update_model_costs(
                           f"DIVERGENT {worst:.0%} (held; remove --hold-divergent to apply)")
                     report["divergent_held"].append(
                         f"{model_id}: {price_str} ({worst:.0%})"
+                        + _figure_note(est)
                         + (f"  {est.get('source_url')}" if est.get("source_url") else ""))
                     stats["unchanged"] += 1
                     continue
@@ -597,6 +635,7 @@ def update_model_costs(
                 costing["output_per_1m"] = round(out, 4)
                 costing["search_cost_per_unit"] = search
                 costing["source_url"] = est.get("source_url")
+                costing["published_figure"] = est.get("published_figure")
                 costing["source"] = "published" if est.get("source_url") else "estimated"
                 costing["updated"] = today
                 search_str = f", search=${search}" if search else ""
@@ -605,6 +644,7 @@ def update_model_costs(
                 if divergent:
                     report["divergent_applied"].append(
                         f"{model_id}: {price_str} ({worst:.0%}, {costing['source']})"
+                        + _figure_note(est)
                         + (f"  {est.get('source_url')}" if est.get("source_url") else ""))
                 else:
                     changed = not (prior_in == inp and prior_out == out and prior_search == search)

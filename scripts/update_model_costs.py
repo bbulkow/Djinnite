@@ -15,7 +15,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -70,7 +70,6 @@ PRICE_MAX = _bounds.get("price_max", 1000.0)                  # $/1M sanity ceil
 OUTPUT_INPUT_RATIO_MIN = _bounds.get("output_input_ratio_min", 0.5)  # output >= input*this
 SEARCH_MAX = _bounds.get("search_max", 1.0)                   # $/search ceiling
 DIVERGENCE_THRESHOLD = _estimator_config.get("divergence_threshold", 0.40)  # hold for review
-DEFAULT_STALENESS_DAYS = _estimator_config.get("staleness_days", 180)
 VERIFY_TOLERANCE = _estimator_config.get("verify_tolerance", 0.10)  # 2-pass agreement
 
 
@@ -85,16 +84,6 @@ def _check_bounds(inp: float, out: float, search: Optional[float]) -> Optional[s
     if search is not None and not (0 < search <= SEARCH_MAX):
         return f"search_cost {search} outside (0, {SEARCH_MAX}]"
     return None
-
-
-def _is_stale(updated: str, today: date, max_age_days: int) -> bool:
-    """True if an ISO ``updated`` date is missing, unparseable, or too old."""
-    if not updated:
-        return True
-    try:
-        return (today - date.fromisoformat(updated)).days > max_age_days
-    except ValueError:
-        return True
 
 
 def _pct_change(old: Optional[float], new: float) -> Optional[float]:
@@ -167,7 +156,7 @@ def _run_estimation_pass(
 
         try:
             # require_pricing=False: the estimator must run even if its own model
-            # has no/stale price, otherwise cost updates could deadlock.
+            # has no price, otherwise cost updates could deadlock.
             provider = get_provider(
                 estimator_provider, api_key, estimator_model,
                 gemini_api_key=gemini_api_key, require_pricing=False,
@@ -267,7 +256,12 @@ def _figure_note(est: dict) -> str:
     cases distinguishable at a glance instead of by re-reading the vendor page.
     """
     figure = est.get("published_figure")
-    return f'  quoted: "{figure}"' if figure else ""
+    if not figure:
+        return ""
+    # Vendor text is not ASCII-clean (a quoted "->" arrived as U+2192) and the
+    # Windows console is cp1252, so printing it raw aborted the audit.
+    figure = figure.encode("ascii", "backslashreplace").decode("ascii")
+    return f'  quoted: "{figure}"'
 
 
 def estimate_costs_with_ai(
@@ -363,7 +357,6 @@ def update_model_costs(
     provider_filter: Optional[str] = None,
     config_path: Optional[Path] = None,
     catalog_path: Optional[Path] = None,
-    staleness_days: int = DEFAULT_STALENESS_DAYS,
     verify: bool = False,
     hold_divergent: bool = False,
     refresh_unknown: bool = False,
@@ -376,8 +369,8 @@ def update_model_costs(
         - ``source == "unknown"``             -> skipped (stable terminal state)
           unless ``force`` or ``refresh_unknown``.
         - ``floating``                        -> always re-priced.
-        - ``fixed``                           -> re-priced if missing or older
-          than ``staleness_days``, or when ``force``.
+        - ``fixed``                           -> re-priced only if missing, or
+          when ``force``.  Price age is never a trigger.
 
     A new estimate that diverges from the stored price by more than
     ``DIVERGENCE_THRESHOLD`` is applied by default but always reported in the
@@ -394,9 +387,9 @@ def update_model_costs(
     """
     print("[TOOL] Model Cost Updater")
     print("-" * 40)
-    mode = "ALL models (--all)" if force else "floating + new + stale-fixed"
+    mode = "ALL models (--all)" if force else "floating + new"
     print(f"Mode: {mode}")
-    print(f"Staleness: {staleness_days} days | Verify: {verify} | Hold-divergent: {hold_divergent}")
+    print(f"Verify: {verify} | Hold-divergent: {hold_divergent}")
     if provider_filter:
         print(f"Provider filter: {provider_filter}")
     print()
@@ -436,7 +429,6 @@ def update_model_costs(
     print()
     
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    today_date = datetime.now(timezone.utc).date()
     stats = {"updated": 0, "new": 0, "unchanged": 0, "estimated": 0, "failed": 0}
     # Human-review buckets surfaced in the audit report at the end.
     report = {
@@ -513,9 +505,8 @@ def update_model_costs(
                 should_estimate = True
                 reason = "floating"
             else:
-                stale = _is_stale(costing.get("updated", ""), today_date, staleness_days)
-                should_estimate = force or not has_pricing or stale
-                reason = "forced" if force else ("missing" if not has_pricing else ("stale" if stale else ""))
+                should_estimate = force or not has_pricing
+                reason = "forced" if force else ("missing" if not has_pricing else "")
 
             if should_estimate:
                 models_needing_estimation.append({
@@ -531,7 +522,7 @@ def update_model_costs(
             else:
                 inp = costing.get("input_per_1m")
                 out = costing.get("output_per_1m")
-                print(f"  [SKIP] {model_id}: ${inp}/{out} per 1M (fixed, fresh)")
+                print(f"  [SKIP] {model_id}: ${inp}/{out} per 1M (fixed)")
                 stats["unchanged"] += 1
 
         if models_needing_estimation and est_api_key:
@@ -757,12 +748,6 @@ def main():
         help="Path to model_catalog.json"
     )
     parser.add_argument(
-        "--staleness-days",
-        type=int,
-        default=DEFAULT_STALENESS_DAYS,
-        help=f"Re-price fixed models older than this many days (default: {DEFAULT_STALENESS_DAYS})"
-    )
-    parser.add_argument(
         "--verify",
         action="store_true",
         default=False,
@@ -791,7 +776,6 @@ def main():
         provider_filter=args.provider,
         config_path=Path(args.config) if args.config else None,
         catalog_path=Path(args.catalog) if args.catalog else None,
-        staleness_days=args.staleness_days,
         verify=args.verify,
         hold_divergent=args.hold_divergent,
         refresh_unknown=args.refresh_unknown,

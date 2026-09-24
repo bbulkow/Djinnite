@@ -115,6 +115,7 @@ def test_context_window_exceeds_output_cap(prov):
         if info.max_output_tokens and info.context_window
         and info.context_window <= info.max_output_tokens
         and not _is_specialized(info.id)
+        and not info.disabled
     ]
     assert not bad, f"{prov}: context_window <= max_output_tokens for {bad}"
 
@@ -214,6 +215,34 @@ def test_estimator_filter_matches_the_catalog_invariant():
                 f"filter accepted ctx={ctx} with max_out={max_out}, which "
                 f"test_context_window_exceeds_output_cap would reject"
             )
+
+
+def test_new_model_does_not_inherit_neighbours_context_window():
+    """A new model the API reports no limits for must not take the previous
+    model's context_window. gpt-6-sol landed at gpt-4o's 128000 that way."""
+    class _Stub:
+        PROVIDER_NAME = "chatgpt"
+
+        def discover_modalities(self, model_id):
+            return {"input": ["text"], "output": ["text"]}
+
+    class _NoEstimator:
+        default_provider = "none"
+
+        def get_provider(self, name):
+            return None
+
+    existing = [{"id": "known-model", "context_window": 128000,
+                 "max_output_tokens": 16384}]
+    listed = [{"id": "known-model"}, {"id": "brand-new-model"}]
+    merged = update_models.merge_model_data(
+        listed, existing, _Stub(), None, "x", _NoEstimator(),
+        reprobe={"no-such-model"},  # restrictive scope: no live probes
+    )
+    new = next(m for m in merged if m["id"] == "brand-new-model")
+    assert not new.get("context_window"), (
+        f"new model inherited context_window={new.get('context_window')}"
+    )
 
 
 # ---------------------------------------------------------------------------

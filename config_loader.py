@@ -13,7 +13,6 @@ Where <project_root> is the parent directory of the djinnite package.
 """
 
 import json
-from datetime import date
 from pathlib import Path
 from typing import Any, Final, Optional
 from dataclasses import dataclass, field
@@ -325,7 +324,7 @@ class ModelCosting:
             Varies by model.  None means unknown or web search not supported.
         pricing_class: ``fixed`` or ``floating`` (see ``pricing_class.py``).
             ``floating`` ids are re-priced every run; ``fixed`` ids only when
-            missing or stale.  None means not yet classified.
+            missing.  None means not yet classified.
         pricing_class_source: ``auto`` (classifier) or ``manual`` (human pinned).
         source_url: Official pricing page the figure was taken from, if any.
         published_figure: The vendor's price text, quoted verbatim, naming the
@@ -355,63 +354,19 @@ class ModelCosting:
     source_url: Optional[str] = None
     published_figure: Optional[str] = None
 
-    def days_since_update(self, today: Optional[date] = None) -> Optional[int]:
-        """Days since ``updated``; None if missing or unparseable."""
-        if not self.updated:
-            return None
-        try:
-            updated_date = date.fromisoformat(self.updated)
-        except ValueError:
-            return None
-        ref = today or date.today()
-        return (ref - updated_date).days
-
-    def is_stale(self, max_age_days: int = 180, today: Optional[date] = None) -> bool:
-        """True if the price is older than ``max_age_days``.
-
-        A missing or unparseable ``updated`` counts as stale (we cannot prove
-        the price is fresh).
-
-        Age only — deliberately. This gates the runtime hard-fail in
-        ``BaseAIProvider._compute_token_cost``, so it stays a pure
-        "how old is this number" question. Whether the number was ever
-        *checked* is a separate axis: see :meth:`is_unverified`.
-        """
-        days = self.days_since_update(today)
-        if days is None:
-            return True
-        return days > max_age_days
-
     def is_unverified(self) -> bool:
         """True if this price was never checked against a published source.
 
         ``source="estimated"`` means a model guessed the number. That is not
-        the same as a price read off the vendor's pricing page, but age alone
-        cannot tell them apart — an estimate made yesterday looks "fresher"
-        than a verified price from last month.
-
-        That gap is what let ``gemini-flash-latest`` sit at an estimated
-        $0.50/$3.00 while the real price was $1.50/$7.50: a 3x error that
-        never tripped the staleness check because it was never old enough,
-        and "estimated" was not itself a trigger.
-
-        A never-verified price is not fresh; it is unverified.
+        the same as a price read off the vendor's pricing page.  Treating the
+        two alike is what let ``gemini-flash-latest`` sit at an estimated
+        $0.50/$3.00 while the real price was $1.50/$7.50.
         """
         if self.input_per_1m is None and self.output_per_1m is None:
             return False  # no price to verify
         if self.source in ("manual", "published"):
             return False
         return True
-
-    def needs_repricing(self, max_age_days: int = 180,
-                        today: Optional[date] = None) -> bool:
-        """True if this price should be re-derived: too old, or never verified.
-
-        This is the trigger auditing and refresh tooling should use.
-        ``is_stale`` alone silently accepts a guess forever, provided the
-        guess keeps getting re-dated.
-        """
-        return self.is_stale(max_age_days, today) or self.is_unverified()
 
 
 @dataclass

@@ -2,12 +2,6 @@
   "_comment": "THE human-editable file for per-model decisions. Anything you want to pin about a specific model goes here -- disabled state, a corrected context window, a price you verified by hand -- and it is applied on top of whatever discovery produced, every time the catalog is written. model_catalog.json is GENERATED: do not hand-edit it, the edit will be lost. Compare with known_model_defaults.json, which holds inputs TO discovery (estimator choice, provider vision defaults) rather than decisions on top of it. After editing, run: uv run python -m djinnite.scripts.apply_overrides",
   "_key_format": "provider/model-id (e.g. chatgpt/gpt-4o). A bare model-id is accepted for backwards compatibility but provider-qualified is preferred: model ids are unique across the hosted providers today, but local backends will not be.",
   "_fields": "Any catalog field. Nested fields may be given as a nested object -- {\"costing\": {\"input_per_1m\": 2.5}} overrides only that number and leaves the discovered source_url and updated date alone. Keys starting with _ are notes and are ignored.",
-  "_example": {
-    "chatgpt/gpt-6-astra": {
-      "context_window": 1050000,
-      "_note": "estimator batch returned 128000/128000; single-model re-ask gave this"
-    }
-  },
   "models": {
     "chatgpt/gpt-3.5-turbo": {
       "disabled": true,
@@ -338,6 +332,30 @@
       "disabled_reason": "transcription model"
     },
     "gemini/gemini-3.1-flash-tts-preview": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "chatgpt/gpt-5-chat-latest": {
+      "disabled": true,
+      "disabled_reason": "chat model; lacks structured JSON, web search and thinking"
+    },
+    "chatgpt/gpt-5.1-chat-latest": {
+      "disabled": true,
+      "disabled_reason": "chat model; lacks structured JSON, web search and thinking"
+    },
+    "chatgpt/gpt-5.2-chat-latest": {
+      "disabled": true,
+      "disabled_reason": "chat model; lacks structured JSON, web search and thinking"
+    },
+    "chatgpt/gpt-5.3-chat-latest": {
+      "disabled": true,
+      "disabled_reason": "chat model; lacks structured JSON, web search and thinking"
+    },
+    "gemini/gemini-3.8-flash-tts": {
+      "disabled": true,
+      "disabled_reason": "text-to-speech model"
+    },
+    "gemini/gemini-3.8-flash-lite-tts": {
       "disabled": true,
       "disabled_reason": "text-to-speech model"
     },

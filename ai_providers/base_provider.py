@@ -260,8 +260,9 @@ class AIContextLengthError(AIProviderError):
 
 class AIPricingError(AIProviderError):
     """
-    Raised when a model's catalog price is missing, ``unknown``, or stale, so a
-    trustworthy dollar cost cannot be computed.
+    Raised when a model's catalog price is missing or ``unknown``, so a
+    trustworthy dollar cost cannot be computed.  Price age never matters: most
+    prices are set once and never change.
 
     Fast-fail rather than report a possibly-wrong number: this layer exists to
     make upper code simpler, not to substitute incorrect values.  Production
@@ -300,12 +301,6 @@ class BaseAIProvider(ABC):
     
     PROVIDER_NAME: str = "base"
 
-    # Prices older than this are treated as stale and trigger a fast-fail at
-    # request time (and re-estimation in the cost updater).  Even "fixed" model
-    # ids get this re-check because vendors occasionally cut prices on an
-    # existing id (e.g. OpenAI o3, gpt-3.5-turbo).
-    PRICING_STALENESS_DAYS: int = 180
-
     def __init__(self, api_key: str, model: str, model_info=None, require_pricing: bool = True):
         """
         Initialize the provider.
@@ -319,7 +314,7 @@ class BaseAIProvider(ABC):
                         only for direct construction (tests/probes).
             require_pricing: When True (default, production), cost computation
                         fast-fails with ``AIPricingError`` if the model's price
-                        is missing, ``unknown``, or stale.  Maintenance tooling
+                        is missing or ``unknown``.  Maintenance tooling
                         (the cost estimator, catalog updater, probes) passes
                         False so it can drive un-priced models without raising.
         """
@@ -363,7 +358,7 @@ class BaseAIProvider(ABC):
         OpenAI/Google include them in ``output_tokens`` already.
 
         Fast-fails with ``AIPricingError`` when the price cannot be trusted
-        (missing / ``unknown`` / ``failed`` / stale), unless the provider was
+        (missing / ``unknown`` / ``failed``), unless the provider was
         constructed with ``require_pricing=False``.
         """
         if not self._model_info or not self._model_info.costing:
@@ -384,16 +379,6 @@ class BaseAIProvider(ABC):
                     provider=self.PROVIDER_NAME,
                 )
             return
-
-        if self._require_pricing and costing.is_stale(self.PRICING_STALENESS_DAYS):
-            days = costing.days_since_update()
-            age = f"{days} days" if days is not None else "unknown age"
-            raise AIPricingError(
-                f"Price for model '{self.model}' is stale "
-                f"({age} > {self.PRICING_STALENESS_DAYS}; updated {costing.updated or 'never'}) "
-                f"-- re-run update_model_costs",
-                provider=self.PROVIDER_NAME,
-            )
 
         input_t = usage.get("input_tokens", 0)
         output_t = usage.get("output_tokens", 0)

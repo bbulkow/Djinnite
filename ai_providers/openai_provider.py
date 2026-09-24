@@ -46,7 +46,7 @@ class OpenAIProvider(BaseAIProvider):
                 OpenAI's native Responses API.  Kept for backward
                 compatibility with existing ``get_provider()`` calls.
             model_info: Optional ModelInfo from catalog for pre-flight checks
-            require_pricing: Fast-fail on missing/unknown/stale price (see base).
+            require_pricing: Fast-fail on missing/unknown price (see base).
         """
         # gemini_api_key accepted but ignored — native web search now
         super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)

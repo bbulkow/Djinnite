@@ -56,13 +56,13 @@ def _fresh_today() -> str:
     return date.today().isoformat()
 
 
-def _stale_date() -> str:
+def _old_date() -> str:
     return (date.today() - timedelta(days=200)).isoformat()
 
 
 def _check_fast_fail_offline() -> list:
-    """Cost computation fast-fails on missing/unknown/stale price; computes when fresh."""
-    print("  [fast_fail] missing/unknown/stale/fresh/lenient...", end=" ", flush=True)
+    """Cost computation fast-fails on missing/unknown price; computes otherwise, whatever its age."""
+    print("  [fast_fail] missing/unknown/old/fresh/lenient...", end=" ", flush=True)
     fails = []
     usage = {"input_tokens": 1000, "output_tokens": 1000}
 
@@ -81,13 +81,16 @@ def _check_fast_fail_offline() -> list:
     except AIPricingError:
         pass
 
-    # 3. Stale (>180d) -> raise.
+    # 3. An old price still computes: price age never matters.
     p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
-                                    source="estimated", updated=_stale_date()))
+                                    source="published", updated=_old_date()))
+    u = dict(usage)
     try:
-        p._compute_token_cost(dict(usage)); fails.append("no raise on stale price")
-    except AIPricingError:
-        pass
+        p._compute_token_cost(u)
+    except AIPricingError as e:
+        fails.append(f"old price raised: {e}")
+    if u.get("token_cost") is None or u["token_cost"] <= 0:
+        fails.append(f"old price did not compute: {u.get('token_cost')}")
 
     # 4. Fresh + priced -> computes a positive cost.
     p = _make_provider(ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
@@ -258,9 +261,17 @@ def _check_thinking_cost(provider, provider_name: str) -> bool:
 # ------------------------------------------------------------------
 
 def test_fast_fail_offline():
-    """Cost computation fast-fails on missing/unknown/stale price."""
+    """Cost computation fast-fails on missing/unknown price, never on age."""
     fails = _check_fast_fail_offline()
     assert not fails, "pricing fast-fail regressions:\n  " + "\n  ".join(fails)
+
+
+def test_quoted_figure_prints_on_cp1252():
+    """Vendor price text with non-ASCII must not abort the audit on Windows."""
+    from djinnite.scripts.update_model_costs import _figure_note
+    note = _figure_note({"published_figure": "$0.40/1M rate → $0.0032/call"})
+    note.encode("cp1252")
+    assert "0.0032" in note
 
 
 def test_token_cost(provider, provider_name):

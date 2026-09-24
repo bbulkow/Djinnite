@@ -5,7 +5,7 @@ Classifies an AI model id as ``fixed`` or ``floating`` for the purposes of cost
 maintenance:
 
     fixed     The id pins a price that does not change under us.  Re-price only
-              when missing or past the staleness vector (see update_model_costs).
+              when missing (see update_model_costs).
     floating  The id is an alias that the vendor can silently re-point to a
               different underlying model (and therefore a different price).
               Re-price on every run.
@@ -23,7 +23,7 @@ PER-VENDOR, so a uniform naming heuristic is wrong:
     keeps its own price).  A bare id that shadows a dated sibling is therefore a
     floating alias; a dated snapshot is fixed.  (Dated ids are not *guaranteed*
     immutable -- OpenAI has cut prices on existing ids like o3 and gpt-3.5 --
-    which is why "fixed" still gets a 180-day staleness re-check upstream.)
+    and only a forced ``update_model_costs --all`` run will pick such a cut up.)
   * Gemini -- version-less aliases float across MAJOR versions
     (``gemini-flash-latest`` rolled 2.5 -> 3.5).  Numbered/dated entries
     (``gemini-2.5-flash``, ``...-10-2025``) are stable.
@@ -120,8 +120,8 @@ def _classify_grok(model_id: str, sibling_ids: Iterable[str]) -> PricingClass:
     # year) alongside bare aliases (grok-4-fast). We have no confirmed evidence
     # that xAI silently re-prices a stable id, so the conservative call is to
     # pin every non-"-latest" id as fixed; the universal -latest rule (checked
-    # before this) already floats explicit aliases, and the 180-day staleness
-    # re-check upstream catches any quiet price cut. Revise to a dated-sibling
+    # before this) already floats explicit aliases, and a quiet price cut is
+    # picked up only by a forced ``update_model_costs --all``. Revise to a dated-sibling
     # rule (like _classify_chatgpt) if xAI's re-pricing behaviour is confirmed
     # and the snapshot date format is taught to _DATE_PIN.
     return FIXED
@@ -165,6 +165,6 @@ def classify_model(
     siblings = list(sibling_ids)
     rule = _VENDOR_RULES.get(provider)
     if rule is None:
-        # Unknown provider: conservative default; staleness still re-checks.
+        # Unknown provider: conservative default.
         return FIXED
     return rule(model_id, siblings)

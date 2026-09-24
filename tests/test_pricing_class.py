@@ -1,8 +1,8 @@
 """
 Pricing Classification Tests (offline)
 
-Verifies the fixed/floating classifier per vendor scheme and the staleness
-helpers on ModelCosting.  Runs entirely offline -- no API keys required.
+Verifies the fixed/floating classifier per vendor scheme and the price
+provenance helper on ModelCosting.  Runs entirely offline -- no API keys required.
 
 Usage:
     uv run python -m djinnite.tests.test_pricing_class
@@ -107,27 +107,6 @@ def _check_strip_and_sibling() -> list:
     return fails
 
 
-def _check_staleness() -> list:
-    fails = []
-    today = date(2026, 6, 2)
-    cases = [
-        # (updated, expected_is_stale_at_180)
-        ("", True),                 # missing -> stale
-        ("not-a-date", True),       # unparseable -> stale
-        ("2026-05-01", False),      # ~32 days -> fresh
-        ("2025-12-01", True),       # ~183 days -> stale
-    ]
-    for updated, expected in cases:
-        c = ModelCosting(input_per_1m=1.0, output_per_1m=2.0, updated=updated)
-        got = c.is_stale(180, today=today)
-        ok = got == expected
-        msg = f"is_stale(updated={updated!r}) = {got} (expected {expected})"
-        print(f"  [{'OK' if ok else 'FAIL'}] {msg}")
-        if not ok:
-            fails.append(msg)
-    return fails
-
-
 def _check_helpers() -> list:
     fails = []
     checks = [
@@ -150,27 +129,21 @@ def _check_helpers() -> list:
 # ------------------------------------------------------------------
 # Price provenance
 #
-# `is_stale` answers "how old is this number", which cannot distinguish a
-# price read off the vendor's pricing page from one a model guessed. An
-# estimate re-dated yesterday looks fresher than a verified price from last
-# month. That gap let gemini-flash-latest sit at an estimated $0.50/$3.00
-# when the real price was $1.50/$7.50 -- a 3x error that never tripped the
-# staleness check because it was never old enough.
+# A price read off the vendor's pricing page is not the same as one a model
+# guessed. Treating them alike let gemini-flash-latest sit at an estimated
+# $0.50/$3.00 when the real price was $1.50/$7.50.
 # ------------------------------------------------------------------
 
-def test_unverified_is_independent_of_age():
-    """A brand-new estimate is unverified; a verified price never is."""
-    fresh_guess = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
-                               source="estimated", updated=date.today().isoformat())
-    assert not fresh_guess.is_stale(180), "guard: this fixture must look fresh by age"
-    assert fresh_guess.is_unverified(), "a never-checked price is not fresh"
-    assert fresh_guess.needs_repricing(180)
+def test_estimate_is_unverified():
+    """An estimate is unverified however recent; a published price never is."""
+    guess = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
+                         source="estimated", updated=date.today().isoformat())
+    assert guess.is_unverified()
 
     verified = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
-                            source="published", updated=date.today().isoformat(),
+                            source="published", updated="2020-01-01",
                             source_url="https://example.invalid/pricing")
     assert not verified.is_unverified()
-    assert not verified.needs_repricing(180)
 
 
 def test_manual_pricing_counts_as_verified():
@@ -181,29 +154,8 @@ def test_manual_pricing_counts_as_verified():
 
 
 def test_unpriced_entry_is_not_flagged_unverified():
-    """With no price there is nothing to verify -- that is `missing`, not stale."""
+    """With no price there is nothing to verify -- that is `missing`."""
     assert not ModelCosting(source="unknown").is_unverified()
-
-
-def test_needs_repricing_still_catches_plain_age():
-    """Provenance is an additional trigger, not a replacement for age."""
-    old_but_verified = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
-                                    source="published", updated="2020-01-01",
-                                    source_url="https://example.invalid/pricing")
-    assert old_but_verified.is_stale(180)
-    assert old_but_verified.needs_repricing(180)
-
-
-def test_runtime_staleness_stays_age_only():
-    """is_stale gates the runtime hard-fail, so provenance must not leak in.
-
-    Making every estimate instantly stale would turn ~73% of the catalog
-    into AIPricingError at request time.
-    """
-    guess = ModelCosting(input_per_1m=1.0, output_per_1m=2.0,
-                         source="estimated", updated=date.today().isoformat())
-    assert guess.is_unverified()
-    assert not guess.is_stale(180)
 
 
 # ------------------------------------------------------------------
@@ -220,11 +172,6 @@ def test_strip_and_sibling():
     assert not fails, "strip/sibling mismatches:\n  " + "\n  ".join(fails)
 
 
-def test_staleness():
-    fails = _check_staleness()
-    assert not fails, "staleness mismatches:\n  " + "\n  ".join(fails)
-
-
 def test_helpers():
     fails = _check_helpers()
     assert not fails, "helper mismatches:\n  " + "\n  ".join(fails)
@@ -238,8 +185,6 @@ def run():
     fails += _check_classify()
     print("\nstrip_date_pin / has_dated_sibling:")
     fails += _check_strip_and_sibling()
-    print("\nstaleness:")
-    fails += _check_staleness()
     print("\nhelpers:")
     fails += _check_helpers()
     print("\n" + "=" * 60)

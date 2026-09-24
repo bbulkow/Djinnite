@@ -1,22 +1,20 @@
 """
 Audit Pricing Script (read-only)
 
-Classifies every model in the catalog as fixed/floating, checks staleness, and
-reports what update_model_costs would re-price on its next run -- WITHOUT making
+Classifies every model in the catalog as fixed/floating and reports what update_model_costs would re-price on its next run -- WITHOUT making
 any API calls or writing the catalog.  Use this for human review before
 committing a price refresh.
 
 Usage:
     python -m djinnite.scripts.audit_pricing
     python -m djinnite.scripts.audit_pricing --provider gemini
-    python -m djinnite.scripts.audit_pricing --staleness-days 90
     python -m djinnite.scripts.audit_pricing --fail-on-unknown   # nonzero exit if any unknown
 """
 
 import sys
 import argparse
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
 
 # Add project root to sys.path (mirrors the other scripts)
 _project_root = Path(__file__).resolve().parent.parent
@@ -25,9 +23,6 @@ if str(_project_root) not in sys.path:
 
 import config_loader
 from pricing_class import classify_model
-
-DEFAULT_STALENESS_DAYS = 180
-
 
 def _effective_class(provider, model, sibling_ids):
     """Return (effective_class, auto_class, drift_msg_or_None)."""
@@ -45,23 +40,17 @@ def audit_pricing():
     parser = argparse.ArgumentParser(description="Audit model pricing (read-only)")
     parser.add_argument("--provider", type=str, help="Limit to a specific provider")
     parser.add_argument("--catalog", type=str, help="Path to model_catalog.json")
-    parser.add_argument("--staleness-days", type=int, default=DEFAULT_STALENESS_DAYS,
-                        help=f"Treat fixed prices older than this as stale (default: {DEFAULT_STALENESS_DAYS})")
     parser.add_argument("--fail-on-unknown", action="store_true",
                         help="Exit nonzero if any model has source=unknown")
-    parser.add_argument("--fail-on-stale", action="store_true",
-                        help="Exit nonzero if any fixed model is stale")
     args = parser.parse_args()
 
     catalog = config_loader.load_model_catalog(
         Path(args.catalog) if args.catalog else None)
-    today = datetime.now(timezone.utc).date()
 
     print(f"\nDjinnite Pricing Audit - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Staleness threshold: {args.staleness_days} days")
     print("=" * 70)
 
-    totals = {"floating": 0, "fixed_fresh": 0, "fixed_stale": 0, "unverified": 0,
+    totals = {"floating": 0, "fixed": 0, "unverified": 0,
               "unknown": 0, "failed": 0, "manual": 0, "disabled": 0, "missing": 0}
     would_reprice = []
     unknowns = []
@@ -90,9 +79,7 @@ def audit_pricing():
 
             source = costing.source
             has_price = costing.input_per_1m is not None and costing.updated != ""
-            stale = costing.is_stale(args.staleness_days, today=today)
-            days = costing.days_since_update(today=today)
-            age = f"{days}d" if days is not None else "never"
+            updated = costing.updated or "never"
 
             if source == "manual":
                 totals["manual"] += 1
@@ -115,34 +102,29 @@ def audit_pricing():
                 totals["floating"] += 1
                 tag = "FLOATING"
                 reprice = True
-            elif stale:
-                totals["fixed_stale"] += 1
-                tag = "FIXED-STALE"
-                reprice = True
             elif costing.is_unverified():
-                # Priced, in-date, but the figure was guessed rather than read
-                # off a published page. Age cannot distinguish the two, so
-                # without its own state a never-verified price reports as
-                # FIXED-FRESH forever and is never re-derived. That is how a
-                # 3x-wrong gemini-flash-latest estimate survived.
+                # Priced, but the figure was guessed rather than read off a
+                # published page. Without its own state a guess reports as
+                # FIXED forever. That is how a 3x-wrong gemini-flash-latest
+                # estimate survived.
                 totals["unverified"] += 1
                 tag = "UNVERIFIED"
                 reprice = True
             else:
-                totals["fixed_fresh"] += 1
-                tag = "FIXED-FRESH"
+                totals["fixed"] += 1
+                tag = "FIXED"
                 reprice = False
 
             price = f"${costing.input_per_1m}/{costing.output_per_1m}" if has_price else "(no price)"
             flag = " -> RE-PRICE" if reprice else ""
-            print(f"  [{tag:12}] {model.id:48} {price:16} {age:7} {source}{flag}")
+            print(f"  [{tag:12}] {model.id:48} {price:16} {updated:10} {source}{flag}")
             if reprice:
                 would_reprice.append(f"{p_name}/{model.id} [{tag}] {price}")
 
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("-" * 70)
-    for key in ("floating", "fixed_stale", "unverified", "fixed_fresh", "missing",
+    for key in ("floating", "unverified", "fixed", "missing",
                 "unknown", "failed", "manual", "disabled"):
         print(f"  {key:14}: {totals[key]}")
 
@@ -162,8 +144,6 @@ def audit_pricing():
 
     exit_code = 0
     if args.fail_on_unknown and totals["unknown"] > 0:
-        exit_code = 1
-    if args.fail_on_stale and totals["fixed_stale"] > 0:
         exit_code = 1
     sys.exit(exit_code)
 

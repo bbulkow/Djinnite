@@ -101,7 +101,8 @@ logic). Grok needs only to appear as a catalog key. Two small touch-ups: a `PROV
 display name, and a `pricing_class._classify_grok` rule. We have **no confirmed evidence** xAI
 silently re-prices a stable id, and xAI's snapshot ids use an `MMDD` stamp the shared date regex
 does not match — so the rule conservatively pins every non-`-latest` id as `fixed`, relying on the
-universal `-latest` float rule and the 180-day staleness re-check. **Confidence: Medium** (revise
+universal `-latest` float rule; a quiet price cut is picked up only by a forced
+`update_model_costs --all`. **Confidence: Medium** (revise
 when xAI's re-pricing behaviour is confirmed).
 
 ---

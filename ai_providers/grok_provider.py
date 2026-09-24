@@ -55,7 +55,7 @@ class GrokProvider(BaseAIProvider):
             api_key: xAI API key.
             model: Model ID to use (e.g. ``grok-4.5``).
             model_info: Optional ModelInfo from catalog for pre-flight checks.
-            require_pricing: Fast-fail on missing/unknown/stale price (see base).
+            require_pricing: Fast-fail on missing/unknown price (see base).
         """
         super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
 

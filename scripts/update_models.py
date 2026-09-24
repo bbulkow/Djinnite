@@ -672,9 +672,12 @@ def merge_model_data(
         api_output_limit = model.get("max_output_tokens", 0) or 0
         existing_output_limit = 0
         existing_ssj = None
+        # Bound every iteration: a stale binding from the previous model gave
+        # new models their list-neighbour's context_window (gpt-6-sol got
+        # gpt-4o's 128000).
+        existing = existing_by_id.get(model_id)
 
-        if model_id in existing_by_id:
-            existing = existing_by_id[model_id]
+        if existing is not None:
             existing_output_limit = existing.get("max_output_tokens", 0) or 0
             # Preserve existing capabilities.structured_json — pass the raw
             # value (list / bool / None) through; the loader's coerce shim

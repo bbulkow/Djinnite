@@ -50,7 +50,7 @@ class GeminiProvider(BaseAIProvider):
             model: The model ID to use
             backend: The Google backend to use ('gemini' or 'vertexai')
             project_id: The Google Cloud project ID (required for Vertex AI)
-            require_pricing: Fast-fail on missing/unknown/stale price (see base).
+            require_pricing: Fast-fail on missing/unknown price (see base).
         """
         self.backend = backend
         self.project_id = project_id

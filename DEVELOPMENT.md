@@ -54,6 +54,7 @@ from djinnite import BaseAIProvider, AIResponse, AIProviderError, DjinniteModali
 # Error Hierarchy (all subclass AIProviderError)
 from djinnite import (
     AIOutputTruncatedError,   # Output hit max token limit (HTTP 200, partial content)
+    AIEmptyResponseError,     # No usable content (HTTP 200): blocked, filtered, empty JSON
     AIContextLengthError,     # Input exceeds context window (HTTP 400)
     AIRateLimitError,         # Rate limit / quota exceeded (HTTP 429)
     AIAuthenticationError,    # Invalid API key (HTTP 401)
@@ -340,6 +341,7 @@ to avoid acting on incomplete data.
 | Exception | HTTP Status | When | Data Available |
 |---|---|---|---|
 | `AIOutputTruncatedError` | 200 OK | Model output was cut short by the max output token limit | `e.partial_response` — the incomplete `AIResponse` with `truncated=True`, usage info, and partial content |
+| `AIEmptyResponseError` | 200 OK | Provider blocked/filtered the output, or `generate_json()` got no usable JSON (empty or refusal) | `e.reason`; `e.partial_response` with billed `usage` and costs, `finish_reason`, `block_reason` |
 | `AIContextLengthError` | 400 Bad Request | Input prompt exceeds the model's context window | Standard error info |
 | `AIRateLimitError` | 429 | Rate limit or quota exceeded | Standard error info |
 | `AIAuthenticationError` | 401 | Invalid or missing API key | Standard error info |
@@ -349,12 +351,40 @@ to avoid acting on incomplete data.
 All exceptions inherit from `AIProviderError`, which itself inherits from `Exception`.
 Every `AIProviderError` carries `e.provider` (str) and `e.original_error` (Optional[Exception]).
 
+#### Empty, blocked, and refused responses
+
+Rule: **raise when the response cannot be used as the method promises; return
+when the model produced its own answer, even an empty one or a refusal.**
+
+| Case | `generate_json()` | `generate()` |
+|---|---|---|
+| Provider blocked the prompt / no candidates | raise | raise |
+| Provider filtered the output (even with partial text) | raise | raise |
+| Model refusal | raise | return (`finish_reason="refusal"`, text in `content`) |
+| Normal stop, zero text | raise | return (`content=""`) |
+
+The caller-facing version, with retry guidance, is in USE.md
+("Empty, Blocked, and Refused Responses").
+
+**When adding or changing a provider:**
+- Decide every empty/blocked/refusal case with the table above.
+- Compute usage and costs (`_compute_costs()`) *before* raising, and raise via
+  `self._raise_empty(ai_response, reason=..., details=..., web_search=..., thinking=...)`
+  so the billed usage travels on `e.partial_response` and the message format
+  is uniform.
+- Check truncation first (`AIOutputTruncatedError` is more specific), then empty/blocked.
+- Set `AIResponse.block_reason` when the provider blocked or filtered.
+- Never let an SDK convenience accessor (e.g. Gemini `response.text`) put `None`
+  into `content`.
+- Put `except AIProviderError: raise` ahead of any generic `except Exception`
+  mapping, so Djinnite's own errors are never rewrapped or misclassified.
+
 ### AIResponse Fields
 
 ```python
 @dataclass
 class AIResponse:
-    content: str                          # Generated text
+    content: str                          # Generated text (never None; may be "" from generate())
     model: str                            # Model ID
     provider: str                         # Provider name
     usage: dict[str, int | None]          # Token usage (see below)
@@ -362,6 +392,7 @@ class AIResponse:
     raw_response: Any                     # Original SDK response
     truncated: bool = False               # True if output was cut short
     finish_reason: Optional[str] = None   # Provider-native stop reason
+    block_reason: Optional[str] = None    # Provider block/filter reason, if any
 ```
 
 **Token usage** (`response.usage` dict and convenience properties):
@@ -382,11 +413,11 @@ will have `truncated=True` and the provider-native finish reason.
 
 Provider-specific `finish_reason` values:
 
-| Provider | Normal Completion | Truncated |
-|---|---|---|
-| OpenAI | `"stop"` | `"length"` |
-| Anthropic | `"end_turn"` | `"max_tokens"` |
-| Gemini | `"STOP"` | `"MAX_TOKENS"` |
+| Provider | Normal Completion | Truncated | Blocked / Filtered | Refusal |
+|---|---|---|---|---|
+| OpenAI / Grok | `"completed"` | `"max_output_tokens"` | `"content_filter"` | `"refusal"` |
+| Anthropic | `"end_turn"` | `"max_tokens"` | — | `"refusal"` |
+| Gemini | `"STOP"` | `"MAX_TOKENS"` | `prompt_feedback.block_reason`, or `SAFETY` / `RECITATION` / `PROHIBITED_CONTENT` / ... | — |
 
 ### ModelInfo Fields
 

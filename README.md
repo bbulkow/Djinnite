@@ -365,6 +365,7 @@ Comprehensive exception hierarchy for robust applications. Djinnite **never sile
 from djinnite import (
     AIProviderError,          # Base class for all provider errors
     AIOutputTruncatedError,   # Output hit max token limit (HTTP 200 with partial content!)
+    AIEmptyResponseError,     # No usable content (HTTP 200): blocked, filtered, or empty JSON
     AIContextLengthError,     # Input too long for model (HTTP 400)
     AIRateLimitError,         # Rate limit exceeded (HTTP 429)
     AIAuthenticationError,    # Bad API key (HTTP 401)
@@ -381,6 +382,12 @@ except AIOutputTruncatedError as e:
     print(f"Truncated! Got {e.partial_response.output_tokens} tokens")
     print(f"Partial content: {e.partial_response.content[:100]}...")
     # Retry with higher max_output_tokens, or raise to the caller
+except AIEmptyResponseError as e:
+    # The provider blocked or filtered the output (or generate_json got no
+    # usable JSON). e.reason says why; e.partial_response.usage has the
+    # billed tokens. generate() still RETURNS a model's own empty answer or
+    # refusal. See "Empty, Blocked, and Refused Responses" in USE.md.
+    print(f"No usable content: {e.reason}")
 except AIContextLengthError as e:
     # The input prompt was too long for the model's context window.
     # The API returned HTTP 400. Shorten the prompt or use a bigger model.

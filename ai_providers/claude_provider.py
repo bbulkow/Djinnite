@@ -18,7 +18,6 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
-    AIPricingError,
 )
 
 
@@ -528,7 +527,7 @@ class ClaudeProvider(BaseAIProvider):
             
             return ai_response
             
-        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+        except AIProviderError:
             raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
             error_message = str(e).lower()
@@ -782,7 +781,24 @@ class ClaudeProvider(BaseAIProvider):
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
                 )
-            
+
+            # generate_json promises schema-conforming JSON: a refusal or an
+            # empty reply cannot meet that (see AIEmptyResponseError).
+            if stop_reason == "refusal" or not content.strip():
+                self._raise_empty(
+                    ai_response,
+                    reason="refusal" if stop_reason == "refusal" else "empty",
+                    details={
+                        "stop_reason": stop_reason,
+                        "block_types": ",".join(
+                            str(getattr(b, "type", "?")) for b in (response.content or [])
+                        ),
+                        "text": content.strip()[:200],
+                    },
+                    web_search=web_search,
+                    thinking=thinking,
+                )
+
             return ai_response
             
         except (AIOutputTruncatedError, AIContextLengthError):

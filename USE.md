@@ -311,6 +311,7 @@ All exceptions inherit from `AIProviderError` (which inherits from `Exception`):
 ```
 AIProviderError                  # Base class — catches everything
 ├── AIOutputTruncatedError       # Output hit max token limit (HTTP 200, partial content)
+├── AIEmptyResponseError         # No usable content (HTTP 200): blocked, filtered, or empty JSON
 ├── AIContextLengthError         # Input too long for model (HTTP 400)
 ├── AIRateLimitError             # Rate limit / quota exceeded (HTTP 429)
 ├── AIAuthenticationError        # Invalid API key (HTTP 401)
@@ -318,13 +319,14 @@ AIProviderError                  # Base class — catches everything
 └── DjinniteModalityError        # Unsupported modality (client-side, no HTTP call)
 ```
 
-#### The Two Critical Failure Modes
+#### The Critical Failure Modes
 
-There are two failure modes that **will cause data corruption** if not handled:
+These failure modes **will cause data corruption** if not handled:
 
 | Failure | HTTP Status | What Happens | How Djinnite Signals It |
 |---|---|---|---|
 | **Output Truncated** | **200 OK** ✅ | The API returns a *partial* response because the model hit its max output token limit. The content is incomplete but looks valid. | Raises `AIOutputTruncatedError` with `e.partial_response` containing the incomplete `AIResponse` |
+| **No Usable Content** | **200 OK** ✅ | The provider blocked or filtered the output (no model answer exists), or `generate_json()` got nothing it could return as JSON. | Raises `AIEmptyResponseError` with `e.reason` and `e.partial_response` (billed usage and cost). See [Empty, Blocked, and Refused Responses](#empty-blocked-and-refused-responses) |
 | **Context Too Long** | **400 Bad Request** ❌ | The API rejects the request because the input prompt exceeds the model's context window. No content is generated. | Raises `AIContextLengthError` |
 
 **⚠️ The output truncation case is especially dangerous** because the underlying API returns HTTP 200 — it looks like a success. The provider SDKs do *not* raise an exception. Without Djinnite's check, your code would silently receive partial JSON, partial code, or partial analysis and try to act on it.
@@ -338,6 +340,41 @@ Djinnite normalizes these provider-specific signals into the unified exception h
 | **Output Limit Param** | `max_tokens` (legacy) / `max_completion_tokens` (o1+) | `max_tokens` (strictly required) | `maxOutputTokens` |
 | **Context Error** | 400, `code: context_length_exceeded` | 400, `type: invalid_request_error` | 400, `INVALID_ARGUMENT` |
 | **Truncation Flag** | `finish_reason: "length"` | `stop_reason: "max_tokens"` | `finishReason: "MAX_TOKENS"` |
+| **Blocked / Filtered** | `incomplete_details.reason: "content_filter"` | — | `prompt_feedback.block_reason`, or `finishReason` `SAFETY` / `RECITATION` / `PROHIBITED_CONTENT` / `BLOCKLIST` / `SPII` |
+| **Refusal** | `refusal` content block | `stop_reason: "refusal"` | — |
+
+Grok (xAI) uses the same Responses API shape as OpenAI and is detected the same way.
+
+#### Empty, Blocked, and Refused Responses
+
+**The rule: Djinnite raises when the response cannot be used as the method promises. It returns when the model produced its own answer, even an empty one or a refusal.**
+
+`generate_json()` promises schema-conforming JSON, so it raises whenever there is nothing it can return as JSON. `generate()` promises only the model's text, so an empty answer or a refusal from the model is a legitimate result and is returned.
+
+| Case | `generate_json()` | `generate()` |
+|---|---|---|
+| Provider blocked the prompt, or returned no candidates at all | raise | raise |
+| Provider filtered the output (safety / recitation / `content_filter`), even with partial text | raise | raise |
+| Model refusal | raise (`reason="refusal"`) | **return**: refusal text in `content`, `finish_reason == "refusal"` |
+| Normal stop with zero text | raise (`reason="empty"`) | **return**: `content == ""`, `finish_reason` set |
+
+**Guarantees on a returned `AIResponse`:**
+- `content` is always a `str`, never `None`.
+- `finish_reason` is set whenever the provider reported one.
+- `block_reason` is set when the provider blocked or filtered the output (only seen on `e.partial_response`, since that case raises).
+- From `generate_json()`, `content` is always non-empty.
+
+**Callers of `generate()` that need non-empty text must check** for `content == ""` or `finish_reason == "refusal"`; neither raises.
+
+**On `AIEmptyResponseError`:**
+- `e.reason`: a short provider-native cause: a block/finish reason such as `"SAFETY"` or `"content_filter"`, `"refusal"`, or `"empty"`.
+- `e.partial_response`: the `AIResponse` built from the call. Its `usage` carries the billed tokens and `token_cost` / `search_cost` / `total_cost`, so you can still account for the call. It also has `finish_reason`, `block_reason`, and `raw_response`.
+- The message includes the model id, whether web search and thinking were active, and the provider's diagnostics (e.g. Gemini's block reason and safety ratings).
+
+**When to retry:**
+- `e.reason == "empty"` (including Gemini returning no candidates and no block reason): usually transient; this has been seen with Gemini + web search. A retry is reasonable.
+- A block or filter (`SAFETY`, `PROHIBITED_CONTENT`, `content_filter`, ...): deterministic for that prompt. Retrying the same prompt won't help; change the prompt or skip it.
+- `e.reason == "refusal"` from `generate_json()`: rephrase, or treat as a final answer.
 
 #### Required Error Handling Pattern
 
@@ -345,6 +382,7 @@ Djinnite normalizes these provider-specific signals into the unified exception h
 from djinnite import (
     get_provider,
     AIOutputTruncatedError,
+    AIEmptyResponseError,
     AIContextLengthError,
     AIRateLimitError,
     AIProviderError,
@@ -370,6 +408,16 @@ except AIOutputTruncatedError as e:
     # Option C: Use partial content if appropriate
     raise
 
+except AIEmptyResponseError as e:
+    # HTTP 200 but no usable content: blocked, filtered, or (generate_json
+    # only) empty or refused. The call was still billed:
+    record_cost(e.partial_response.total_cost)
+    log.warning(f"No usable content ({e.reason}): {e}")
+    if e.reason == "empty":
+        pass  # Usually transient: retry
+    else:
+        raise  # Blocked / filtered / refusal: retrying the same prompt won't help
+
 except AIContextLengthError as e:
     # The input prompt was too long for the model.
     # No content was generated. Shorten the prompt or use a bigger model.
@@ -391,9 +439,11 @@ except AIProviderError as e:
 On a successful (non-truncated) response, `AIResponse` includes:
 
 ```python
-response.content        # Complete generated text
+response.content        # Complete generated text; always a str, never None
+                        # (generate() may return "" or a refusal -- see above)
 response.truncated      # False (always False on success)
-response.finish_reason  # Provider-native reason: "stop", "end_turn", "STOP"
+response.finish_reason  # Provider-native reason: "stop", "end_turn", "STOP", "refusal"
+response.block_reason   # None on success (set only when the provider blocked/filtered)
 response.usage          # {"input_tokens": N, "output_tokens": N}
 response.model          # Model ID used
 response.provider       # Provider name
@@ -406,6 +456,16 @@ e.partial_response.content        # INCOMPLETE generated text
 e.partial_response.truncated      # True
 e.partial_response.finish_reason  # "length" (OpenAI), "max_tokens" (Claude), "MAX_TOKENS" (Gemini)
 e.partial_response.usage          # Token counts (how many were actually generated)
+```
+
+On a blocked, filtered, or empty response (`AIEmptyResponseError`, via `e.partial_response`):
+
+```python
+e.reason                          # "SAFETY", "content_filter", "refusal", "empty", ...
+e.partial_response.content        # "" (or partial text the provider filtered)
+e.partial_response.block_reason   # Provider block/filter reason, or None
+e.partial_response.finish_reason  # Provider-native reason, if any
+e.partial_response.usage          # Billed tokens and costs
 ```
 
 ---

@@ -98,7 +98,15 @@ class AIResponse:
             and an ``AIOutputTruncatedError`` will normally be raised so
             callers cannot accidentally act on incomplete data.
         finish_reason: The provider-native finish/stop reason string
-            (e.g. "stop", "length", "max_tokens", "MAX_TOKENS").
+            (e.g. "stop", "length", "max_tokens", "MAX_TOKENS", "refusal").
+        block_reason: Set when the provider (not the model) blocked or
+            filtered the output, e.g. Gemini ``prompt_feedback.block_reason``
+            or OpenAI ``content_filter``.  ``None`` otherwise.
+
+    ``content`` is always a ``str``, never ``None``.  A response returned
+    from ``generate()`` may still have ``content == ""`` (an honest empty
+    answer) or carry a refusal (``finish_reason == "refusal"``); see
+    "Empty, Blocked, and Refused Responses" in USE.md.
     """
     content: str
     model: str
@@ -108,7 +116,13 @@ class AIResponse:
     raw_response: Any = None
     truncated: bool = False
     finish_reason: Optional[str] = None
-    
+    block_reason: Optional[str] = None
+
+    def __post_init__(self):
+        # Backstop: content is always a str, never None.
+        if self.content is None:
+            self.content = ""
+
     @property
     def input_tokens(self) -> int:
         """Number of input tokens used."""
@@ -238,6 +252,52 @@ class AIOutputTruncatedError(AIProviderError):
         original_error: Optional[Exception] = None,
     ):
         self.partial_response = partial_response
+        super().__init__(message, provider, original_error)
+
+
+class AIEmptyResponseError(AIProviderError):
+    """
+    Raised when the API returned HTTP 200 OK but the response cannot be
+    used as the called method promises.
+
+    The rule (see "Empty, Blocked, and Refused Responses" in USE.md):
+    Djinnite raises when the response cannot be used as the method
+    promises, and returns when the model produced its own answer, even
+    an empty one or a refusal.
+
+        - Provider blocked or filtered the output (no candidates, prompt
+          block, safety/recitation filter, ``content_filter``):
+          raised by both ``generate()`` and ``generate_json()``.
+        - Model refusal, or an empty reply with a normal stop: raised only
+          by ``generate_json()`` (which promises schema-conforming JSON).
+          ``generate()`` returns these, with ``finish_reason`` set.
+
+    Provider-specific indicators:
+        - Gemini:    no candidates (``prompt_feedback.block_reason``), or a
+                     candidate with ``finishReason`` SAFETY etc. and no text
+        - Anthropic: ``stop_reason == "refusal"``
+        - OpenAI:    ``incomplete_details.reason == "content_filter"``, or a
+                     ``refusal`` content block
+        - Grok:      same as OpenAI
+
+    Attributes:
+        partial_response: The AIResponse built from the call (content is
+            ``""`` or whatever partial text arrived).  Its ``usage`` carries
+            token counts and costs, so callers can still account for
+            billed tokens.
+        reason: Short provider-native cause, e.g. ``"SAFETY"``,
+            ``"refusal"``, ``"content_filter"``, or ``"empty"``.
+    """
+    def __init__(
+        self,
+        message: str,
+        provider: str,
+        partial_response: 'AIResponse',
+        reason: Optional[str] = None,
+        original_error: Optional[Exception] = None,
+    ):
+        self.partial_response = partial_response
+        self.reason = reason
         super().__init__(message, provider, original_error)
 
 
@@ -404,6 +464,36 @@ class BaseAIProvider(ABC):
         if token_cost is not None or search_cost is not None:
             usage["total_cost"] = round((token_cost or 0) + (search_cost or 0), 8)
 
+    def _raise_empty(
+        self,
+        ai_response: AIResponse,
+        *,
+        reason: Optional[str],
+        details: Optional[Dict[str, Any]] = None,
+        web_search: bool = False,
+        thinking: Union[bool, int, str, None] = None,
+    ) -> None:
+        """Raise ``AIEmptyResponseError`` with a uniform diagnostic message.
+
+        Called by providers after usage and costs are computed, so the
+        billed usage travels on ``e.partial_response``.
+        """
+        reason = reason or "empty"
+        head = (
+            f"Empty response from model '{self.model}' (reason={reason}, "
+            f"web_search={bool(web_search)}, thinking={thinking!r}, "
+            f"output_tokens={ai_response.usage.get('output_tokens', '?')})"
+        )
+        extra = "; ".join(
+            f"{k}={v}" for k, v in (details or {}).items() if v not in (None, "", [])
+        )
+        raise AIEmptyResponseError(
+            f"{head}: {extra}" if extra else head,
+            provider=self.PROVIDER_NAME,
+            partial_response=ai_response,
+            reason=reason,
+        )
+
     @abstractmethod
     def generate(
         self,
@@ -447,10 +537,17 @@ class BaseAIProvider(ABC):
                 is still charged.
             
         Returns:
-            AIResponse with the generated content
-            
+            AIResponse with the generated content.  ``content`` is always a
+            ``str`` but may be ``""`` (the model's own empty answer) or a
+            refusal (``finish_reason == "refusal"``).  Callers that need
+            non-empty text must check.
+
         Raises:
             AIProviderError: If generation fails
+            AIEmptyResponseError: If the provider blocked or filtered the
+                output (no model answer exists).  Not raised for an honest
+                empty reply or a model refusal.
+            AIOutputTruncatedError: If the output hit the max token limit.
             DjinniteModalityError: If prompt contains unsupported modalities
         """
         pass
@@ -1452,6 +1549,9 @@ class BaseAIProvider(ABC):
             TypeError: If ``schema`` is not a dict or Pydantic BaseModel class.
             AIProviderError: If model doesn't support structured JSON (per catalog).
             AIOutputTruncatedError: If the JSON output was truncated.
+            AIEmptyResponseError: If the content is empty, blocked,
+                filtered, or refused.  On return, ``content`` is always
+                non-empty.
         """
         if schema is None:
             raise ValueError(

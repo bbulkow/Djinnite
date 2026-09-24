@@ -17,7 +17,6 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
-    AIPricingError,
 )
 
 
@@ -29,6 +28,19 @@ from .base_provider import (
 # tool), so AFC is inapplicable. Disabling it takes the SDK's early-return path
 # -- skipping machinery we never use, and the warning with it.
 _DISABLE_AFC = {"disable": True}
+
+# Candidate finish reasons that mean the model finished on its own (or hit
+# the cap). Anything else (SAFETY, RECITATION, PROHIBITED_CONTENT, BLOCKLIST,
+# SPII, ...) means the provider filtered the output.
+_MODEL_FINISHES = ("STOP", "MAX_TOKENS", "FINISH_REASON_UNSPECIFIED")
+
+
+def _enum_name(value) -> Optional[str]:
+    """Bare name of an SDK enum (``FinishReason.SAFETY`` -> ``"SAFETY"``) or str."""
+    if value is None:
+        return None
+    name = getattr(value, "name", None)
+    return name if isinstance(name, str) else str(value).split(".")[-1]
 
 
 class GeminiProvider(BaseAIProvider):
@@ -151,6 +163,80 @@ class GeminiProvider(BaseAIProvider):
         except (IndexError, AttributeError):
             pass
         return 0
+
+    @staticmethod
+    def _response_diagnostics(response) -> dict:
+        """Collect why a Gemini response may carry no usable content.
+
+        Reads ``prompt_feedback`` (prompt-level block) and the first
+        candidate's finish reason, finish message, and safety ratings.
+        Every read is defensive: any field may be absent.
+        """
+        def _ratings(items) -> Optional[str]:
+            out = []
+            for r in items or []:
+                s = f"{_enum_name(getattr(r, 'category', None))}={_enum_name(getattr(r, 'probability', None))}"
+                if getattr(r, "blocked", None):
+                    s += "[blocked]"
+                out.append(s)
+            return ", ".join(out) or None
+
+        feedback = getattr(response, "prompt_feedback", None)
+        candidates = getattr(response, "candidates", None) or []
+        details = {
+            "block_reason": _enum_name(getattr(feedback, "block_reason", None)),
+            "block_reason_message": getattr(feedback, "block_reason_message", None),
+            "prompt_safety_ratings": _ratings(getattr(feedback, "safety_ratings", None)),
+            "candidates": len(candidates),
+        }
+        if candidates:
+            cand = candidates[0]
+            details["finish_reason"] = _enum_name(getattr(cand, "finish_reason", None))
+            details["finish_message"] = getattr(cand, "finish_message", None)
+            details["safety_ratings"] = _ratings(getattr(cand, "safety_ratings", None))
+        return details
+
+    @staticmethod
+    def _provider_block_reason(details: dict) -> Optional[str]:
+        """Prompt block reason, or the candidate's filter finish reason, else None."""
+        if details.get("block_reason"):
+            return details["block_reason"]
+        finish = details.get("finish_reason")
+        if finish is not None and finish not in _MODEL_FINISHES:
+            return finish
+        return None
+
+    def _check_empty(
+        self,
+        ai_response: AIResponse,
+        details: dict,
+        *,
+        json_mode: bool,
+        web_search: bool,
+        thinking,
+    ) -> None:
+        """Apply the empty/blocked contract (see AIEmptyResponseError).
+
+        * Provider blocked/filtered (even with partial text, which is
+          incomplete like truncated output), or no candidates at all ->
+          raise in both methods.
+        * ``generate_json``: also raise on empty text.
+        * ``generate``: an honest empty STOP is returned.
+        """
+        block = ai_response.block_reason
+        no_output = not ai_response.content and not ai_response.parts
+        if json_mode:
+            should_raise = bool(block) or not ai_response.content.strip()
+        else:
+            should_raise = bool(block) or (no_output and details.get("candidates", 0) == 0)
+        if should_raise:
+            self._raise_empty(
+                ai_response,
+                reason=block or "empty",
+                details=details,
+                web_search=web_search,
+                thinking=thinking,
+            )
 
     def _build_gemini_thinking(
         self,
@@ -317,15 +403,25 @@ class GeminiProvider(BaseAIProvider):
                                 "mime_type": part.inline_data.mime_type,
                                 "data": part.inline_data.data
                             })
-            
-            if not text_content and hasattr(response, 'text'):
-                text_content = response.text
+
+            if not text_content:
+                # SDK convenience accessor; may be None or raise when there
+                # are no candidates. Never let it put None into content.
+                try:
+                    text_content = response.text or ""
+                except Exception:
+                    text_content = ""
+
+            details = self._response_diagnostics(response)
+            block_reason = self._provider_block_reason(details)
+            if finish_reason is None and block_reason:
+                finish_reason = block_reason
 
             # Detect output truncation: Gemini returns finishReason=MAX_TOKENS
             # when the output was cut short due to maxOutputTokens.
             # This is an HTTP 200 response — the SDK does NOT raise an exception.
             is_truncated = (finish_reason is not None and "MAX_TOKENS" in finish_reason.upper())
-            
+
             ai_response = AIResponse(
                 content=text_content,
                 model=self.model,
@@ -335,8 +431,9 @@ class GeminiProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
-            
+
             if is_truncated:
                 raise AIOutputTruncatedError(
                     f"Output truncated: model hit max output token limit "
@@ -344,10 +441,13 @@ class GeminiProvider(BaseAIProvider):
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
                 )
-            
+
+            self._check_empty(ai_response, details, json_mode=False,
+                              web_search=web_search, thinking=thinking)
+
             return ai_response
-            
-        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+
+        except AIProviderError:
             raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
             error_message = str(e).lower()
@@ -530,10 +630,19 @@ class GeminiProvider(BaseAIProvider):
                             text_content += part.text
                             output_parts.append({"type": "text", "text": part.text})
             
-            # Fall back to response.text if candidates extraction failed
-            if not text_content and hasattr(response, 'text'):
-                text_content = response.text
-            
+            # Fall back to response.text if candidates extraction failed.
+            # It may be None or raise when there are no candidates.
+            if not text_content:
+                try:
+                    text_content = response.text or ""
+                except Exception:
+                    text_content = ""
+
+            details = self._response_diagnostics(response)
+            block_reason = self._provider_block_reason(details)
+            if finish_reason is None and block_reason:
+                finish_reason = block_reason
+
             # Extract usage info if available
             usage = {}
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
@@ -568,8 +677,9 @@ class GeminiProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
-            
+
             if is_truncated:
                 raise AIOutputTruncatedError(
                     f"JSON output truncated: model hit max output token limit "
@@ -577,7 +687,10 @@ class GeminiProvider(BaseAIProvider):
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
                 )
-            
+
+            self._check_empty(ai_response, details, json_mode=True,
+                              web_search=web_search, thinking=thinking)
+
             return ai_response
             
         except AIProviderError:

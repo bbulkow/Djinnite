@@ -20,7 +20,6 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
-    AIPricingError,
 )
 
 
@@ -177,6 +176,17 @@ class OpenAIProvider(BaseAIProvider):
         return text_content, output_parts
 
     @staticmethod
+    def _extract_refusal(output) -> str:
+        """Concatenate any ``refusal`` content blocks from a Responses API output list."""
+        refusal = ""
+        for item in output or []:
+            if getattr(item, "type", "") == "message":
+                for block in getattr(item, "content", None) or []:
+                    if getattr(block, "type", "") == "refusal":
+                        refusal += getattr(block, "refusal", "") or ""
+        return refusal
+
+    @staticmethod
     def _count_search_units(response) -> int:
         """Count billable web search actions from an OpenAI Responses API response.
 
@@ -233,6 +243,9 @@ class OpenAIProvider(BaseAIProvider):
         """
         Check if a Responses API response was truncated.
 
+        ``incomplete`` with reason ``content_filter`` is a provider block,
+        not truncation; callers raise ``AIEmptyResponseError`` for it.
+
         Returns:
             (is_truncated, finish_reason)
         """
@@ -240,7 +253,7 @@ class OpenAIProvider(BaseAIProvider):
         if status == "incomplete":
             details = getattr(response, "incomplete_details", None)
             reason = getattr(details, "reason", "unknown") if details else "unknown"
-            return True, reason
+            return reason != "content_filter", reason
         # Normal completion
         return False, status
 
@@ -340,6 +353,14 @@ class OpenAIProvider(BaseAIProvider):
             usage = self._extract_usage(response)
             self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
+            block_reason = "content_filter" if finish_reason == "content_filter" else None
+
+            # A refusal is the model's own answer: return it as content.
+            refusal = self._extract_refusal(response.output)
+            if refusal and not content:
+                content = refusal
+                output_parts = [{"type": "text", "text": refusal}]
+                finish_reason = "refusal"
 
             ai_response = AIResponse(
                 content=content,
@@ -350,6 +371,7 @@ class OpenAIProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
 
             if is_truncated:
@@ -361,9 +383,18 @@ class OpenAIProvider(BaseAIProvider):
                     partial_response=ai_response,
                 )
 
+            # Provider filtered the output: not the model's answer.
+            if block_reason:
+                self._raise_empty(
+                    ai_response, reason=block_reason,
+                    details={"status": getattr(response, "status", None),
+                             "partial_chars": len(content)},
+                    web_search=web_search, thinking=thinking,
+                )
+
             return ai_response
 
-        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+        except AIProviderError:
             raise
         except Exception as e:
             error_message = str(e).lower()
@@ -562,6 +593,10 @@ class OpenAIProvider(BaseAIProvider):
             usage = self._extract_usage(response)
             self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
+            block_reason = "content_filter" if finish_reason == "content_filter" else None
+            refusal = self._extract_refusal(response.output)
+            if refusal and not content:
+                finish_reason = "refusal"
 
             ai_response = AIResponse(
                 content=content,
@@ -572,6 +607,7 @@ class OpenAIProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
 
             if is_truncated:
@@ -581,6 +617,17 @@ class OpenAIProvider(BaseAIProvider):
                     f"output_tokens={usage.get('output_tokens', '?')})",
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
+                )
+
+            # generate_json promises schema-conforming JSON: a block, a
+            # refusal, or an empty reply cannot meet that.
+            if block_reason or finish_reason == "refusal" or not content.strip():
+                self._raise_empty(
+                    ai_response,
+                    reason=block_reason or ("refusal" if finish_reason == "refusal" else "empty"),
+                    details={"status": getattr(response, "status", None),
+                             "refusal": refusal[:200]},
+                    web_search=web_search, thinking=thinking,
                 )
 
             return ai_response

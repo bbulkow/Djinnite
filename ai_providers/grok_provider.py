@@ -29,7 +29,6 @@ from .base_provider import (
     AIModelNotFoundError,
     AIOutputTruncatedError,
     AIContextLengthError,
-    AIPricingError,
 )
 
 
@@ -220,6 +219,17 @@ class GrokProvider(BaseAIProvider):
                 # web_search / reasoning items carry metadata only, not content
         return text_content, output_parts
 
+    @staticmethod
+    def _extract_refusal(output) -> str:
+        """Concatenate any ``refusal`` content blocks from a Responses API output list."""
+        refusal = ""
+        for item in output or []:
+            if getattr(item, "type", "") == "message":
+                for block in getattr(item, "content", None) or []:
+                    if getattr(block, "type", "") == "refusal":
+                        refusal += getattr(block, "refusal", "") or ""
+        return refusal
+
     def _extract_usage(self, response) -> dict:
         """Extract token usage from a Responses API response."""
         usage = {}
@@ -246,12 +256,16 @@ class GrokProvider(BaseAIProvider):
 
     @staticmethod
     def _is_truncated(response) -> tuple[bool, Optional[str]]:
-        """Check if a Responses API response was truncated."""
+        """Check if a Responses API response was truncated.
+
+        ``incomplete`` with reason ``content_filter`` is a provider block,
+        not truncation; callers raise ``AIEmptyResponseError`` for it.
+        """
         status = getattr(response, "status", "completed")
         if status == "incomplete":
             details = getattr(response, "incomplete_details", None)
             reason = getattr(details, "reason", "unknown") if details else "unknown"
-            return True, reason
+            return reason != "content_filter", reason
         return False, status
 
     def _map_error(self, e: Exception) -> AIProviderError:
@@ -365,6 +379,14 @@ class GrokProvider(BaseAIProvider):
             usage = self._extract_usage(response)
             self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
+            block_reason = "content_filter" if finish_reason == "content_filter" else None
+
+            # A refusal is the model's own answer: return it as content.
+            refusal = self._extract_refusal(response.output)
+            if refusal and not content_text:
+                content_text = refusal
+                output_parts = [{"type": "text", "text": refusal}]
+                finish_reason = "refusal"
 
             ai_response = AIResponse(
                 content=content_text,
@@ -375,6 +397,7 @@ class GrokProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
 
             if is_truncated:
@@ -386,9 +409,18 @@ class GrokProvider(BaseAIProvider):
                     partial_response=ai_response,
                 )
 
+            # Provider filtered the output: not the model's answer.
+            if block_reason:
+                self._raise_empty(
+                    ai_response, reason=block_reason,
+                    details={"status": getattr(response, "status", None),
+                             "partial_chars": len(content_text)},
+                    web_search=web_search, thinking=thinking,
+                )
+
             return ai_response
 
-        except (AIOutputTruncatedError, AIContextLengthError, AIPricingError):
+        except AIProviderError:
             raise
         except Exception as e:
             raise self._map_error(e)
@@ -532,6 +564,10 @@ class GrokProvider(BaseAIProvider):
             usage = self._extract_usage(response)
             self._compute_costs(usage)
             is_truncated, finish_reason = self._is_truncated(response)
+            block_reason = "content_filter" if finish_reason == "content_filter" else None
+            refusal = self._extract_refusal(response.output)
+            if refusal and not content_text:
+                finish_reason = "refusal"
 
             ai_response = AIResponse(
                 content=content_text,
@@ -542,6 +578,7 @@ class GrokProvider(BaseAIProvider):
                 raw_response=response,
                 truncated=is_truncated,
                 finish_reason=finish_reason,
+                block_reason=block_reason,
             )
 
             if is_truncated:
@@ -551,6 +588,17 @@ class GrokProvider(BaseAIProvider):
                     f"output_tokens={usage.get('output_tokens', '?')})",
                     provider=self.PROVIDER_NAME,
                     partial_response=ai_response,
+                )
+
+            # generate_json promises schema-conforming JSON: a block, a
+            # refusal, or an empty reply cannot meet that.
+            if block_reason or finish_reason == "refusal" or not content_text.strip():
+                self._raise_empty(
+                    ai_response,
+                    reason=block_reason or ("refusal" if finish_reason == "refusal" else "empty"),
+                    details={"status": getattr(response, "status", None),
+                             "refusal": refusal[:200]},
+                    web_search=web_search, thinking=thinking,
                 )
 
             return ai_response

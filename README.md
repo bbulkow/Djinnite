@@ -46,7 +46,7 @@ Escape the knowledge cutoff trap! Every AI provider has opaque training data cut
 **Direct APIs or Cloud Platforms**
 Djinnite reaches each model in one of two access modes:
 - **Direct**: the provider's own API with its own key (Anthropic, Google AI Studio, OpenAI, xAI).
-- **Platform**: a cloud platform serving the provider's models, with the platform's credentials and no API key. **Google Vertex AI** serves both Gemini and Claude today (`platform="vertexai"`, Application Default Credentials, per-location pricing). `scripts/probe_platform.py` records which models the platform serves where.
+- **Platform**: a cloud platform serving the provider's models, with the platform's credentials and no API key. **Google Vertex AI** serves both Gemini and Claude today (`platform="vertexai"`, Application Default Credentials, per-location pricing). `scripts/probe_platform.py` records which models the platform serves where. Setup guide: [VERTEX_AI_SETUP.md](VERTEX_AI_SETUP.md).
 
 Your agents get **current information** regardless of which provider you use, without being "mired in the past."
 

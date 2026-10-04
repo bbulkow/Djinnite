@@ -40,6 +40,11 @@ Djinnite supports both **Google AI Studio** and **Vertex AI** (Google Cloud).
 
 **For Vertex AI (Google Cloud) -- platform mode, no API key:**
 
+> **Setting up Vertex AI for the first time?** Follow
+> [VERTEX_AI_SETUP.md](VERTEX_AI_SETUP.md): the Google Cloud side (API,
+> Model Garden, org policy, quota, identity), this configuration, and how to
+> verify it, step by step.
+
 Vertex AI is a *platform*: it serves Gemini and Claude models and
 authenticates with Google Application Default Credentials (ADC) -- a service
 account on Cloud Run / GKE, or `gcloud auth application-default login`

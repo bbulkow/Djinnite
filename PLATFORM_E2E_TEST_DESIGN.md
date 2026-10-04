@@ -160,9 +160,13 @@ sends. Extended test X3 settles it.
 
 ## GCP setup (one time)
 
-Run as a user with Owner on the billing account's org/folder (or equivalent).
-PowerShell. Every account, project and billing value is **configuration you
-supply** -- nothing below names a real one. Set the variables first:
+The base setup is the user guide, **[VERTEX_AI_SETUP.md](VERTEX_AI_SETUP.md)**.
+Follow it for the e2e project with the choices below, then add the e2e-only
+pieces. Setting up the e2e project this way also tests the guide: a step the
+guide gets wrong shows up here first.
+
+Every account, project and billing value is **configuration you supply** --
+nothing below names a real one:
 
 | Variable | What to supply | Harness variable it becomes |
 |---|---|---|
@@ -174,73 +178,58 @@ supply** -- nothing below names a real one. Set the variables first:
 | `$GCLOUD_DIR` | a separate gcloud config directory for the runner's credentials | `DJINNITE_E2E_CREDENTIALS` = `$GCLOUD_DIR\application_default_credentials.json` |
 
 ```powershell
-$PROJECT    = "<e2e project id>"            # dedicated test project
-$DECOY      = "<decoy project id>"          # empty project the runner has NO rights on
+$PROJECT    = "<e2e project id>"
+$DECOY      = "<decoy project id>"
 $BILLING    = "<billing account id>"
-$OPERATOR   = "user:<operator email>"       # the operator's Google account
+$OPERATOR   = "user:<operator email>"
 $RUNNER     = "<runner service account name>"
 $GCLOUD_DIR = "<directory for the runner's gcloud config>"
 $SA         = "$RUNNER@$PROJECT.iam.gserviceaccount.com"
+```
 
-# 1. Projects
+**A. Create the projects** (the guide assumes one exists):
+
+```powershell
 gcloud projects create $PROJECT
 gcloud billing projects link $PROJECT --billing-account=$BILLING
 gcloud projects create $DECOY          # no billing, no APIs, no grants -- by design
+```
 
-# 2. APIs on the test project
-gcloud services enable aiplatform.googleapis.com iamcredentials.googleapis.com --project=$PROJECT
+**B. Follow VERTEX_AI_SETUP.md steps 1-6 for `$PROJECT`**, with these choices
+(the models and locations are those in "Model choice" above):
 
-# 3. The runner identity (no keys are ever created for it)
-gcloud iam service-accounts create $RUNNER --project=$PROJECT `
-    --display-name="Djinnite e2e runner"
+| Guide step | e2e choice |
+|---|---|
+| 1. Sign in, check project | `$PROJECT` is the project created in A |
+| 2. Vertex AI API | also enable `iamcredentials.googleapis.com` (impersonation) |
+| 3. Model Garden | enable Haiku 4.5 and Sonnet 5.5 |
+| 4. Org policy | allow `:structured_outputs` for `claude-haiku-4-5` and `claude-sonnet-5-5`; add `:web_search` only for extended test X3 |
+| 5. Quota | request Haiku 4.5 quota at `global`, plus `us-east5` (regional `online_prediction_requests_per_base_model`) for the regional-premium test. **Do not** request quota for Sonnet 5.5: it is the 429 canary. New projects are often refused Claude quota; until it is granted the Claude functional tests skip by name and the plumbing tests still run. |
+| 6. Identity | the **"As a service account"** path, with `$RUNNER` as the service account (`roles/aiplatform.user`), the operator as its Token Creator, and the credentials kept in `$GCLOUD_DIR` (next section) |
 
-# 4. Runner grants: call models; use the project for quota/billing
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/aiplatform.user"
-gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="roles/serviceusage.serviceUsageConsumer"
+**C. e2e-only additions:**
 
-# 5. Human grants: impersonate the runner; enable partner models in Model Garden
-gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT `
-    --member=$OPERATOR --role="roles/iam.serviceAccountTokenCreator"
-gcloud projects add-iam-policy-binding $PROJECT --member=$OPERATOR `
-    --role="roles/consumerprocurement.entitlementManager"
+```powershell
+# The runner names the e2e project as its quota project (test G7).
+gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" `
+    --role="roles/serviceusage.serviceUsageConsumer"
 
-# 6. Budget alert (alerts only -- GCP budgets do not stop spending)
+# Budget alert (alerts only -- GCP budgets do not stop spending)
 gcloud billing budgets create --billing-account=$BILLING --display-name="$PROJECT" `
     --budget-amount=10USD --filter-projects="projects/$PROJECT" `
     --threshold-rule=percent=0.5 --threshold-rule=percent=1.0
 ```
 
+Resulting grants:
+
 | Grant | To | Why |
 |---|---|---|
-| `roles/aiplatform.user` | runner SA, test project | `aiplatform.endpoints.predict` (generate, count tokens) and model listing |
-| `roles/serviceusage.serviceUsageConsumer` | runner SA, test project | lets the runner name the test project as its quota project (`x-goog-user-project`) |
+| `roles/aiplatform.user` | runner SA, e2e project | generate, count tokens, model listing |
+| `roles/serviceusage.serviceUsageConsumer` | runner SA, e2e project | lets the runner name the e2e project as its quota project (`x-goog-user-project`) |
 | *(nothing)* | runner SA, decoy project | deliberately absent: naming the decoy as quota project must fail with 403 |
 | `roles/iam.serviceAccountTokenCreator` | the operator, on the runner SA | local runs impersonate the runner -- no key files |
-| `roles/consumerprocurement.entitlementManager` | the operator, test project | required to enable partner (Anthropic) models in Model Garden |
-
-**Console steps** (no CLI equivalent worth scripting):
-
-7. **Model Garden** (test project): open *Claude Haiku 4.5* -> *Enable*, accept
-   Anthropic's terms. Do the same for *Claude Sonnet 5.5* (the canary).
-8. **Quota** (IAM & Admin -> Quotas): request, for `anthropic-claude-haiku-4-5`
-   at a small value (e.g. 10 QPM), `global_online_prediction_requests_per_base_model`
-   with `global_online_prediction_input_tokens_per_minute_per_base_model` and
-   `..._output_tokens_per_minute_per_base_model`; and the regional
-   `online_prediction_requests_per_base_model` (+ TPM) at `us-east5` for the
-   regional-premium test. Haiku is not served at `us`. **Do not** request quota for Sonnet 5.5 -- it is the 429 canary.
-   Expect friction: new projects are often refused Claude quota for lack of
-   usage history ("NOT_ENOUGH_USAGE_HISTORY"). The Gemini tier builds that
-   history on the same project; re-request after some weeks of nightly runs.
-   Until then the Claude functional tests skip by name and the Claude
-   plumbing tests still run (they need no quota).
-9. **Org policy** (the test project belongs to an organization):
-   * `constraints/vertexai.allowedPartnerModelFeatures` -- allow
-     `publishers/anthropic/models/claude-haiku-4-5:structured_outputs`, and
-     the same for `claude-sonnet-5-5` and `claude-opus-5-5`. Structured
-     outputs are denied by default, and every Claude test uses them.
-     Add `:web_search` for the models used by extended test X3.
-   * If the org restricts Model Garden access, allow
-     `publishers/anthropic/models/<model>:predict` for the same models.
+| `roles/consumerprocurement.entitlementManager` | the operator, e2e project | enable Anthropic models in Model Garden |
+| `roles/orgpolicy.policyAdmin` | the operator (usually at the org) | set the structured-outputs org policy |
 
 **No CI.** The e2e tier is run manually, by a maintainer or an agent
 (see "Who runs it"). Nothing runs it on push or on a schedule.
@@ -262,6 +251,13 @@ Remove-Item Env:CLOUDSDK_CONFIG
 The harness points `GOOGLE_APPLICATION_CREDENTIALS` at that file for the
 test session only (from `DJINNITE_E2E_CREDENTIALS`), so the default ADC is
 never touched.
+
+**Nothing on the machine changes globally.** `CLOUDSDK_CONFIG` lasts for the
+one PowerShell window and is removed after the login; the operator's own
+`gcloud` login (used for the setup commands) and the default
+`%APPDATA%\gcloud` credentials stay as they were, and other shells and
+processes keep working throughout. To run the tier, set the
+`DJINNITE_E2E_*` variables in the window that runs pytest.
 
 ## Harness
 

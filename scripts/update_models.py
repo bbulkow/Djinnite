@@ -536,31 +536,34 @@ def _probe_all_capabilities_for_models(
             jws_states = _onoff_states(jws_raw)
 
             # thinking field: combine on-state (any style succeeded) and
-            # off-state (disable accepted). Conservative default for a
-            # missing/unknown disable probe is to include "off" — matches
-            # current de-facto behavior of every model in the catalog.
+            # off-state (disable accepted). An inconclusive disable probe
+            # (None, e.g. a 429) makes the whole field unknown, so the cached
+            # value is kept: assuming "off" is how a correct ["on"] got
+            # overwritten on always-on models.
+            orchestrator_thinking: Optional[list[str]]
             if styles_raw is None:
                 # Inconclusive on the on-state — we cannot tell if thinking
                 # works. Mark as unknown to leave runtime pre-flight off.
                 thinking_states: Optional[list[str]] = None
                 thinking_style_states: Optional[list[str]] = None
+                orchestrator_thinking = None
             else:
                 # "between_tools" is a thinking *setting*, not evidence the
                 # model thinks -- only adaptive/budget establish "on".
                 on_supported = any(s in ("adaptive", "budget") for s in styles_raw)
-                states: list[str] = []
-                if on_supported:
-                    states.append("on")
-                # If the model has no thinking, "off" is the only state.
-                # If it has thinking, "off" depends on the disable probe.
                 if not on_supported:
-                    states.append("off")
+                    # No thinking: "off" is the only state.
+                    thinking_states = ["off"]
+                elif disable_raw is True:
+                    thinking_states = ["on", "off"]
+                elif disable_raw is False:
+                    thinking_states = ["on"]  # always-on
                 else:
-                    if disable_raw is True or disable_raw is None:
-                        states.append("off")
-                    # disable_raw is False → always-on; no "off" token.
-                thinking_states = states
+                    thinking_states = None  # disable probe inconclusive
                 thinking_style_states = list(styles_raw) if styles_raw else None
+                # The on-state is known even when "off" is not, so thinking
+                # combinations are still probed.
+                orchestrator_thinking = ["on"] if on_supported else thinking_states
 
             # ---- Cross-capability incompatibility probe -----------------
             # Driven by the orchestrator on BaseAIProvider. It consults the
@@ -569,7 +572,7 @@ def _probe_all_capabilities_for_models(
             # model). None means inconclusive — preserve cached value.
             supported_for_orchestrator = {
                 "temperature": temp_states,
-                "thinking": thinking_states,
+                "thinking": orchestrator_thinking,
                 "structured_json": ssj_states,
                 "web_search": ws_states,
                 # Passed so the orchestrator can skip the
@@ -673,6 +676,9 @@ def merge_model_data(
     ``thinking=false`` because older probes sent ``temperature``).
     """
     existing_by_id = {m["id"]: m for m in existing_models}
+    # Capabilities a forced reprobe wiped, per model id (restored where the
+    # new probe is inconclusive).
+    pre_reprobe_caps: dict[str, dict] = {}
     
     # Track models where heuristics only found "text" - these might need AI check
     uncertain_models = []
@@ -826,6 +832,9 @@ def merge_model_data(
         if force_reprobe and is_disabled:
             print(f"  [SKIP] {model_id} is disabled; not reprobing")
         elif force_reprobe:
+            # Remembered so an inconclusive probe keeps the cached value
+            # instead of blanking it (see the merge in step 4).
+            pre_reprobe_caps[model_id] = dict(existing_caps)
             existing_caps = {}
             ssj = None
             print(f"  [REPROBE] Resetting capabilities for {model_id}")
@@ -970,6 +979,16 @@ def merge_model_data(
                             "incompatible"]:
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
+                # A forced reprobe wiped the cache first. Where a probe was
+                # inconclusive (None), restore what the catalog had rather
+                # than leave the field unknown -- an inconclusive run never
+                # overwrites a value.
+                prior = pre_reprobe_caps.get(model["id"], {})
+                for key, was in prior.items():
+                    if caps.get(key) is None and was is not None:
+                        caps[key] = was
+                        print(f"  [WARN] {model['id']}: {key} probe inconclusive; "
+                              f"kept cached value {was}")
 
     # 5. effort is a thinking style whenever the provider enumerates effort
     # levels. Runs AFTER the probe merge: probes report only the shapes they

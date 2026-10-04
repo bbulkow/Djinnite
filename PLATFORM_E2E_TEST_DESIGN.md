@@ -63,7 +63,7 @@ is an access-path bug (or a provider/platform difference worth recording).
 | Role | Model | Why |
 |---|---|---|
 | Gemini, primary | `gemini-3.5-flash` @ `global` | Current flash; supports schema, thinking, history. Shared dynamic quota, so no quota request. ~$0.002 / test call. |
-| Gemini, legacy default location | `gemini-2.5-flash` @ `us-central1` | Proves the unchanged default location still works. A model served in us-central1 is required; 3.5 Flash is not. |
+| Gemini, legacy default location | `gemini-2.5-flash` @ `us-central1` | Proves the unchanged default location still works. A model served in us-central1 is required. **Retires 2026-10-20** -- replace before then (see "Consequences", 4). |
 | Claude, functional | `claude-haiku-4-5-20251001` | Cheapest Claude ($1 / $5). A dated snapshot, so every call exercises the `-YYYYMMDD` -> `@YYYYMMDD` rewrite. Supports structured outputs and budget thinking. |
 | Claude, zero-quota canary | `claude-sonnet-5-5` | Enabled in Model Garden, **no quota requested**. A call must return 429 -> `AIRateLimitError`. Once Munin-style quota is granted for it, it graduates to the 5.x tier (between_tools, always-on thinking). |
 
@@ -71,6 +71,92 @@ Haiku 4.5 cannot test 5.x-only behavior (adaptive default, `between_tools`,
 "cannot disable"). That behavior belongs to the *model*, not the platform,
 so it is verified in **direct mode** with the Anthropic key instead (see
 "Direct-mode companion"), where it is cheap and needs no Vertex quota.
+
+## Verified Google facts (2026-10-04)
+
+Read from Google Cloud's documentation on 2026-10-04 (Vertex AI is now
+documented under "Gemini Enterprise Agent Platform"). Re-verify before
+relying on them after a Google pricing or quota change.
+
+**Locations**
+
+* **Claude Haiku 4.5** is served at `global`, `us-east5` and `europe-west1` --
+  **not** at the `us` multi-region. Its model ID on Google is `claude-haiku-4-5`.
+  ([model card](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/haiku-4-5))
+* **Claude Sonnet 5.5 and Opus 5.5** are served at `global`, `us` and `eu`,
+  not at single regions such as `us-east5`. Multi-region endpoints serve
+  Claude 4.7 and later.
+* **`gemini-2.5-flash`** is served at `us-central1`, and **retires
+  2026-10-20**.
+  ([model card](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/2-5-flash))
+
+**Pricing**
+
+* **Claude:** `us` costs 1.1x `global` -- Sonnet 5.5 $2.00 / $10.00 at
+  `global`, $2.20 / $11.00 at `us`; Opus 5.5 $4.00 / $20.00 and $4.40 / $22.00.
+* **Gemini:** the 10% non-global premium applies to **GA Gemini 3 and later
+  models, from 2026-07-01**, and `us-central1` counts as non-global. It does
+  not apply to every Gemini family. `gemini-3.5-flash` is $1.50 / $9.00 per 1M
+  tokens at `global` and $1.65 / $9.90 elsewhere; AI Studio (direct mode)
+  charges $1.50 / $9.00 too, thinking billed at the output rate.
+  ([pricing](https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing))
+
+**Permissions and org policy**
+
+* Enabling partner (Anthropic) models in Model Garden needs
+  `roles/consumerprocurement.entitlementManager`; calling them needs
+  `roles/aiplatform.user` (a separate role).
+  ([partner-model permissions](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/use-partner-models))
+* Org-policy values name models by the **bare** model ID with publisher and
+  action: `publishers/anthropic/models/claude-haiku-4-5:predict` (Model
+  Garden access).
+  ([control model access](https://cloud.google.com/vertex-ai/generative-ai/docs/control-model-access))
+* Structured outputs and web search for Claude are **denied by default for
+  projects in an organization** by `constraints/vertexai.allowedPartnerModelFeatures`;
+  allow `publishers/anthropic/models/MODEL_NAME:structured_outputs` (and
+  `:web_search`) per model. Structured outputs are supported on all Claude
+  4.5+ models.
+
+**Quotas and token counting**
+
+* Haiku 4.5 (launched before Google's 2026-05-26 cutoff for shared-lineage
+  quotas) has per-endpoint QPM metrics: `global_online_prediction_requests_per_base_model`
+  (global), `us_multi_region_online_prediction_requests_per_base_model` (`us`),
+  `online_prediction_requests_per_base_model` (regional, e.g. `us-east5`); plus
+  input and output TPM quotas with the same prefixes and
+  `input_tokens_per_minute_per_base_model` / `output_tokens_per_minute_per_base_model`.
+  Claude models launched after the cutoff use shared-lineage quotas at global
+  and multi-region endpoints.
+  ([Claude quotas](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/quotas))
+* Claude **count-tokens is free and has its own quota** (default 2,000
+  requests per minute), separate from generation. It is offered at `global`
+  and `us` only -- **not** at `us-east5`.
+  ([count tokens](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/count-tokens))
+
+**Not verified:** which web-search tool type strings Vertex accepts for
+Claude. Google's example sends `"type": "web_search"`; Anthropic's docs say
+only `web_search_20250305` works on Google Cloud, which is what Djinnite
+sends. Extended test X3 settles it.
+
+### Consequences (open -- not yet acted on)
+
+1. **Gemini platform pricing is wrong for Gemini 3+ off `global`.** The
+   registry applies no Gemini premium, so `gemini-3.5-flash` at `us-central1`
+   is under-reported by 10%. Because the premium depends on the model (GA
+   Gemini 3+), it cannot be a provider-wide rule in `platforms.py`; it needs a
+   per-model, catalog-driven source.
+2. **Count-tokens cannot prove availability everywhere.** It doesn't exist at
+   `us-east5`, so `probe_availability()` and Claude's `is_available()` report
+   Haiku there wrongly. And because count-tokens has its own quota,
+   `available` never implies generation quota -- the harness must measure
+   generation separately (as `claude_quota` already does at `global`).
+3. **Haiku's regional-premium test (C8) must use `us-east5`**, picked from a
+   generation attempt, not from count-tokens discovery; Sonnet 5.5 covers the
+   `us` multi-region.
+4. **G6 needs a new model before 2026-10-20.** `gemini-2.5-flash` retires; its
+   replacement at `us-central1` will be a GA Gemini 3+ model, so G6 will also
+   exercise the Gemini premium (consequence 1).
+5. **Step 8/9 below** use the metric names and policy values above.
 
 ## GCP setup (one time)
 
@@ -124,19 +210,25 @@ gcloud billing budgets create --billing-account=$BILLING --display-name="djinnit
 
 7. **Model Garden** (test project): open *Claude Haiku 4.5* -> *Enable*, accept
    Anthropic's terms. Do the same for *Claude Sonnet 5.5* (the canary).
-8. **Quota** (IAM & Admin -> Quotas): request
-   `global_online_prediction_requests_per_base_model` (and the input/output
-   token-per-minute quotas) for `anthropic-claude-haiku-4-5` at a small value,
-   e.g. 10 QPM. **Do not** request quota for Sonnet 5.5 -- it is the 429 canary.
+8. **Quota** (IAM & Admin -> Quotas): request, for `anthropic-claude-haiku-4-5`
+   at a small value (e.g. 10 QPM), `global_online_prediction_requests_per_base_model`
+   with `global_online_prediction_input_tokens_per_minute_per_base_model` and
+   `..._output_tokens_per_minute_per_base_model`; and the regional
+   `online_prediction_requests_per_base_model` (+ TPM) at `us-east5` for the
+   regional-premium test. Haiku is not served at `us`. **Do not** request quota for Sonnet 5.5 -- it is the 429 canary.
    Expect friction: new projects are often refused Claude quota for lack of
    usage history ("NOT_ENOUGH_USAGE_HISTORY"). The Gemini tier builds that
    history on the same project; re-request after some weeks of nightly runs.
    Until then the Claude functional tests skip by name and the Claude
    plumbing tests still run (they need no quota).
-9. **Org policy:** if the organization restricts Model Garden models or
-   partner-model features by org policy, allow Haiku 4.5 and Sonnet 5.5 on
-   the test project. Munin's org denies web search; web-search tests are in
-   the extended tier only.
+9. **Org policy** (the test project belongs to an organization):
+   * `constraints/vertexai.allowedPartnerModelFeatures` -- allow
+     `publishers/anthropic/models/claude-haiku-4-5:structured_outputs`, and
+     the same for `claude-sonnet-5-5` and `claude-opus-5-5`. Structured
+     outputs are denied by default, and every Claude test uses them.
+     Add `:web_search` for the models used by extended test X3.
+   * If the org restricts Model Garden access, allow
+     `publishers/anthropic/models/<model>:predict` for the same models.
 
 **No CI.** The e2e tier is run manually, by a maintainer or an agent
 (see "Who runs it"). Nothing runs it on push or on a schedule.

@@ -245,7 +245,7 @@
         "costing": {
           "score": 1.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.75,
           "output_per_1m": 3.75,
@@ -253,7 +253,7 @@
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
-          "published_figure": "$0.75 / $3.75 per 1M tokens through Dec 31 2026 (Standard); resolves to gemini-3.8-flash; Google Search grounding $14/1,000 requests"
+          "published_figure": "$0.75 / $3.75 per 1M tokens through Dec 31 2026 (Standard, introductory); Google Search grounding $14 per 1,000 queries"
         },
         "capabilities": {
           "structured_json": [
@@ -314,7 +314,7 @@
         "costing": {
           "score": 0.5,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.3,
           "output_per_1m": 2.5,
@@ -322,7 +322,7 @@
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
-          "published_figure": "$0.30 / $2.50 per 1M tokens (Standard); resolves to gemini-3.5-flash-lite; Google Search grounding $14/1,000 requests"
+          "published_figure": "$0.30 / $2.50 per 1M tokens (Standard); Google Search grounding $14 per 1,000 queries"
         },
         "capabilities": {
           "structured_json": [
@@ -383,7 +383,7 @@
         "costing": {
           "score": 4.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 12.0,
@@ -391,7 +391,7 @@
           "pricing_class": "floating",
           "pricing_class_source": "auto",
           "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
-          "published_figure": "$2.00 / $12.00 per 1M tokens \u2264200K context (Standard); resolves to gemini-3.1-pro-preview; Google Search grounding $14/1,000 requests"
+          "published_figure": "$2.00 / $12.00 per 1M tokens, prompts \u2264200K (Standard); Google Search grounding $14 per 1,000 queries"
         },
         "capabilities": {
           "structured_json": [
@@ -2629,8 +2629,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -2641,7 +2640,9 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "between_tools",
+            "effort"
           ],
           "effort_levels": [
             "low",
@@ -2650,18 +2651,19 @@
             "xhigh",
             "max"
           ],
-          "incompatible": [
-            {
-              "thinking": "on",
-              "structured_json": "on"
-            },
-            {
-              "thinking": "on",
-              "web_search": "on"
-            }
-          ]
+          "incompatible": []
         },
-        "vision_limits": null
+        "vision_limits": {
+          "max_image_bytes": 5242880,
+          "max_dimension_px": 8000,
+          "max_images_per_request": 100,
+          "supported_formats": [
+            "jpeg",
+            "png",
+            "gif",
+            "webp"
+          ]
+        }
       },
       {
         "id": "claude-opus-5-5",
@@ -2696,8 +2698,7 @@
             "default"
           ],
           "thinking": [
-            "on",
-            "off"
+            "on"
           ],
           "web_search": [
             "on",
@@ -2708,7 +2709,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "effort_levels": [
             "low",
@@ -2717,16 +2719,7 @@
             "xhigh",
             "max"
           ],
-          "incompatible": [
-            {
-              "thinking": "on",
-              "structured_json": "on"
-            },
-            {
-              "thinking": "on",
-              "web_search": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": null
       },
@@ -2775,7 +2768,8 @@
             "off"
           ],
           "thinking_style": [
-            "adaptive"
+            "adaptive",
+            "effort"
           ],
           "effort_levels": [
             "low",
@@ -3570,7 +3564,7 @@
         }
       }
     ],
-    "last_updated": "2026-10-01"
+    "last_updated": "2026-10-04"
   },
   "chatgpt": {
     "models": [
@@ -3867,7 +3861,7 @@
         "costing": {
           "score": 400.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 15.0,
           "output_per_1m": 120.0,
@@ -3986,7 +3980,7 @@
         "costing": {
           "score": 560.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
@@ -4111,7 +4105,7 @@
         "costing": {
           "score": 0.67,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.05,
           "output_per_1m": 0.4,
@@ -4296,7 +4290,7 @@
           "input_per_1m": 30.0,
           "output_per_1m": 180.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -4943,7 +4937,7 @@
         "costing": {
           "score": 4.17,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -5132,7 +5126,7 @@
           "input_per_1m": 0.75,
           "output_per_1m": 4.5,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -5196,14 +5190,14 @@
         "costing": {
           "score": 46.67,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 2.5,
           "output_per_1m": 15.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+          "source_url": "https://developers.openai.com/api/docs/pricing",
           "published_figure": "$2.50 / $15.00 per 1M tokens (Standard)"
         },
         "max_output_tokens": 128000,
@@ -5556,7 +5550,7 @@
         "costing": {
           "score": 1.33,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.1,
           "output_per_1m": 0.4,
@@ -5906,11 +5900,11 @@
           "input_per_1m": 5.0,
           "output_per_1m": 30.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.5",
+          "source_url": "https://developers.openai.com/api/docs/pricing",
           "published_figure": "$5.00 / $30.00 per 1M tokens (Standard)"
         },
         "max_output_tokens": 128000,
@@ -5968,7 +5962,7 @@
         "costing": {
           "score": 26.67,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 2.0,
           "output_per_1m": 8.0,
@@ -6285,7 +6279,7 @@
         "costing": {
           "score": 16.67,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 1.25,
           "output_per_1m": 10.0,
@@ -7292,7 +7286,7 @@
         "costing": {
           "score": 3.33,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.25,
           "output_per_1m": 2.0,
@@ -7409,14 +7403,14 @@
         "costing": {
           "score": 5.33,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 0.4,
           "output_per_1m": 1.6,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-mini",
+          "source_url": "https://developers.openai.com/api/docs/pricing",
           "published_figure": "$0.40 / $1.60 per 1M tokens (Standard)"
         },
         "max_output_tokens": 32768,
@@ -7520,7 +7514,7 @@
           "input_per_1m": 0.2,
           "output_per_1m": 1.25,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
@@ -8599,15 +8593,15 @@
         "costing": {
           "score": 42.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 1.75,
           "output_per_1m": 14.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://openai.com/api/pricing/",
-          "published_figure": "$1.750 / $14.000 per 1M tokens (Standard)"
+          "source_url": "https://developers.openai.com/api/docs/pricing",
+          "published_figure": "$1.75 / $14.00 per 1M tokens (Standard)"
         },
         "max_output_tokens": 128000,
         "context_window": 400000,
@@ -9377,14 +9371,14 @@
         "costing": {
           "score": 504.0,
           "source": "published",
-          "updated": "2026-10-01",
+          "updated": "2026-10-04",
           "tier": "",
           "input_per_1m": 21.0,
           "output_per_1m": 168.0,
           "search_cost_per_unit": 0.01,
           "pricing_class": "floating",
           "pricing_class_source": "auto",
-          "source_url": "https://openai.com/api/pricing/",
+          "source_url": "https://platform.openai.com/docs/models/gpt-5.2-pro",
           "published_figure": "$21.00 / $168.00 per 1M tokens (Standard)"
         },
         "max_output_tokens": 128000,

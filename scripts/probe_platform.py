@@ -40,7 +40,7 @@ from typing import Callable, Optional
 try:
     from djinnite.config_loader import load_ai_config, CONFIG_DIR
     from djinnite.scripts.model_overrides import save_catalog
-    from djinnite.scripts.update_models import _probe_all_capabilities_for_models
+    from djinnite.scripts.update_models import _ensure_effort_style, _probe_all_capabilities_for_models
     from djinnite.ai_providers import PROVIDERS
     from djinnite.ai_providers.platforms import get_platform
 except ImportError:
@@ -49,7 +49,7 @@ except ImportError:
         sys.path.insert(0, _project_root)
     from config_loader import load_ai_config, CONFIG_DIR  # type: ignore
     from scripts.model_overrides import save_catalog  # type: ignore
-    from scripts.update_models import _probe_all_capabilities_for_models  # type: ignore
+    from scripts.update_models import _ensure_effort_style, _probe_all_capabilities_for_models  # type: ignore
     from ai_providers import PROVIDERS  # type: ignore
     from ai_providers.platforms import get_platform  # type: ignore
 
@@ -205,8 +205,16 @@ def run(argv: Optional[list] = None, make_provider: Optional[Callable] = None) -
                     caps = results.get(model_id)
                     if caps is not None:
                         recorded = {k: caps.get(k) for k in _CAP_FIELDS}
-                        block["capabilities"] = recorded
                         direct = model.get("capabilities") or {}
+                        # Probes report only the thinking shapes they send.
+                        # Effort comes from the provider's effort_levels,
+                        # exactly as in update_models -- otherwise the
+                        # platform block would hide "effort" on the platform.
+                        effort_view = {"thinking_style": recorded.get("thinking_style"),
+                                       "effort_levels": direct.get("effort_levels")}
+                        _ensure_effort_style(effort_view)
+                        recorded["thinking_style"] = effort_view["thinking_style"]
+                        block["capabilities"] = recorded
                         diffs = 0
                         for k in _CAP_FIELDS:
                             pv, dv = recorded.get(k), direct.get(k)

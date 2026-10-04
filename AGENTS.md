@@ -346,6 +346,22 @@ API calls against three providers and costs real tokens. Don't run it
 unprompted to "verify" something — scope down to one or two model IDs
 first. The user has paid for surprise probes more than once.
 
+**Known bug (2026-10-04): `--reprobe <model-id>` is not scoped.** Reprobing
+only `claude-sonnet-5-5` and `claude-opus-5-5` also:
+
+* ran the end-of-run `update_model_costs` pass over **every** provider. It
+  re-estimated all 19 floating-priced models (3 Gemini, 16 OpenAI) with paid
+  AI calls, and rewrote their `updated`, `source_url` and `published_figure`
+  -- dropping, for example, the "resolves to gemini-3.8-flash" note;
+* applied the `effort` thinking-style pass to every Claude model
+  (`claude-fable-5-1` gained `"effort"`);
+* refreshed every listed Claude model's top-level fields from `list_models()`
+  (for example, `vision_limits` defaults on `claude-sonnet-5-5`).
+
+A model-scoped reprobe should touch only those models. Until this is fixed,
+expect a scoped reprobe to cost the cost pass as well, and diff the catalog
+for out-of-scope changes.
+
 ## Pointers
 
 * **Public API contract:** [DEVELOPMENT.md § THE CONTRACT](DEVELOPMENT.md).

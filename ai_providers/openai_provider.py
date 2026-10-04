@@ -96,6 +96,21 @@ class OpenAIProvider(BaseAIProvider):
                     })
         return openai_content
 
+    def _responses_input(self, turns, openai_content: List[Dict]) -> List[Dict]:
+        """Role-tagged ``input`` items: history turns, then the prompt.
+
+        Assistant content is a plain string -- the Responses API rejects
+        ``input_text`` parts in the assistant role.
+        """
+        items: List[Dict] = []
+        for role, parts in turns:
+            if role == "assistant":
+                items.append({"role": "assistant", "content": self._history_text(parts)})
+            else:
+                items.append({"role": "user", "content": self._map_parts(parts)})
+        items.append({"role": "user", "content": openai_content})
+        return items
+
     # ------------------------------------------------------------------
     # Thinking translation
     # ------------------------------------------------------------------
@@ -269,6 +284,8 @@ class OpenAIProvider(BaseAIProvider):
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate a response using OpenAI's Responses API.
@@ -279,14 +296,16 @@ class OpenAIProvider(BaseAIProvider):
             "temperature": temperature,
             "web_search": web_search,
             "system_prompt": system_prompt,
+            "history_turns": len(history or []),
         }
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
         thinking_active = thinking is not None and thinking is not False
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             openai_content = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
@@ -297,8 +316,11 @@ class OpenAIProvider(BaseAIProvider):
                 "web_search":      "on"  if web_search             else "off",
             })
 
-            # Build input: either simple string or structured with role
-            if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
+            # Build input: either simple string or structured with role.
+            # With history, always role-tagged items ending in the prompt.
+            if turns:
+                api_input = self._responses_input(turns, openai_content)
+            elif len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
                 # Simple text prompt — can use string input
                 api_input = openai_content[0]["text"]
             else:
@@ -473,6 +495,8 @@ class OpenAIProvider(BaseAIProvider):
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generates structured JSON using OpenAI's Responses API with
@@ -497,6 +521,7 @@ class OpenAIProvider(BaseAIProvider):
             "web_search": web_search,
             "system_prompt": system_prompt,
             "force": force,
+            "history_turns": len(history or []),
         }
         if schema is None:
             raise ValueError(
@@ -511,11 +536,12 @@ class OpenAIProvider(BaseAIProvider):
 
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
         thinking_active = thinking is not None and thinking is not False
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             openai_content = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
@@ -527,7 +553,9 @@ class OpenAIProvider(BaseAIProvider):
                 "json_with_search": "on" if web_search             else "off",
             })
 
-            if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
+            if turns:
+                api_input = self._responses_input(turns, openai_content)
+            elif len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
                 api_input = openai_content[0]["text"]
             else:
                 api_input = [{"role": "user", "content": openai_content}]

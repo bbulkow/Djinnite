@@ -181,22 +181,19 @@ def validate_json():
             total_skip += 1
             continue
 
-        if not provider_config.api_key or "your" in provider_config.api_key.lower():
+        if not config.is_usable(provider_name):
             print(f"\n[ ] {provider_name}: No API key (skipping)")
             total_skip += 1
             continue
 
         model = provider_config.default_model
-        print(f"\n> {provider_name} ({model})")
+        mode = (f"platform {provider_config.platform}" if provider_config.mode == "platform"
+                else "direct")
+        print(f"\n> {provider_name} ({model}, {mode})")
         print("-" * 50)
 
         # Initialize provider
         try:
-            provider_kwargs = {}
-            if provider_name == "gemini":
-                provider_kwargs["backend"] = provider_config.backend
-                provider_kwargs["project_id"] = provider_config.project_id
-
             # Get gemini key for OpenAI web search (not needed here but get_provider expects it)
             gemini_key = None
             if provider_name == "chatgpt":
@@ -206,10 +203,9 @@ def validate_json():
 
             provider = get_provider(
                 provider_name=provider_name,
-                api_key=provider_config.api_key,
                 model=model,
                 gemini_api_key=gemini_key,
-                **provider_kwargs,
+                **config.provider_kwargs(provider_name),
             )
         except Exception as e:
             print(f"  [FAIL] Init failed: {e}")

@@ -43,10 +43,10 @@ Escape the knowledge cutoff trap! Every AI provider has opaque training data cut
 - **Single API**: Same `web_search=True` parameter works everywhere
 - **Cost tracking**: Search events are billed per-model and tracked in `response.search_cost`
 
-**Enterprise-Ready Google Integration**
-Djinnite supports both paths for Google Gemini:
-- **Google AI Studio**: Fast, free-tier friendly setup for developers.
-- **Vertex AI (Google Cloud)**: Secure, production-ready infrastructure for enterprises.
+**Direct APIs or Cloud Platforms**
+Djinnite reaches each model in one of two access modes:
+- **Direct**: the provider's own API with its own key (Anthropic, Google AI Studio, OpenAI, xAI).
+- **Platform**: a cloud platform serving the provider's models, with the platform's credentials and no API key. **Google Vertex AI** serves both Gemini and Claude today (`platform="vertexai"`, Application Default Credentials, per-location pricing). `scripts/probe_platform.py` records which models the platform serves where.
 
 Your agents get **current information** regardless of which provider you use, without being "mired in the past."
 
@@ -84,6 +84,7 @@ Designed from day one for **AI agents and automated systems**:
 - **Standardized responses** with token counts and dollar costs across providers
 - **Robust error handling** with retry-friendly exception hierarchy
 - **JSON generation** optimized for structured agent outputs
+- **Multi-turn input** - replay a transcript with `history=[...]`; Djinnite keeps no session state
 - **Provider fallback chains** - switch providers when one hits limits
 - **Request/response logging** for debugging agent conversations
 

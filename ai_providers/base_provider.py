@@ -14,6 +14,13 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Union, List, Dict, Tuple, Type
 
 
+# Every provider-specific ``thinking`` string that is a setting rather than
+# an effort level. A provider opts in by listing a name in its
+# ``_THINKING_SENTINELS``; the others reject it with a clear message instead
+# of misreading it as an effort level.
+_KNOWN_THINKING_SENTINELS = frozenset({"between_tools"})
+
+
 def _get_image_dimensions(data: bytes) -> Optional[Tuple[int, int]]:
     """
     Extract (width, height) from image header bytes without PIL.
@@ -140,20 +147,29 @@ class AIResponse:
 
         Returns ``None`` if the provider did not report thinking tokens
         (unknown — distinct from 0 which means "confirmed no thinking").
-        When ``None``, ``total_tokens`` is computed from input + output
-        only and may be an undercount.
+
+        How this relates to ``output_tokens`` differs by provider:
+
+        * Claude, OpenAI, Grok: ``thinking_tokens`` is a **subset** of
+          ``output_tokens`` (the provider's output count already includes
+          reasoning). Never add the two.
+        * Gemini: ``thinking_tokens`` is **separate** from ``output_tokens``
+          (``candidates_token_count`` excludes thoughts).
+
+        Either way, ``token_cost`` bills thinking exactly once, at the
+        output rate.
         """
         return self.usage.get("thinking_tokens")
-    
+
     @property
     def total_tokens(self) -> int:
         """
-        Total tokens used.
+        Total tokens used, including thinking.
 
-        If ``thinking_tokens`` is available, includes it.  If ``None``
-        (unknown), computed as ``input_tokens + output_tokens`` only.
-        Check ``thinking_tokens is None`` to know if the total is
-        potentially incomplete.
+        Taken from the provider's own total when it reports one; otherwise
+        ``input_tokens + output_tokens``, which includes thinking on the
+        providers where thinking is a subset of output (see
+        ``thinking_tokens``).
         """
         total = self.usage.get("total_tokens")
         if total is not None:
@@ -361,12 +377,34 @@ class BaseAIProvider(ABC):
     
     PROVIDER_NAME: str = "base"
 
-    def __init__(self, api_key: str, model: str, model_info=None, require_pricing: bool = True):
+    # Access mode. ``platform`` is None in direct mode (the provider's own
+    # API) or a platform name such as "vertexai" (see platforms.py).
+    # Class-level defaults so instances built without __init__ (tests'
+    # _bare() helper) read the direct-mode values.
+    platform: Optional[str] = None
+    location: Optional[str] = None
+    # Token-price multiplier for the access path (e.g. a platform's regional
+    # premium). 1.0 = the catalog price.
+    _price_multiplier: float = 1.0
+    # Provider-specific ``thinking`` string values that are settings rather
+    # than effort levels (Claude: "between_tools").
+    _THINKING_SENTINELS: frozenset = frozenset()
+    # Set by probe_incompatible_combinations for the duration of a probe
+    # pass (probe instances have no catalog entry).
+    _probe_supported_states: Optional[dict] = None
+
+    @property
+    def mode(self) -> str:
+        """Access mode: ``"platform"`` when served through a platform, else ``"direct"``."""
+        return "platform" if self.platform else "direct"
+
+    def __init__(self, api_key: Optional[str], model: str, model_info=None, require_pricing: bool = True):
         """
         Initialize the provider.
 
         Args:
-            api_key: API key for authentication
+            api_key: API key for authentication. ``None`` in platform mode,
+                where the platform's own credentials are used.
             model: Model ID to use (Required)
             model_info: ModelInfo from the catalog for pre-flight capability
                         checks. Passed automatically by ``get_provider()``,
@@ -413,9 +451,16 @@ class BaseAIProvider(ABC):
         """Compute dollar cost of token usage and store in usage dict.
 
         Reads ``input_per_1m`` / ``output_per_1m`` from the model catalog.
-        Thinking tokens are billed at the output rate.  Anthropic reports
-        them separately (``_thinking_billed_separately=True``), while
-        OpenAI/Google include them in ``output_tokens`` already.
+        Thinking tokens are billed at the output rate, exactly once:
+
+        * ``_thinking_billed_separately=True`` (Gemini): ``thinking_tokens``
+          are NOT inside ``output_tokens``, so they are added here.
+        * ``_thinking_billed_separately=False`` (Claude, OpenAI, Grok):
+          ``output_tokens`` already includes thinking.
+
+        The access path's ``_price_multiplier`` (e.g. a platform's regional
+        premium) scales the result; when it is not 1.0 the multiplier is
+        recorded as ``usage["price_multiplier"]``.
 
         Fast-fails with ``AIPricingError`` when the price cannot be trusted
         (missing / ``unknown`` / ``failed``), unless the provider was
@@ -448,7 +493,10 @@ class BaseAIProvider(ABC):
 
         input_cost = input_t * costing.input_per_1m / 1_000_000
         output_cost = output_t * costing.output_per_1m / 1_000_000
-        usage["token_cost"] = round(input_cost + output_cost, 8)
+        multiplier = self._price_multiplier
+        if multiplier != 1.0:
+            usage["price_multiplier"] = multiplier
+        usage["token_cost"] = round((input_cost + output_cost) * multiplier, 8)
 
     def _compute_costs(self, usage: dict) -> None:
         """Compute all dollar costs (token + search) and store in usage dict.
@@ -503,12 +551,15 @@ class BaseAIProvider(ABC):
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate a freeform text response from the AI model.
 
         Args:
-            prompt: The user prompt/message (str or list of multimodal parts)
+            prompt: The user prompt/message (str or list of multimodal parts).
+                Always the final user turn of the request.
             system_prompt: Optional system instruction
             temperature: Sampling temperature (0.0-1.0)
             max_output_tokens: Cap on output tokens the model may emit.
@@ -520,10 +571,14 @@ class BaseAIProvider(ABC):
                         (provider support varies).
             thinking: Optional thinking/reasoning control.
                 If ``True``: enable thinking at maximum budget (recommended).
-                If ``False``: explicitly disable thinking.
+                If ``False``: explicitly disable thinking (raises locally
+                    when the catalog says the model cannot turn it off).
                 If ``int``: a specific token budget for internal reasoning.
-                If ``str``: an effort level (``"low"``, ``"medium"``, ``"high"``).
-                If ``None`` (default): no thinking requested.
+                If ``str``: an effort level (``"low"``, ``"medium"``, ``"high"``),
+                    or a provider setting such as Claude's ``"between_tools"``.
+                If ``None`` (default): send nothing -- the **provider
+                    default** applies. That default varies: on Claude 5.x
+                    and many Gemini models it is adaptive thinking, not off.
                 The provider translates this into its native format
                 (Claude ``thinking`` block, OpenAI ``reasoning_effort``,
                 Gemini ``thinking_config``).  Temperature conflicts are
@@ -535,7 +590,14 @@ class BaseAIProvider(ABC):
                 Only use explicit ``int`` budgets after profiling specific
                 workloads.  Low budgets cause partial/useless reasoning that
                 is still charged.
-            
+            history: Optional earlier turns of the conversation, oldest
+                first: ``[{"role": "user" | "assistant", "content": str |
+                parts}, ...]``. The first turn must be ``"user"``; assistant
+                turns are text only. ``prompt`` follows them as the final
+                user turn. Djinnite keeps no session state -- pass the
+                transcript on every call. ``None`` (default) sends exactly
+                the single-turn request.
+
         Returns:
             AIResponse with the generated content.  ``content`` is always a
             ``str`` but may be ``""`` (the model's own empty answer) or a
@@ -572,6 +634,68 @@ class BaseAIProvider(ABC):
             return prompt
         else:
             raise ValueError(f"Prompt must be a string or a list of dicts, got {type(prompt)}")
+
+    def _normalize_history(self, history: Optional[List[Dict]]) -> List[Tuple[str, List[Dict]]]:
+        """
+        Validate ``history`` and normalize it to ``[(role, parts), ...]``.
+
+        Rules (each violation raises ``ValueError``):
+
+        * a list of ``{"role", "content"}`` dicts, oldest first;
+        * ``role`` is ``"user"`` or ``"assistant"``, and the first turn is
+          ``"user"`` (Claude rejects a leading assistant turn);
+        * ``content`` is a ``str`` or a parts list (``_normalize_input``);
+        * assistant turns are text-only and non-empty -- providers do not
+          accept images in assistant turns.
+
+        The caller's list and dicts are never mutated. ``None`` or ``[]``
+        returns ``[]``.
+        """
+        if not history:
+            return []
+        if not isinstance(history, (list, tuple)):
+            raise ValueError(f"history must be a list of turns, got {type(history).__name__}")
+        turns: List[Tuple[str, List[Dict]]] = []
+        for i, turn in enumerate(history):
+            if not isinstance(turn, dict) or "role" not in turn or "content" not in turn:
+                raise ValueError(f"history[{i}] must be a dict with 'role' and 'content'")
+            role = turn["role"]
+            if role not in ("user", "assistant"):
+                raise ValueError(
+                    f"history[{i}].role must be 'user' or 'assistant', got {role!r}"
+                )
+            parts = list(self._normalize_input(turn["content"]))
+            if not parts:
+                raise ValueError(f"history[{i}] has empty content")
+            if role == "assistant":
+                if any(p["type"] != "text" for p in parts):
+                    raise ValueError(
+                        f"history[{i}]: assistant turns must be text only"
+                    )
+                if not self._history_text(parts).strip():
+                    raise ValueError(f"history[{i}]: assistant turn is empty")
+            turns.append((role, parts))
+        if turns[0][0] != "user":
+            raise ValueError("history must start with a 'user' turn")
+        return turns
+
+    @staticmethod
+    def _history_text(parts: List[Dict]) -> str:
+        """Concatenate the text of an (assistant) turn's parts."""
+        return "".join(p.get("text", "") for p in parts)
+
+    @staticmethod
+    def _all_parts(turns: List[Tuple[str, List[Dict]]], parts: List[Dict]) -> List[Dict]:
+        """Every part in the request -- history turns then the prompt.
+
+        Used for request-wide pre-flight such as vision limits, which count
+        images across the whole request, not per turn.
+        """
+        out: List[Dict] = []
+        for _, turn_parts in turns:
+            out.extend(turn_parts)
+        out.extend(parts)
+        return out
 
     def _validate_modalities(self, parts: List[Dict], supported_modalities: list[str]):
         """
@@ -922,6 +1046,9 @@ class BaseAIProvider(ABC):
             opts.append(f"a string ({sorted(self._EFFORT_LEVELS)})")
         if styles and "adaptive" in styles:
             opts.append("thinking=True (the model sizes its own reasoning)")
+        for sentinel in sorted(self._THINKING_SENTINELS):
+            if styles and sentinel in styles:
+                opts.append(f"thinking='{sentinel}'")
         if not opts:
             opts.append("thinking=True")
         return ", or ".join(opts)
@@ -933,16 +1060,19 @@ class BaseAIProvider(ABC):
         """
         Validate and normalize the caller's ``thinking`` parameter.
 
-        - ``None``  → passthrough (no thinking, no pre-flight).
+        - ``None``  → passthrough, no pre-flight: nothing is sent and the
+                      provider default applies (adaptive on Claude 5.x).
         - ``False`` → explicitly disable thinking; requires ``"off"`` in
                       ``capabilities.thinking``.
         - ``True``  → enable thinking at maximum budget; requires ``"on"``.
         - ``int``   → validated positive token budget; requires ``"on"``.
         - ``str``   → validated effort level; requires ``"on"``.
+        - a provider setting in ``_THINKING_SENTINELS`` (Claude:
+          ``"between_tools"``) → requires that name in
+          ``capabilities.thinking_style``; rejected by every other provider.
 
-        ``capabilities.thinking_style`` is informational only at this layer —
-        providers translate between budget/effort/adaptive shapes
-        transparently. This method enforces only on/off membership.
+        ``capabilities.thinking_style`` is enforced for int, str, and
+        sentinel values (see below); ``True`` needs only ``"on"``.
 
         Raises ``AIProviderError`` when the catalog says the requested
         on/off state is not supported. The two failure modes — "model
@@ -968,6 +1098,27 @@ class BaseAIProvider(ABC):
                     provider=self.PROVIDER_NAME,
                 )
             return False
+
+        # Provider settings that ride in the ``thinking`` string but are not
+        # effort levels. Checked before the "on" test: between_tools is
+        # Claude Sonnet 5.5's way of turning thinking off, and the model's
+        # thinking_style is the authority on whether it is accepted.
+        if isinstance(thinking, str) and thinking.lower() in _KNOWN_THINKING_SENTINELS:
+            low = thinking.lower()
+            if low not in self._THINKING_SENTINELS:
+                raise ValueError(
+                    f"thinking='{low}' is not supported by provider "
+                    f"'{self.PROVIDER_NAME}'."
+                )
+            styles = caps.thinking_style if caps is not None else None
+            if styles is not None and low not in styles:
+                raise ValueError(
+                    f"thinking='{low}' is not supported by model "
+                    f"'{self.model}'. Model accepts thinking_style={styles}. "
+                    f"Pass {self._thinking_alternatives(styles)}, "
+                    f"or None for the provider default."
+                )
+            return low
 
         # thinking is True | int | str → caller wants thinking enabled.
         if caps is not None and caps.thinking is not None and "on" not in caps.thinking:
@@ -1252,6 +1403,12 @@ class BaseAIProvider(ABC):
         found: List[Dict[str, str]] = []
         inconclusive = False
 
+        # Probe instances carry no catalog entry, so the request builders
+        # read the states discovered earlier in this probe pass (notably
+        # ``thinking_style``: an adaptive-only model rejects a budget block,
+        # and that rejection must not be recorded as an incompatibility).
+        self._probe_supported_states = supported_states
+
         # Dedicated-capability skip list: combinations that already have a
         # purpose-built capability field encoding the same answer. Probing
         # them again would create redundant catalog entries.
@@ -1504,6 +1661,8 @@ class BaseAIProvider(ABC):
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generates structured JSON **strictly** adhering to the provided ``schema``.
@@ -1538,6 +1697,10 @@ class BaseAIProvider(ABC):
                    and testing. Default False.
             thinking: Optional thinking/reasoning control (same semantics
                       as ``generate()``).
+            history: Optional earlier turns (same semantics as
+                     ``generate()``). The schema constrains only the newly
+                     generated turn; earlier assistant turns -- including
+                     JSON the caller is replaying -- are sent as plain text.
 
         Returns:
             AIResponse whose ``content`` is a JSON string that conforms to
@@ -1571,11 +1734,17 @@ class BaseAIProvider(ABC):
         # Default implementation — subclasses override with provider-native
         # strict modes.  The base fallback just calls generate() with a
         # JSON-requesting system prompt (no structural guarantee).
+        extra = {}
+        if history:
+            # Only when given: a third-party subclass whose generate()
+            # predates ``history`` keeps working for single-turn calls.
+            extra["history"] = history
         return self.generate(
             prompt=prompt,
             system_prompt=system_prompt,
             temperature=temperature,
             max_output_tokens=max_output_tokens,
+            **extra,
         )
     
     @abstractmethod
@@ -1598,10 +1767,56 @@ class BaseAIProvider(ABC):
         """
         pass
 
+    def probe_availability(self) -> Tuple[str, str]:
+        """
+        Whether this model can be called on this provider's access path.
+
+        Makes ONE live call -- a token count, which the providers do not
+        bill -- and classifies the outcome with ``LOCATION_STATUS_VALUES``.
+        Used by ``scripts/probe_platform.py`` to record which models a
+        platform serves at each location; never called on the request path.
+
+        Returns:
+            ``(status, detail)``: status is ``"available"``, ``"not_found"``,
+            ``"no_access"``, ``"no_quota"`` or ``"unknown"``; detail is a
+            short ASCII description of the error ("" on success).
+        """
+        try:
+            self._availability_call()
+        except NotImplementedError:
+            return "unknown", f"{type(self).__name__} has no availability probe"
+        except Exception as e:
+            detail = " ".join(f"{type(e).__name__}: {e}".split())[:160]
+            return self._availability_status(e), detail.encode("ascii", "replace").decode("ascii")
+        return "available", ""
+
+    def _availability_call(self) -> None:
+        """Make the provider's cheapest live call for ``probe_availability``."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _availability_status(exc: Exception) -> str:
+        """Map an availability-probe failure to a ``LOCATION_STATUS_VALUES`` token."""
+        if isinstance(exc, AIRateLimitError):
+            return "no_quota"
+        if isinstance(exc, AIAuthenticationError):
+            return "no_access"
+        if isinstance(exc, AIModelNotFoundError):
+            return "not_found"
+        status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+        err = str(exc).lower()
+        if status == 429 or "resource_exhausted" in err:
+            return "no_quota"
+        if status in (401, 403) or "permission_denied" in err or "unauthenticated" in err:
+            return "no_access"
+        if status == 404 or "not_found" in err:
+            return "not_found"
+        return "unknown"
+
     def probe_temperature(self) -> Optional[bool]:
         """
         Probe whether the current model accepts the temperature parameter.
-        
+
         Returns:
             True  – model accepts temperature
             False – model rejects temperature (reasoning/o3 models)

@@ -39,5 +39,20 @@
       }
     }
   },
-  "default_provider": "gemini"
+  "default_provider": "gemini",
+  "platforms": {
+    "_comment": "Platform mode: a cloud platform serving a provider's models, authenticated with the platform's own credentials (no api_key). To use it, set a provider entry to {\"mode\": \"platform\", \"platform\": \"vertexai\", \"location\": \"global\"} -- see _example_provider_entry. 'locations' are what scripts/probe_platform.py checks. Keys starting with _ are notes.",
+    "_example_provider_entry": {
+      "mode": "platform",
+      "platform": "vertexai",
+      "location": "global",
+      "enabled": true,
+      "default_model": "claude-sonnet-5-5"
+    },
+    "vertexai": {
+      "project_id": "your-google-cloud-project-id",
+      "quota_project": null,
+      "locations": ["global", "us"]
+    }
+  }
 }

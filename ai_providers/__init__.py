@@ -26,6 +26,7 @@ from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
 from .grok_provider import GrokProvider
+from .platforms import ACCESS_MODES, PLATFORMS, resolve_platform
 
 # Import config resolution and catalog loader.
 # _resolve_config_file checks the host project's config/ first, then falls
@@ -89,7 +90,7 @@ def _is_model_disabled(provider_name: str, model_id: str) -> tuple[bool, str]:
 
 def get_provider(
     provider_name: str,
-    api_key: str,
+    api_key: Optional[str] = None,
     model: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
     **kwargs
@@ -101,12 +102,26 @@ def get_provider(
     present in it.  This ensures pre-flight capability checks (vision
     limits, structured JSON support, etc.) are always active.
 
+    Access modes:
+
+    * **direct** (default): the provider's own API; pass ``api_key``.
+    * **platform**: a cloud platform serving the provider's models; pass
+      ``platform="vertexai"`` (or the legacy ``backend="vertexai"``) with
+      ``project_id``, and optionally ``location`` / ``quota_project``. No
+      ``api_key`` is needed -- the platform's own credentials (Google
+      Application Default Credentials) are used. If the catalog records
+      capabilities probed on that platform, they are used for pre-flight.
+
     Args:
-        provider_name: Name of the provider (gemini, claude, chatgpt)
-        api_key: API key for the provider
+        provider_name: Name of the provider (gemini, claude, chatgpt, grok)
+        api_key: API key for the provider. Required in direct mode (a
+            missing key fails as before, at the provider); not needed in
+            platform mode.
         model: Optional model ID to use
         gemini_api_key: Optional Gemini API key for web search (used by OpenAI)
-        **kwargs: Additional provider-specific arguments (e.g., backend, project_id for Gemini)
+        **kwargs: Additional provider-specific arguments: ``platform``,
+            ``backend``, ``project_id``, ``location``, ``quota_project``,
+            ``require_pricing``.
 
     Returns:
         Configured provider instance
@@ -114,13 +129,20 @@ def get_provider(
     Raises:
         ValueError: If provider name is not recognized
         AIProviderError: If the catalog is missing/unreadable, model is
-            not found, or the model is disabled
+            not found, the model is disabled, or the platform is unknown
+            or does not host this provider
     """
     if provider_name not in PROVIDERS:
         available = ", ".join(PROVIDERS.keys())
         raise ValueError(
             f"Unknown provider: {provider_name}. Available: {available}"
         )
+
+    # Platform mode: validate before building anything, so an unhosted
+    # provider fails with a clear message instead of a constructor TypeError.
+    platform = resolve_platform(
+        kwargs.get("platform"), kwargs.get("backend"), provider=provider_name
+    )
 
     # Check if model is disabled
     if model:
@@ -152,7 +174,11 @@ def get_provider(
                 f"Run the model update script or check your ai_config.json.",
                 provider=provider_name
             )
-    
+        # Capabilities probed on the platform (scripts/probe_platform.py)
+        # override the direct-mode ones field by field. Recorded location
+        # availability is informational and never blocks the call.
+        model_info = model_info.for_platform(platform)
+
     provider_class = PROVIDERS[provider_name]
     
     # OpenAI needs Gemini API key for web search capability
@@ -185,4 +211,7 @@ __all__ = [
     "GrokProvider",
     "get_provider",
     "list_available_providers",
+    "ACCESS_MODES",
+    "PLATFORMS",
+    "resolve_platform",
 ]

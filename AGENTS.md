@@ -80,6 +80,11 @@ Two failure modes this repo has actually hit, both of which report green:
   `pyproject.toml` now turns this into a hard error — leave it enabled.
 * **A module that fails to import.** The whole file is skipped with a
   collection error while the summary line still says "N passed".
+* **A test argument named `provider`.** `conftest.py` treats any test that
+  uses a fixture or parameter called `provider` as a live test and skips it
+  without `--live` -- including an offline `@pytest.mark.parametrize` whose
+  argument merely happens to be named `provider`. Name it something else
+  (`prov`), then check the skip list with `-rs`.
 
 The bar for finishing: `uv run pytest tests/` reports zero failures and zero
 errors, and the count of collected tests is the count you expect.
@@ -101,6 +106,48 @@ This is also how the catalog drifted: `context_window` sat at 200000 for
 eight Claude models the API reports as 1000000, and the `effort` capability
 was absent entirely, so `thinking="high"` was rejected on every Claude
 despite eight models supporting it.
+
+What it does **not** report: `thinking.types` lists only `adaptive` and
+`enabled` -- nothing about `disabled` or `between_tools` (checked 2026-10-03).
+Whether a model can turn thinking off (Sonnet/Opus 5.5 and Fable cannot) and
+whether it takes Sonnet 5.5's `between_tools` therefore come from probes. A
+probe the API rejects is a 400, which is not billed, so those two are cheap.
+It reports `enabled: false` on every Opus 4.7+ / 5.x model -- a probe that
+sends a `budget_tokens` block to those models measures the block, not the
+capability it was paired with.
+
+### Platform mode is probed separately
+
+The catalog's top-level fields are **direct-mode** facts (`update_models`,
+provider keys). What a cloud platform (Vertex AI) serves is recorded per model
+under `platforms.<name>` by `scripts/probe_platform.py`, which `update_models`
+never runs and always preserves. Treat it like `update_models`: observable
+(`-u`, `tee`, log path up front), and never unprompted. Its default
+availability pass is token counts (unbilled); `--capabilities` makes billed
+generation calls on the platform project; nothing is written without
+`--write`.
+
+### Platform-mode changes are verified end to end, by you
+
+A change to platform-mode code (`platforms.py`, the platform branches of the
+providers, `probe_platform`) is **not finished** until the e2e tier passes:
+
+```powershell
+uv run pytest tests/ --e2e-platform -rA -s 2>&1 | tee $env:TEMP\e2e.log
+```
+
+Run it yourself -- do not hand it to the user to run. With the DJINNITE_E2E_*
+environment set (PLATFORM_E2E_TEST_DESIGN.md), the default tier needs no
+go-ahead: it runs only in the dedicated e2e project, costs a few cents, and
+fails itself above `DJINNITE_E2E_MAX_COST` ($0.50). Relay the preflight,
+availability table, observations and cost ledger lines verbatim. The
+extended tier (`--e2e-extended`) and any run against another project (for
+example a consumer's) need the user's go-ahead. Testing is manual: there is
+no CI.
+
+If the DJINNITE_E2E_* environment is not set, say so and stop -- an
+unverified platform change is not done. Skipped Claude functional tests
+("no Claude quota") are an environmental gap: report them by name.
 
 ### Running a model catalog update, observably
 

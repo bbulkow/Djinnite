@@ -34,13 +34,31 @@ STRUCTURED_JSON_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
 WEB_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
 JSON_WITH_SEARCH_STATES: Final[tuple[str, ...]] = ON_OFF_STATES
 TEMPERATURE_STATES: Final[tuple[str, ...]] = ("any", "default")
-THINKING_STYLE_VALUES: Final[tuple[str, ...]] = ("adaptive", "budget", "effort")
+# "between_tools" is Claude Sonnet 5.5's lowest thinking setting
+# (``thinking={"type": "between_tools"}``); callers select it with the
+# sentinel ``thinking="between_tools"``.
+THINKING_STYLE_VALUES: Final[tuple[str, ...]] = ("adaptive", "budget", "effort", "between_tools")
 # Union of every provider's effort vocabulary. A model's `effort_levels`
 # is the subset it actually accepts -- these differ *within* a provider
 # (Claude Opus 4.5 stops at "high"; Opus 5 goes to "max"), which is why
 # the provider-wide set alone cannot pre-flight a request.
 EFFORT_LEVEL_VALUES: Final[tuple[str, ...]] = (
     "minimal", "low", "medium", "high", "xhigh", "max",
+)
+
+# Access modes (see ai_providers/platforms.py): "direct" is the provider's
+# own API; "platform" is a cloud platform serving the provider's models.
+ACCESS_MODES: Final[tuple[str, ...]] = ("direct", "platform")
+
+# Per-location availability of a model on a platform, as recorded by
+# scripts/probe_platform.py in the catalog's ``platforms.<name>.locations``.
+#   available -- the probe call succeeded
+#   not_found -- 404 (not served there, or not enabled for the project)
+#   no_access -- 401/403 (credentials or IAM refused)
+#   no_quota  -- 429 / RESOURCE_EXHAUSTED (served, but no quota granted)
+#   unknown   -- anything else (transient or unclassified)
+LOCATION_STATUS_VALUES: Final[tuple[str, ...]] = (
+    "available", "not_found", "no_access", "no_quota", "unknown",
 )
 
 
@@ -208,15 +226,43 @@ CONFIG_DIR = PROJECT_CONFIG_DIR or PACKAGE_CONFIG_DIR
 
 @dataclass
 class ProviderConfig:
-    """Configuration for a single AI provider."""
-    api_key: str
+    """Configuration for a single AI provider.
+
+    ``mode`` is ``"direct"`` (the provider's own API, authenticated with
+    ``api_key``) or ``"platform"`` (a cloud platform serving the provider's
+    models, named by ``platform`` and authenticated with the platform's own
+    credentials -- no ``api_key`` needed). Platform-mode settings
+    (``project_id``, ``location``, ``quota_project``) are resolved from the
+    entry first, then from the top-level ``platforms.<name>`` block.
+    """
+    api_key: str = ""
     enabled: bool = True
     default_model: str = ""
     use_cases: dict[str, str] = field(default_factory=dict)
-    # Backend-specific fields
-    backend: str = "gemini"  # For Google: 'gemini' (AI Studio) or 'vertexai'
-    project_id: Optional[str] = None  # Required for Vertex AI
+    # Legacy Gemini switch: 'gemini' (AI Studio) or 'vertexai'. A value of
+    # 'vertexai' is read as mode="platform", platform="vertexai".
+    backend: str = "gemini"
+    project_id: Optional[str] = None
     modality_policy: dict[str, bool] = field(default_factory=dict)  # Policy for allowing/disabling modalities
+    mode: str = "direct"
+    platform: Optional[str] = None
+    location: Optional[str] = None
+    quota_project: Optional[str] = None
+
+
+@dataclass
+class PlatformConfig:
+    """Settings for one cloud platform (top-level ``platforms`` block).
+
+    Platforms rarely offer a model-discovery endpoint, so the config says
+    where to look: ``locations`` is the set ``probe_platform`` checks.
+    ``project_id`` / ``quota_project`` are the defaults for every provider
+    entry that uses this platform.
+    """
+    project_id: Optional[str] = None
+    quota_project: Optional[str] = None
+    locations: list[str] = field(default_factory=list)
+    enabled: bool = True
 
 
 @dataclass
@@ -225,7 +271,42 @@ class AIConfig:
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     default_provider: str = "gemini"
     modality_policy: dict[str, bool] = field(default_factory=dict)  # Global policy
-    
+    platforms: dict[str, PlatformConfig] = field(default_factory=dict)
+
+    def provider_kwargs(self, name: str) -> dict:
+        """Constructor kwargs for ``get_provider(name, model=..., **kwargs)``.
+
+        The one place the config -> provider mapping lives. Direct mode
+        yields only ``api_key``; platform mode adds ``platform`` and its
+        settings. ``api_key`` is ``None`` when the entry has none.
+
+        Raises:
+            KeyError: ``name`` is not a configured provider.
+        """
+        pc = self.providers[name]
+        kwargs: dict = {"api_key": pc.api_key or None}
+        if pc.mode == "platform":
+            kwargs["platform"] = pc.platform
+            for key in ("project_id", "location", "quota_project"):
+                value = getattr(pc, key)
+                if value:
+                    kwargs[key] = value
+        return kwargs
+
+    def is_usable(self, name: str) -> bool:
+        """True if the provider entry has the credentials its mode needs.
+
+        Direct mode needs a real API key (placeholders like
+        ``"your-...-key-here"`` do not count); platform mode authenticates
+        with the platform's own credentials and needs none.
+        """
+        pc = self.providers.get(name)
+        if pc is None:
+            return False
+        if pc.mode == "platform":
+            return True
+        return bool(pc.api_key) and "your" not in pc.api_key.lower()
+
     def get_provider(self, name: str) -> Optional[ProviderConfig]:
         """Get provider config by name, returns None if not found or disabled."""
         provider = self.providers.get(name)
@@ -429,6 +510,27 @@ class ModelCapabilities:
 
 
 @dataclass
+class PlatformModelInfo:
+    """What a cloud platform offers for one model (catalog ``platforms.<name>``).
+
+    Generated by ``scripts/probe_platform.py``; never hand-edited (pin a
+    value through ``model_overrides.json`` instead).
+
+    Attributes:
+        locations: Location -> status from ``LOCATION_STATUS_VALUES``.
+            Informational: runtime never blocks a call on it, because a stale
+            ``not_found`` would hide a model the platform has since added.
+        capabilities: Capabilities probed *on the platform*, or ``None`` if
+            only availability was probed. A field left ``None`` falls back
+            to the direct-mode value (see ``ModelInfo.for_platform``).
+        probed: ISO date of the probe run.
+    """
+    locations: dict[str, str] = field(default_factory=dict)
+    capabilities: Optional[ModelCapabilities] = None
+    probed: str = ""
+
+
+@dataclass
 class ModelInfo:
     """Information about a single AI model.
     
@@ -454,6 +556,8 @@ class ModelInfo:
         costing: Dollar-based pricing (input/output per 1M tokens, search per unit)
         disabled: Whether this model is disabled (blocked from use at runtime)
         disabled_reason: Human-readable explanation for why the model is disabled
+        platforms: Per-platform facts (``PlatformModelInfo``) keyed by
+            platform name. The other fields are direct-mode facts.
     """
     id: str
     name: str
@@ -465,6 +569,27 @@ class ModelInfo:
     vision_limits: Optional[VisionLimits] = None
     disabled: bool = False
     disabled_reason: str = ""
+    platforms: dict[str, PlatformModelInfo] = field(default_factory=dict)
+
+    def for_platform(self, name: Optional[str]) -> "ModelInfo":
+        """This model as seen through platform ``name``.
+
+        Capabilities probed on the platform replace the direct-mode values
+        field by field; a platform field that is ``None`` (not probed, or
+        inconclusive) keeps the direct-mode value. Everything else --
+        costing, limits, modalities -- is shared. Returns ``self`` when the
+        platform has no recorded capabilities (or ``name`` is ``None``).
+        """
+        pm = self.platforms.get(name) if name else None
+        if pm is None or pm.capabilities is None:
+            return self
+        from dataclasses import fields, replace
+        merged = replace(self.capabilities)
+        for f in fields(ModelCapabilities):
+            value = getattr(pm.capabilities, f.name)
+            if value is not None:
+                setattr(merged, f.name, value)
+        return replace(self, capabilities=merged)
 
     @property
     def supports_structured_json(self) -> Optional[bool]:
@@ -554,25 +679,68 @@ def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:
         AIConfig object with provider settings
     """
     path = config_path or _resolve_config_file("ai_config.json")
-    
+
     data = load_json_file(path)
+
+    platforms: dict[str, PlatformConfig] = {}
+    for pname, pdata in (data.get("platforms") or {}).items():
+        if pname.startswith("_") or not isinstance(pdata, dict):
+            continue  # notes / malformed entries
+        platforms[pname] = PlatformConfig(
+            project_id=pdata.get("project_id"),
+            quota_project=pdata.get("quota_project"),
+            locations=list(pdata.get("locations") or []),
+            enabled=pdata.get("enabled", True),
+        )
 
     providers = {}
     for name, provider_data in data.get("providers", {}).items():
+        backend = provider_data.get("backend", "gemini")
+        platform = provider_data.get("platform")
+        # Legacy: backend="vertexai" predates platform mode.
+        if platform is None and backend == "vertexai":
+            platform = "vertexai"
+        mode = provider_data.get("mode") or ("platform" if platform else "direct")
+        if mode not in ACCESS_MODES:
+            raise ValueError(
+                f"ai_config providers.{name}.mode must be one of {ACCESS_MODES}, got {mode!r}"
+            )
+        if mode == "platform" and not platform:
+            raise ValueError(
+                f"ai_config providers.{name}: mode 'platform' requires a 'platform' name"
+            )
+        if mode == "direct" and provider_data.get("platform"):
+            raise ValueError(
+                f"ai_config providers.{name}: 'platform' is set but mode is 'direct'"
+            )
+
+        # Platform settings: the entry wins, then the platform block.
+        pconf = platforms.get(platform) if mode == "platform" else None
+        def _setting(key):
+            value = provider_data.get(key)
+            if value is None and pconf is not None:
+                value = getattr(pconf, key, None)
+            return value
+
         providers[name] = ProviderConfig(
             api_key=provider_data.get("api_key", ""),
             enabled=provider_data.get("enabled", True),
             default_model=provider_data.get("default_model", ""),
             use_cases=provider_data.get("use_cases", {}),
-            backend=provider_data.get("backend", "gemini"),
-            project_id=provider_data.get("project_id"),
-            modality_policy=provider_data.get("modality_policy", {})
+            backend=backend,
+            project_id=_setting("project_id"),
+            modality_policy=provider_data.get("modality_policy", {}),
+            mode=mode,
+            platform=platform if mode == "platform" else None,
+            location=provider_data.get("location"),
+            quota_project=_setting("quota_project"),
         )
-    
+
     return AIConfig(
         providers=providers,
         default_provider=data.get("default_provider", "gemini"),
-        modality_policy=data.get("modality_policy", {})
+        modality_policy=data.get("modality_policy", {}),
+        platforms=platforms,
     )
 
 
@@ -627,16 +795,7 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
             # format, and the original flat supports_structured_json field.
             raw_caps = model_data.get("capabilities")
             if isinstance(raw_caps, dict):
-                caps = ModelCapabilities(
-                    structured_json=_coerce_states(raw_caps.get("structured_json"), ON_OFF_STATES),
-                    temperature=_coerce_states(raw_caps.get("temperature"), TEMPERATURE_STATES),
-                    thinking=_coerce_states(raw_caps.get("thinking"), ON_OFF_STATES),
-                    web_search=_coerce_states(raw_caps.get("web_search"), ON_OFF_STATES),
-                    json_with_search=_coerce_states(raw_caps.get("json_with_search"), ON_OFF_STATES),
-                    thinking_style=_coerce_states(raw_caps.get("thinking_style"), THINKING_STYLE_VALUES),
-                    effort_levels=_coerce_states(raw_caps.get("effort_levels"), EFFORT_LEVEL_VALUES),
-                    incompatible=_coerce_incompatible(raw_caps.get("incompatible")),
-                )
+                caps = _parse_capabilities(raw_caps)
             else:
                 # Old format: migrate from flat supports_structured_json field
                 raw_ssj = model_data.get("supports_structured_json")
@@ -666,10 +825,47 @@ def load_model_catalog(catalog_path: Optional[Path] = None) -> ModelCatalog:
                 vision_limits=vision_limits,
                 disabled=model_data.get("disabled", False),
                 disabled_reason=model_data.get("disabled_reason", ""),
+                platforms=_parse_platforms(model_data.get("platforms")),
             ))
         providers[provider_name] = models
-    
+
     return ModelCatalog(providers=providers)
+
+
+def _parse_capabilities(raw_caps: dict) -> ModelCapabilities:
+    """Build ``ModelCapabilities`` from a catalog ``capabilities`` dict."""
+    return ModelCapabilities(
+        structured_json=_coerce_states(raw_caps.get("structured_json"), ON_OFF_STATES),
+        temperature=_coerce_states(raw_caps.get("temperature"), TEMPERATURE_STATES),
+        thinking=_coerce_states(raw_caps.get("thinking"), ON_OFF_STATES),
+        web_search=_coerce_states(raw_caps.get("web_search"), ON_OFF_STATES),
+        json_with_search=_coerce_states(raw_caps.get("json_with_search"), ON_OFF_STATES),
+        thinking_style=_coerce_states(raw_caps.get("thinking_style"), THINKING_STYLE_VALUES),
+        effort_levels=_coerce_states(raw_caps.get("effort_levels"), EFFORT_LEVEL_VALUES),
+        incompatible=_coerce_incompatible(raw_caps.get("incompatible")),
+    )
+
+
+def _parse_platforms(raw: Any) -> dict[str, PlatformModelInfo]:
+    """Parse a model's catalog ``platforms`` block. Unknown statuses are dropped."""
+    out: dict[str, PlatformModelInfo] = {}
+    if not isinstance(raw, dict):
+        return out
+    for pname, pdata in raw.items():
+        if not isinstance(pdata, dict):
+            continue
+        locations = {
+            str(loc): status
+            for loc, status in (pdata.get("locations") or {}).items()
+            if status in LOCATION_STATUS_VALUES
+        }
+        raw_caps = pdata.get("capabilities")
+        out[pname] = PlatformModelInfo(
+            locations=locations,
+            capabilities=_parse_capabilities(raw_caps) if isinstance(raw_caps, dict) else None,
+            probed=pdata.get("probed", "") or "",
+        )
+    return out
 
 
 if __name__ == "__main__":
@@ -693,6 +889,8 @@ if __name__ == "__main__":
 __all__ = [
     "AIConfig",
     "ProviderConfig",
+    "PlatformConfig",
+    "PlatformModelInfo",
     "ModelInfo",
     "ModelCapabilities",
     "ModelCatalog",
@@ -712,4 +910,6 @@ __all__ = [
     "TEMPERATURE_STATES",
     "THINKING_STYLE_VALUES",
     "ACTIVATABLE_CAPABILITIES",
+    "ACCESS_MODES",
+    "LOCATION_STATUS_VALUES",
 ]

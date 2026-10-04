@@ -38,25 +38,55 @@ Djinnite supports both **Google AI Studio** and **Vertex AI** (Google Cloud).
 }
 ```
 
-**For Vertex AI (Google Cloud):**
+**For Vertex AI (Google Cloud) -- platform mode, no API key:**
+
+Vertex AI is a *platform*: it serves Gemini and Claude models and
+authenticates with Google Application Default Credentials (ADC) -- a service
+account on Cloud Run / GKE, or `gcloud auth application-default login`
+locally. No API key is needed or sent. Put the platform's settings in a
+`platforms` block and mark each provider entry `"mode": "platform"`:
+
 ```json
 {
+  "platforms": {
+    "vertexai": {
+      "project_id": "your-google-cloud-project-id",
+      "quota_project": "your-google-cloud-project-id",
+      "locations": ["global", "us"]
+    }
+  },
   "providers": {
     "gemini": {
-      "api_key": "your-google-cloud-api-key",
-      "enabled": true,
-      "default_model": "gemini-1.5-pro",
-      "backend": "vertexai",
-      "project_id": "your-google-cloud-project-id"
+      "mode": "platform", "platform": "vertexai", "location": "global",
+      "enabled": true, "default_model": "gemini-3.5-flash"
     },
     "claude": {
-      "api_key": "your-anthropic-api-key",
-      "enabled": true,
-      "default_model": "claude-3-5-sonnet-20241022"
+      "mode": "platform", "platform": "vertexai", "location": "us",
+      "enabled": true, "default_model": "claude-sonnet-5-5"
     }
   },
   "default_provider": "gemini"
 }
+```
+
+* `location`: Gemini defaults to `us-central1` (unchanged), Claude to
+  `global`. Newer models are often served only at `global` / `us` / `eu`
+  (e.g. `gemini-3.5-flash`, Claude 5.x). Claude at `us`, `eu` or a region
+  costs 10% more than at `global`; `usage["price_multiplier"]` records it.
+* `quota_project`: the project billed for quota, needed for user ADC created
+  with `gcloud auth application-default login --disable-quota-project`.
+* `locations` (platform block): the locations `probe_platform` checks.
+* The older form `"backend": "vertexai", "project_id": "..."` on a Gemini
+  entry still works and means the same thing. An `api_key` on it is still
+  passed through (Vertex express mode).
+
+Platform-mode entries are skipped by `update_models` / `update_model_costs`
+(those refresh direct-mode facts with provider keys). To record which models
+Vertex serves, and where, run:
+
+```bash
+uv run python -u -m djinnite.scripts.probe_platform --platform vertexai          # availability (unbilled)
+uv run python -u -m djinnite.scripts.probe_platform --platform vertexai --write  # ...and save to the catalog
 ```
 
 #### Validating Your Configuration
@@ -217,13 +247,11 @@ catalog = load_model_catalog()
 # (Defined in your ai_config.json)
 provider_name, model_id = config.get_model_for_use_case("coding")
 
-# 3. Initialize the provider
-provider_config = config.get_provider(provider_name)
-provider = get_provider(
-    provider_name, 
-    provider_config.api_key, 
-    model_id
-)
+# 3. Initialize the provider. provider_kwargs() maps the config entry to
+#    constructor kwargs: api_key for direct mode, or platform / project_id /
+#    location / quota_project for platform mode (no key).
+provider = get_provider(provider_name, model=model_id,
+                        **config.provider_kwargs(provider_name))
 
 # 4. Use the provider — check max_output_tokens to avoid truncation
 model_info = catalog.get_model(provider_name, model_id)
@@ -231,6 +259,28 @@ max_out = model_info.max_output_tokens if model_info else None
 
 response = provider.generate("Hello!", max_output_tokens=max_out)
 ```
+
+### Multi-turn Conversations (`history`)
+
+Djinnite keeps no session state. To continue a conversation, replay the
+earlier turns with `history=`; `prompt` is always the new user turn:
+
+```python
+transcript = [
+    {"role": "user", "content": "Extract the parties from this contract: ..."},
+    {"role": "assistant", "content": '{"parties": ["Acme", "Globex"]}'},
+]
+response = provider.generate_json(
+    "Now add each party's role.", schema=schema,
+    system_prompt=memory_block, history=transcript,
+)
+transcript += [{"role": "user", "content": "Now add each party's role."},
+               {"role": "assistant", "content": response.content}]
+```
+
+The first turn must be `user`; assistant turns are text only. The schema
+constrains only the new turn -- replayed JSON is sent as plain text. Works on
+every provider; each maps the turns to its native message format.
 
 ### JSON Schema Normalization
 
@@ -505,11 +555,16 @@ To use Djinnite, you'll need API keys from the providers you wish to use. Here i
 3.  Choose a project or create a new one to generate your key.
 *Note: This is the default backend and has a generous free tier.*
 
-#### 2. Vertex AI (Google Cloud Enterprise)
+#### 2. Vertex AI (Google Cloud) -- no API key
 1.  Open the **[Google Cloud Console](https://console.cloud.google.com/)**.
 2.  Select or create a project and ensure the **Vertex AI API** is enabled.
-3.  Navigate to **APIs & Services > Credentials** to create an API key, or use Service Account credentials if running in a GCP environment.
-4.  You will need both the **API Key** and your **Project ID**.
+    For Claude, enable each model in **Model Garden** and request quota for
+    the location you will call (a zero quota surfaces as `AIRateLimitError`).
+3.  Authenticate with Application Default Credentials: a service account
+    when running on Google Cloud, or locally
+    `gcloud auth application-default login` (add `--disable-quota-project`
+    and set `quota_project` in the config if your user has no default).
+4.  You need only the **Project ID** -- no API key. See "For Vertex AI" above.
 
 ### Anthropic Claude
 1.  Sign in to the **[Anthropic Console](https://console.anthropic.com/)**.

@@ -7,6 +7,7 @@ Supports native web search for Claude 4.5+/4.6+ models.
 
 import json
 import base64
+import re
 from typing import Optional, Union, List, Dict, Type
 
 from .base_provider import (
@@ -19,6 +20,7 @@ from .base_provider import (
     AIOutputTruncatedError,
     AIContextLengthError,
 )
+from .platforms import get_platform, resolve_platform
 
 
 # ---------------------------------------------------------------------------
@@ -60,12 +62,31 @@ _WEB_SEARCH_TOOL = {
     "allowed_callers": ["direct"],
 }
 
+# Google Vertex AI serves only the basic web search tool version (no dynamic
+# filtering, no programmatic callers -- so no ``allowed_callers`` field).
+_WEB_SEARCH_TOOL_VERTEXAI = {
+    "type": "web_search_20250305",
+    "name": "web_search",
+}
+
+# Vertex addresses dated snapshots as ``claude-haiku-4-5@20251001`` where the
+# Claude API uses ``claude-haiku-4-5-20251001``. Undated IDs (all 4.6+ models)
+# are identical on both. A rule, not a table.
+_DATED_SNAPSHOT = re.compile(r"-(\d{8})$")
+
 
 class ClaudeProvider(BaseAIProvider):
     """
     Anthropic Claude AI provider implementation.
+
+    Access modes (see ``platforms.py``):
+
+    * direct (default): the Anthropic API, ``anthropic.Anthropic(api_key=...)``.
+    * ``platform="vertexai"`` (or the legacy ``backend="vertexai"``): Google
+      Vertex AI via ``anthropic.AnthropicVertex``, authenticated with
+      Application Default Credentials. No API key is required or sent.
     """
-    
+
     PROVIDER_NAME = "claude"
 
     # Claude's effort vocabulary is not the cross-provider default: it has no
@@ -73,24 +94,241 @@ class ClaudeProvider(BaseAIProvider):
     # with "should be 'low', 'medium', 'high', 'xhigh' or 'max'".
     _EFFORT_LEVELS: frozenset = frozenset({"low", "medium", "high", "xhigh", "max"})
 
+    # thinking="between_tools" -> {"type": "between_tools"}: the lowest
+    # thinking setting on models whose thinking_style lists it (Sonnet 5.5).
+    _THINKING_SENTINELS: frozenset = frozenset({"between_tools"})
+
+    # Class-level defaults: direct mode (also read by tests' _bare() helper).
+    backend: Optional[str] = None
+    project_id: Optional[str] = None
+    quota_project: Optional[str] = None
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        model_info=None,
+        require_pricing: bool = True,
+        *,
+        platform: Optional[str] = None,
+        backend: Optional[str] = None,
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        quota_project: Optional[str] = None,
+    ):
+        """
+        Initialize the Claude provider.
+
+        Args:
+            api_key: Anthropic API key (direct mode). Ignored -- never sent --
+                in platform mode.
+            model: The model ID (catalog ID; Vertex dated snapshots are
+                rewritten to ``@`` form automatically).
+            model_info: Catalog entry for pre-flight checks.
+            require_pricing: Fast-fail on missing/unknown price (see base).
+            platform: ``"vertexai"`` for Google Vertex AI; ``None`` = direct.
+            backend: Legacy alias -- ``"vertexai"`` means
+                ``platform="vertexai"``; any other value means direct.
+            project_id: Google Cloud project (required on Vertex).
+            location: Vertex location: ``"global"`` (default, no price
+                premium), ``"us"``/``"eu"`` multi-regions, or a region.
+            quota_project: Project billed for quota, sent as the
+                ``x-goog-user-project`` header (for user ADC created with
+                ``--disable-quota-project``).
+        """
+        self.backend = backend
+        self.platform = resolve_platform(platform, backend, provider=self.PROVIDER_NAME)
+        self.project_id = project_id
+        self.quota_project = quota_project
+        self.location = location.lower() if location else None
+        if self.platform:
+            spec = get_platform(self.platform, self.PROVIDER_NAME)
+            self.location = self.location or spec.default_location.get(self.PROVIDER_NAME)
+            self._price_multiplier = spec.price_multiplier(self.PROVIDER_NAME, self.location)
+        super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
+
     def _initialize_client(self) -> None:
-        """Initialize the Anthropic client."""
+        """Initialize the Anthropic client for this access mode."""
         try:
             import anthropic
             self._anthropic = anthropic
-            self._client = anthropic.Anthropic(api_key=self.api_key)
+            if self.platform == "vertexai":
+                if not self.project_id:
+                    raise AIProviderError(
+                        "project_id is required for the 'vertexai' platform",
+                        provider=self.PROVIDER_NAME,
+                    )
+                vertex_kwargs = {"project_id": self.project_id, "region": self.location}
+                if self.quota_project:
+                    # AnthropicVertex sets only ``Authorization`` from the
+                    # credentials and never derives x-goog-user-project from
+                    # them, so this header is the one place the billed
+                    # project is set -- and nothing overwrites it.
+                    vertex_kwargs["default_headers"] = {"x-goog-user-project": self.quota_project}
+                self._client = anthropic.AnthropicVertex(**vertex_kwargs)
+            elif self.platform:
+                raise AIProviderError(
+                    f"platform '{self.platform}' is not implemented for Claude",
+                    provider=self.PROVIDER_NAME,
+                )
+            else:
+                self._client = anthropic.Anthropic(api_key=self.api_key)
         except ImportError:
             raise AIProviderError(
                 "anthropic package not installed. "
                 "Install with: pip install anthropic",
                 provider=self.PROVIDER_NAME
             )
+        except AIProviderError:
+            raise
         except Exception as e:
             raise AIProviderError(
                 f"Failed to initialize Claude client: {e}",
                 provider=self.PROVIDER_NAME,
                 original_error=e
             )
+
+    # ------------------------------------------------------------------
+    # Platform mechanics
+    # ------------------------------------------------------------------
+
+    def _wire_model(self) -> str:
+        """The model ID as this access path spells it.
+
+        Vertex uses ``@`` before a dated snapshot suffix; the Claude API and
+        the catalog use ``-``.
+        """
+        if self.platform == "vertexai":
+            return _DATED_SNAPSHOT.sub(r"@\1", self.model)
+        return self.model
+
+    def _web_search_tool(self) -> dict:
+        """The web search tool definition this access path serves."""
+        if self.platform == "vertexai":
+            return dict(_WEB_SEARCH_TOOL_VERTEXAI)
+        return _WEB_SEARCH_TOOL
+
+    def _claude_messages(self, turns, claude_content) -> List[Dict]:
+        """Native ``messages``: history turns, then the prompt as the final user turn.
+
+        With no history this is exactly ``[{"role": "user", "content": ...}]``,
+        the single-turn request. Assistant turns are sent as plain strings.
+        """
+        messages: List[Dict] = []
+        for role, parts in turns:
+            if role == "assistant":
+                messages.append({"role": "assistant", "content": self._history_text(parts)})
+            else:
+                messages.append({"role": "user", "content": self._map_parts(parts)})
+        messages.append({"role": "user", "content": claude_content})
+        return messages
+
+    @staticmethod
+    def _google_error_message(e: Exception) -> str:
+        """Google's own error text from a Vertex error body, else ``str(e)``."""
+        body = getattr(e, "body", None)
+        if isinstance(body, list) and body:
+            body = body[0]
+        if isinstance(body, dict):
+            err = body.get("error")
+            if isinstance(err, dict) and err.get("message"):
+                status = err.get("status")
+                return f"{status}: {err['message']}" if status else str(err["message"])
+        return getattr(e, "message", None) or str(e)
+
+    def _map_platform_exception(self, e: Exception) -> Optional[AIProviderError]:
+        """Map a Vertex AI failure to a Djinnite error, or ``None`` to fall through.
+
+        Platform mode only; the direct-mode mapping is unchanged.
+        """
+        anthropic = self._anthropic
+        where = f"project '{self.project_id}', location '{self.location}'"
+        text = self._google_error_message(e)
+        if isinstance(e, anthropic.RateLimitError) or "RESOURCE_EXHAUSTED" in str(e):
+            return AIRateLimitError(
+                f"Vertex AI quota or rate limit for '{self._wire_model()}' ({where}): {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if isinstance(e, (anthropic.PermissionDeniedError, anthropic.AuthenticationError)):
+            return AIAuthenticationError(
+                f"Vertex AI refused the request ({where}): {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if isinstance(e, anthropic.NotFoundError):
+            return AIModelNotFoundError(
+                f"Model '{self._wire_model()}' not found on Vertex AI ({where}) -- "
+                f"not served at this location, or not enabled in Model Garden: {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        type_name = type(e).__name__
+        if type_name in ("DefaultCredentialsError", "RefreshError"):
+            return AIAuthenticationError(
+                f"Google Application Default Credentials unavailable ({type_name}): {e}. "
+                f"Run 'gcloud auth application-default login' or attach a service account.",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if type_name == "MissingDependencyError":
+            return AIProviderError(
+                f"{e} -- install 'anthropic[vertex]' for the vertexai platform",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        return None
+
+    def _map_claude_exception(self, e: Exception, *, json_mode: bool) -> AIProviderError:
+        """Map an SDK exception to a Djinnite error.
+
+        Platform failures are mapped first; the rest is the direct-mode
+        mapping, unchanged: ``generate()`` maps auth / rate / not-found by
+        message, ``generate_json()`` only context length.
+        """
+        if self.platform:
+            mapped = self._map_platform_exception(e)
+            if mapped is not None:
+                return mapped
+
+        error_message = str(e).lower()
+        error_type = type(e).__name__
+
+        # Detect context length exceeded: Anthropic SDK raises
+        # anthropic.BadRequestError (HTTP 400) with type="invalid_request_error"
+        # when the input exceeds the model's context window.
+        if ("too many" in error_message and "token" in error_message) or \
+           ("context" in error_message and "length" in error_message) or \
+           ("prompt is too long" in error_message):
+            return AIContextLengthError(
+                f"Input context too long for model '{self.model}': {e}",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
+        if json_mode:
+            return AIProviderError(
+                f"JSON generation failed: {e}",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
+        if "authentication" in error_message or "api_key" in error_message or "AuthenticationError" in error_type:
+            return AIAuthenticationError(
+                "Invalid API key or authentication failed",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
+        if "rate" in error_message or "RateLimitError" in error_type:
+            return AIRateLimitError(
+                "Rate limit exceeded",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
+        if "model" in error_message and ("not found" in error_message or "NotFoundError" in error_type):
+            return AIModelNotFoundError(
+                f"Model '{self.model}' not found",
+                provider=self.PROVIDER_NAME,
+                original_error=e
+            )
+        return AIProviderError(
+            f"Generation failed: {e}",
+            provider=self.PROVIDER_NAME,
+            original_error=e
+        )
 
     def _map_parts(self, parts: List[Dict]) -> List:
         """Map internal parts to Anthropic SDK content blocks."""
@@ -163,18 +401,33 @@ class ClaudeProvider(BaseAIProvider):
         ``max_output_tokens`` doesn't leave room. No silent adjustment.
 
         Args:
-            thinking: The caller's thinking parameter (already validated
-                      by ``_resolve_thinking`` — never ``str`` for Claude;
-                      ``_resolve_thinking`` rejects str when the model's
-                      ``thinking_style`` lacks ``"effort"``, and Claude's
-                      catalog never advertises ``"effort"``).
+            thinking: The caller's thinking parameter, already validated by
+                      ``_resolve_thinking``. A ``str`` is either an effort
+                      level (no block; see ``_build_claude_effort``) or a
+                      sentinel such as ``"between_tools"``.
             max_output_tokens: The effective output cap for the request.
 
         Returns:
-            The ``thinking`` block dict, or ``None`` if not requested.
+            The ``thinking`` block dict, or ``None`` when nothing is sent
+            (``thinking=None`` -- the provider default, which is adaptive
+            thinking on the 5.x models -- or an effort level).
         """
-        if thinking is None or thinking is False:
+        if thinking is None:
             return None
+
+        # Explicit off. Omitting the block is NOT off on every model: on
+        # Sonnet 5 / Opus 5 (and every 5.x) omission runs adaptive thinking.
+        # Models that cannot disable thinking at all (Sonnet/Opus 5.5, Fable)
+        # lack "off" in the catalog, and _resolve_thinking refuses False
+        # before it gets here.
+        if thinking is False:
+            return {"type": "disabled"}
+
+        # Provider settings carried in the thinking string, e.g.
+        # "between_tools" (Sonnet 5.5's lowest setting). The API rejects any
+        # other field alongside it.
+        if isinstance(thinking, str) and thinking in self._THINKING_SENTINELS:
+            return {"type": thinking}
 
         # An effort level is not a thinking block at all on Claude: it rides
         # in ``output_config.effort``. Return None here and let
@@ -252,11 +505,24 @@ class ClaudeProvider(BaseAIProvider):
         adaptive thinking block.
 
         Returns the level string, or ``None`` when the caller did not pass
-        an effort level.
+        an effort level. A sentinel such as ``"between_tools"`` is not an
+        effort level: no effort is sent and the model's default applies
+        (``high`` on Sonnet 5.5, the highest level between_tools accepts).
         """
-        if isinstance(thinking, str):
+        if isinstance(thinking, str) and thinking not in self._THINKING_SENTINELS:
             return thinking
         return None
+
+    def _thinking_active(self, thinking) -> bool:
+        """Whether the request selects the catalog's thinking ``"on"`` state.
+
+        ``None`` (provider default), ``False`` and ``"between_tools"`` --
+        Anthropic's documented way to turn thinking off on Sonnet 5.5 --
+        are ``"off"``.
+        """
+        if thinking is None or thinking is False:
+            return False
+        return not (isinstance(thinking, str) and thinking in self._THINKING_SENTINELS)
 
     # ------------------------------------------------------------------
     # Multi-turn continuation for server-side tools (e.g. web_search)
@@ -309,6 +575,11 @@ class ClaudeProvider(BaseAIProvider):
         ``server_tool_use`` blocks before being sent back for continuation.
 
         Returns ``(final_response, accumulated_usage_dict)``.
+
+        ``thinking_tokens`` is the sum of ``usage.output_tokens_details
+        .thinking_tokens`` over turns -- a SUBSET of ``output_tokens``, which
+        Anthropic documents as the inclusive billing total. It is ``None``
+        (unknown, never 0) when any turn's response does not report it.
         """
         acc_usage = {
             "input_tokens": 0,
@@ -317,6 +588,7 @@ class ClaudeProvider(BaseAIProvider):
             "server_tool_use_input_tokens": 0,
             "search_units": 0,
         }
+        thinking_reported = True
 
         for _turn in range(max_continuations + 1):
             with self._client.messages.stream(**kwargs) as stream:
@@ -326,10 +598,17 @@ class ClaudeProvider(BaseAIProvider):
             if response.usage:
                 acc_usage["input_tokens"] += getattr(response.usage, "input_tokens", 0) or 0
                 acc_usage["output_tokens"] += getattr(response.usage, "output_tokens", 0) or 0
-                acc_usage["thinking_tokens"] += getattr(response.usage, "thinking_tokens", 0) or 0
+                details = getattr(response.usage, "output_tokens_details", None)
+                turn_thinking = getattr(details, "thinking_tokens", None) if details is not None else None
+                if turn_thinking is None:
+                    thinking_reported = False
+                else:
+                    acc_usage["thinking_tokens"] += turn_thinking
                 acc_usage["server_tool_use_input_tokens"] += (
                     getattr(response.usage, "server_tool_use_input_tokens", 0) or 0
                 )
+            else:
+                thinking_reported = False
 
             # Accumulate search units across turns (not just the final one)
             s_units, _ = self._count_search_units(response)
@@ -338,6 +617,8 @@ class ClaudeProvider(BaseAIProvider):
             stop = getattr(response, "stop_reason", None)
             if stop not in ("pause_turn", "tool_use"):
                 # Terminal turn -- return final response + totals
+                if not thinking_reported:
+                    acc_usage["thinking_tokens"] = None
                 return response, acc_usage
 
             # Model paused for server-side tool execution.
@@ -375,6 +656,8 @@ class ClaudeProvider(BaseAIProvider):
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate a response using Claude.
@@ -385,6 +668,9 @@ class ClaudeProvider(BaseAIProvider):
         (e.g. Opus 4.7). Callers who need determinism on older models may
         pass an explicit value; catalog-strip handles models where the
         parameter is unsupported.
+
+        ``history`` (earlier turns) is sent as the leading ``messages``;
+        ``prompt`` is the final user turn. See ``BaseAIProvider.generate``.
         """
         _orig_caller = {
             "thinking": thinking,
@@ -392,13 +678,15 @@ class ClaudeProvider(BaseAIProvider):
             "temperature": temperature,
             "web_search": web_search,
             "system_prompt": system_prompt,
+            "history_turns": len(history or []),
         }
         # Validate & normalize the thinking parameter
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             claude_content = self._map_parts(parts)
 
             # Claude's SDK requires the output cap (its `max_tokens` keyword)
@@ -408,7 +696,7 @@ class ClaudeProvider(BaseAIProvider):
 
             # Build thinking block + adjust output cap to satisfy Claude's
             # invariant (max_tokens > thinking.budget_tokens).
-            thinking_active = thinking is not None and thinking is not False
+            thinking_active = self._thinking_active(thinking)
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
             # Cross-capability pre-flight from catalog (e.g. temp + thinking
@@ -424,9 +712,9 @@ class ClaudeProvider(BaseAIProvider):
             # (Anthropic's terminology); we pass our `max_output_tokens` value
             # under that key.
             kwargs = {
-                "model": self.model,
+                "model": self._wire_model(),
                 "max_tokens": max_output_tokens,
-                "messages": [{"role": "user", "content": claude_content}],
+                "messages": self._claude_messages(turns, claude_content),
             }
 
             # Temperature: only send if caller opted in. Catalog-strip is a
@@ -456,10 +744,11 @@ class ClaudeProvider(BaseAIProvider):
             if effort is not None:
                 kwargs.setdefault("output_config", {})["effort"] = effort
 
-            # Web search: catalog decides support.
+            # Web search: catalog decides support; the access path decides
+            # the tool version.
             if web_search:
                 self._check_capability("web_search")
-                kwargs["tools"] = [_WEB_SEARCH_TOOL]
+                kwargs["tools"] = [self._web_search_tool()]
 
             self._debug_dump_request(
                 method="generate", caller_args=_orig_caller, native_config=kwargs,
@@ -480,16 +769,17 @@ class ClaudeProvider(BaseAIProvider):
                         content += block.text
                         output_parts.append({"type": "text", "text": block.text})
 
-            # Build usage from accumulated totals (may span multiple turns)
+            # Build usage from accumulated totals (may span multiple turns).
+            # thinking_tokens is a subset of output_tokens (None = not
+            # reported), so it is not billed again.
             input_t = acc_usage["input_tokens"]
             output_t = acc_usage["output_tokens"]
-            thinking_t = acc_usage["thinking_tokens"] or None
             usage = {
                 "input_tokens": input_t,
                 "output_tokens": output_t,
                 "total_tokens": input_t + output_t,
-                "thinking_tokens": thinking_t,
-                "_thinking_billed_separately": True,
+                "thinking_tokens": acc_usage["thinking_tokens"],
+                "_thinking_billed_separately": False,
             }
 
             # Search units accumulated across all continuation turns
@@ -526,48 +816,11 @@ class ClaudeProvider(BaseAIProvider):
                 )
             
             return ai_response
-            
+
         except AIProviderError:
             raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
-            error_message = str(e).lower()
-            error_type = type(e).__name__
-            
-            # Detect context length exceeded: Anthropic SDK raises
-            # anthropic.BadRequestError (HTTP 400) with type="invalid_request_error"
-            # when the input exceeds the model's context window.
-            if ("too many" in error_message and "token" in error_message) or \
-               ("context" in error_message and "length" in error_message) or \
-               ("prompt is too long" in error_message):
-                raise AIContextLengthError(
-                    f"Input context too long for model '{self.model}': {e}",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
-            elif "authentication" in error_message or "api_key" in error_message or "AuthenticationError" in error_type:
-                raise AIAuthenticationError(
-                    "Invalid API key or authentication failed",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
-            elif "rate" in error_message or "RateLimitError" in error_type:
-                raise AIRateLimitError(
-                    "Rate limit exceeded",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
-            elif "model" in error_message and ("not found" in error_message or "NotFoundError" in error_type):
-                raise AIModelNotFoundError(
-                    f"Model '{self.model}' not found",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
-            else:
-                raise AIProviderError(
-                    f"Generation failed: {e}",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
+            raise self._map_claude_exception(e, json_mode=False)
     
     # ------------------------------------------------------------------
     # Schema normalization for Claude strict mode
@@ -602,6 +855,8 @@ class ClaudeProvider(BaseAIProvider):
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generates structured JSON using Anthropic's **Constraint Decoding** (``output_config``).
@@ -622,6 +877,10 @@ class ClaudeProvider(BaseAIProvider):
                 fallback 8192 since Claude's SDK requires a value).
             web_search: If True, enable native Claude web search (4.5+/4.6+ models).
             thinking: Optional thinking/reasoning control (same as generate()).
+            history: Optional earlier turns (same as generate()).
+                ``output_config.format`` is a request-level setting that
+                constrains only the turn being generated; earlier assistant
+                turns, including replayed JSON, are sent as plain text.
 
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
@@ -633,6 +892,7 @@ class ClaudeProvider(BaseAIProvider):
             "web_search": web_search,
             "system_prompt": system_prompt,
             "force": force,
+            "history_turns": len(history or []),
         }
         if schema is None:
             raise ValueError(
@@ -656,14 +916,15 @@ class ClaudeProvider(BaseAIProvider):
 
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             claude_content = self._map_parts(parts)
 
             # Build thinking block + adjust output cap (invariant: max_tokens > budget)
-            thinking_active = thinking is not None and thinking is not False
+            thinking_active = self._thinking_active(thinking)
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
             # Cross-capability pre-flight from catalog.
@@ -676,9 +937,9 @@ class ClaudeProvider(BaseAIProvider):
             })
 
             kwargs = {
-                "model": self.model,
+                "model": self._wire_model(),
                 "max_tokens": max_output_tokens,
-                "messages": [{"role": "user", "content": claude_content}],
+                "messages": self._claude_messages(turns, claude_content),
                 # Anthropic Constraint Decoding via output_config.format
                 "output_config": {
                     "format": {
@@ -717,7 +978,7 @@ class ClaudeProvider(BaseAIProvider):
             # Web search: combine output_config (constraint decoding) with
             # web_search tool in the same request — native JSON + search.
             if web_search:
-                kwargs["tools"] = [_WEB_SEARCH_TOOL]
+                kwargs["tools"] = [self._web_search_tool()]
 
             self._debug_dump_request(
                 method="generate_json", caller_args=_orig_caller, native_config=kwargs,
@@ -736,16 +997,17 @@ class ClaudeProvider(BaseAIProvider):
                         content += block.text
                         output_parts.append({"type": "text", "text": block.text})
 
-            # Build usage from accumulated totals (may span multiple turns)
+            # Build usage from accumulated totals (may span multiple turns).
+            # thinking_tokens is a subset of output_tokens (None = not
+            # reported), so it is not billed again.
             input_t = acc_usage["input_tokens"]
             output_t = acc_usage["output_tokens"]
-            thinking_t = acc_usage["thinking_tokens"] or None
             usage = {
                 "input_tokens": input_t,
                 "output_tokens": output_t,
                 "total_tokens": input_t + output_t,
-                "thinking_tokens": thinking_t,
-                "_thinking_billed_separately": True,
+                "thinking_tokens": acc_usage["thinking_tokens"],
+                "_thinking_billed_separately": False,
             }
 
             # Count billable search events (from final response)
@@ -806,43 +1068,51 @@ class ClaudeProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
-            error_message = str(e).lower()
-            error_type = type(e).__name__
-            
-            if ("too many" in error_message and "token" in error_message) or \
-               ("context" in error_message and "length" in error_message) or \
-               ("prompt is too long" in error_message):
-                raise AIContextLengthError(
-                    f"Input context too long for model '{self.model}': {e}",
-                    provider=self.PROVIDER_NAME,
-                    original_error=e
-                )
-            
-            raise AIProviderError(
-                f"JSON generation failed: {e}",
-                provider=self.PROVIDER_NAME,
-                original_error=e
-            )
-    
+            raise self._map_claude_exception(e, json_mode=True)
+
     def is_available(self) -> bool:
-        """Check if Claude is available."""
-        if not self.api_key:
+        """Check if Claude is reachable for this model.
+
+        **Makes a live network call** (a token count, which is not billed).
+
+        * Direct mode: ``False`` without an API key; otherwise ``True`` even
+          when the call fails, as long as a client exists (unchanged
+          behavior).
+        * Platform mode: needs no key; ``True`` only if the call succeeds.
+          Any failure -- including a zero Vertex quota (429), missing ADC,
+          or a model not enabled at this location -- returns ``False``.
+        """
+        if not self.platform and not self.api_key:
             return False
-        
+
         try:
-            self._client.messages.count_tokens(
-                model=self.model,
-                messages=[{"role": "user", "content": "test"}]
-            )
+            self._availability_call()
             return True
         except Exception:
+            if self.platform:
+                return False
             return self._client is not None
 
+    def _availability_call(self) -> None:
+        """Token count: the cheapest live call (unbilled; works on Vertex)."""
+        self._client.messages.count_tokens(
+            model=self._wire_model(),
+            messages=[{"role": "user", "content": "test"}]
+        )
+
     def list_models(self) -> list[dict]:
-        """List available models from Claude."""
+        """List available Claude models.
+
+        Direct mode asks the Anthropic Models API. Vertex AI has no Models
+        endpoint, so platform mode returns the catalog models that
+        ``scripts/probe_platform.py`` recorded as ``available`` at this
+        location (``[]`` if the platform has never been probed).
+        """
+        if self.platform:
+            return self._list_platform_models()
         if not self.api_key:
             return []
-            
+
         try:
             models = self._client.models.list(limit=100)
             
@@ -859,11 +1129,7 @@ class ClaudeProvider(BaseAIProvider):
                 context = getattr(model, "max_input_tokens", None) or 200000
                 api_max_output = getattr(model, "max_tokens", None) or 0
 
-                cost = "standard"
-                if "opus" in model_id:
-                    cost = "premium"
-                elif "haiku" in model_id:
-                    cost = "economical"
+                cost = self._cost_tier(model_id)
 
                 modalities = ["text", "vision"]
 
@@ -897,6 +1163,44 @@ class ClaudeProvider(BaseAIProvider):
             print(f"Error listing Claude models: {e}")
             return []
 
+    @staticmethod
+    def _cost_tier(model_id: str) -> str:
+        """Coarse cost tier from the model family name."""
+        if "opus" in model_id:
+            return "premium"
+        if "haiku" in model_id:
+            return "economical"
+        return "standard"
+
+    def _list_platform_models(self) -> list[dict]:
+        """Catalog models recorded ``available`` on this platform and location."""
+        try:
+            try:
+                from djinnite.config_loader import load_model_catalog
+            except ImportError:
+                from config_loader import load_model_catalog  # type: ignore
+            catalog = load_model_catalog()
+        except Exception:
+            return []
+        models_list = []
+        for info in catalog.list_models(self.PROVIDER_NAME):
+            pm = info.platforms.get(self.platform)
+            if info.disabled or pm is None or pm.locations.get(self.location) != "available":
+                continue
+            entry = {
+                "id": info.id,
+                "name": info.name,
+                "context_window": info.context_window,
+                "modalities": list(info.modalities.input),
+                "cost_tier": self._cost_tier(info.id),
+            }
+            if info.max_output_tokens:
+                entry["max_output_tokens"] = info.max_output_tokens
+            if info.capabilities.effort_levels:
+                entry["effort_levels"] = list(info.capabilities.effort_levels)
+            models_list.append(entry)
+        return models_list
+
     def probe_temperature(self) -> Optional[bool]:
         """Probe whether this Claude model accepts temperature. (All Claude models do.)
 
@@ -909,7 +1213,7 @@ class ClaudeProvider(BaseAIProvider):
         """
         try:
             self._client.messages.create(
-                model=self.model, max_tokens=10,
+                model=self._wire_model(), max_tokens=10,
                 extra_body={"temperature": 0.5},
                 messages=[{"role": "user", "content": "Say hi."}],
             )
@@ -927,17 +1231,27 @@ class ClaudeProvider(BaseAIProvider):
         probe orchestrator on the base class.
         """
         kwargs: dict = {
-            "model": self.model,
+            "model": self._wire_model(),
             "max_tokens": 2048,
             "messages": [{"role": "user", "content": "Say hi."}],
         }
         if active_states.get("temperature") == "any":
             kwargs["extra_body"] = {"temperature": 0.5}
         if active_states.get("thinking") == "on":
-            # Use "enabled" (budget) — every thinking-capable Claude
-            # accepts it. budget_tokens (1024) < max_tokens (2048) to
-            # honor the invariant.
-            kwargs["thinking"] = {"type": "enabled", "budget_tokens": 1024}
+            # Use a shape the model accepts, or the rejection of the SHAPE
+            # is recorded as an incompatibility. Sending "enabled" (budget)
+            # unconditionally put {thinking:on, structured_json:on} and
+            # {thinking:on, web_search:on} on every Opus 4.7+ / 5.x model,
+            # all of which reject budget_tokens. Budget only when the model
+            # is budget-only; adaptive otherwise (or when styles are unknown).
+            styles = (self._probe_supported_states or {}).get("thinking_style")
+            if styles is None and self._model_info is not None:
+                styles = self._model_info.capabilities.thinking_style
+            if styles and "budget" in styles and "adaptive" not in styles:
+                # budget_tokens (1024) < max_tokens (2048): the invariant.
+                kwargs["thinking"] = {"type": "enabled", "budget_tokens": 1024}
+            else:
+                kwargs["thinking"] = {"type": "adaptive"}
         if active_states.get("structured_json") == "on":
             kwargs["output_config"] = {
                 "format": {
@@ -951,7 +1265,7 @@ class ClaudeProvider(BaseAIProvider):
                 }
             }
         if active_states.get("web_search") == "on":
-            kwargs["tools"] = [_WEB_SEARCH_TOOL]
+            kwargs["tools"] = [self._web_search_tool()]
         return kwargs
 
     def _run_combination_probe(self, kwargs: dict) -> None:
@@ -963,18 +1277,36 @@ class ClaudeProvider(BaseAIProvider):
         styles = self.probe_thinking_style()
         if styles is None:
             return None
-        return bool(styles)
+        return any(s in ("adaptive", "budget") for s in styles)
 
     def probe_thinking_disable(self) -> Optional[bool]:
         """
-        Whether Claude accepts an explicit thinking-disabled request.
+        Whether this model accepts ``thinking={"type": "disabled"}``.
 
-        Claude's thinking is opt-in: a request without a ``thinking`` block
-        is the natural "disabled" state and every Claude model accepts it.
-        We return True unconditionally here — there is no Claude model that
-        forbids omitting the ``thinking`` parameter.
+        Omitting the block is NOT a reliable "off": on the 5.x models it
+        runs adaptive thinking. ``thinking=False`` therefore sends an
+        explicit ``disabled`` block, and this probe asks the API whether the
+        model takes it. Sonnet 5.5, Opus 5.5 and the Fable models reject it
+        with a 400 (always-on reasoning; Sonnet 5.5's lowest setting is
+        ``between_tools`` instead).
+
+        Returns:
+            True  -- accepted.
+            False -- rejected (400): thinking cannot be turned off.
+            None  -- inconclusive (rate limit, 5xx, unknown error).
         """
-        return True
+        try:
+            self._client.messages.create(
+                model=self._wire_model(),
+                max_tokens=16,
+                messages=[{"role": "user", "content": "Say hi."}],
+                thinking={"type": "disabled"},
+            )
+            return True
+        except Exception as e:
+            if self._classify_probe_error(e) == "not_supported":
+                return False
+            return None
 
     def probe_thinking_style(self) -> Optional[list[str]]:
         """
@@ -995,10 +1327,14 @@ class ClaudeProvider(BaseAIProvider):
         wrong value would stick until someone reprobed.
 
         Returns:
-            * Non-empty ``list[str]`` from ``("adaptive", "budget")`` — the
-              styles confirmed to work.
-            * ``[]`` — both tiers cleanly rejected → no thinking support.
+            * Non-empty ``list[str]`` from ``("adaptive", "budget",
+              "between_tools")`` — the styles confirmed to work.
+            * ``[]`` — every tier cleanly rejected → no thinking support.
             * ``None`` — any tier was inconclusive.
+
+        ``between_tools`` is a thinking *setting* (Sonnet 5.5's lowest), not
+        evidence that the model thinks; ``update_models`` does not count it
+        toward the thinking "on" state.
         """
         _PROBE_BUDGET = 1024
         _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
@@ -1010,6 +1346,9 @@ class ClaudeProvider(BaseAIProvider):
             # Tier 2: enabled / fixed-budget (older thinking models, and many
             # current models accept both modes).
             ("budget", {"type": "enabled", "budget_tokens": _PROBE_BUDGET}),
+            # Tier 3: between_tools (Sonnet 5.5 only). Must carry no other
+            # field; valid at the default effort, which is <= high.
+            ("between_tools", {"type": "between_tools"}),
         ]
 
         styles: list[str] = []
@@ -1018,7 +1357,7 @@ class ClaudeProvider(BaseAIProvider):
         for style_name, thinking_cfg in tiers:
             try:
                 self._client.messages.create(
-                    model=self.model,
+                    model=self._wire_model(),
                     max_tokens=_PROBE_MAX_TOKENS,
                     messages=[{"role": "user", "content": "Say hi."}],
                     thinking=thinking_cfg,
@@ -1046,7 +1385,7 @@ class ClaudeProvider(BaseAIProvider):
         }
         try:
             self._client.messages.create(
-                model=self.model,
+                model=self._wire_model(),
                 max_tokens=50,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
@@ -1070,17 +1409,17 @@ class ClaudeProvider(BaseAIProvider):
         """
         Probe whether this Claude model supports the web_search server-side tool.
 
-        Sends a minimal request that declares ``tools=[_WEB_SEARCH_TOOL]`` but
+        Sends a minimal request that declares the access path's web search tool but
         asks a trivial question the model is unlikely to search for. A success
         proves the API accepts the tool schema for this model. A 400 means
         the tool version isn't supported for this model.
         """
         try:
             self._client.messages.create(
-                model=self.model,
+                model=self._wire_model(),
                 max_tokens=50,
                 messages=[{"role": "user", "content": "Say hi."}],
-                tools=[_WEB_SEARCH_TOOL],
+                tools=[self._web_search_tool()],
             )
             return True
         except Exception as e:
@@ -1107,7 +1446,7 @@ class ClaudeProvider(BaseAIProvider):
         }
         try:
             self._client.messages.create(
-                model=self.model,
+                model=self._wire_model(),
                 max_tokens=50,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
@@ -1116,7 +1455,7 @@ class ClaudeProvider(BaseAIProvider):
                         "schema": _PROBE_SCHEMA,
                     }
                 },
-                tools=[_WEB_SEARCH_TOOL],
+                tools=[self._web_search_tool()],
             )
             return True
         except Exception as e:

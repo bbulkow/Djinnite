@@ -55,26 +55,23 @@ def validate_ai():
             print(f"[ ] {name}: Disabled in config (skipping)")
             continue
             
-        if not provider_config.api_key or "your" in provider_config.api_key.lower():
+        # Platform mode authenticates with the platform's credentials and
+        # needs no API key.
+        if not config.is_usable(name):
             print(f"[WARN]  {name}: API key is missing or default")
             fail_count += 1
             continue
-            
+
         # Use configured model if available
         model = provider_config.default_model
         model_info = f" ({model})" if model else ""
         print(f"Testing {name}{model_info}...", end=" ", flush=True)
-        
+
         try:
             # Use get_provider() to auto-load model_info from catalog.
             # This enables catalog-aware features like temperature stripping
             # for reasoning models that reject non-default temperature.
-            provider_kwargs = {}
-            if name == "gemini":
-                provider_kwargs["backend"] = provider_config.backend
-                provider_kwargs["project_id"] = provider_config.project_id
-
-            provider = get_provider(name, api_key=provider_config.api_key, model=model, **provider_kwargs)
+            provider = get_provider(name, model=model, **config.provider_kwargs(name))
             
             # Connectivity check (is_available usually does a lightweight check)
             if not provider.is_available():

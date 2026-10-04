@@ -18,6 +18,7 @@ from .base_provider import (
     AIOutputTruncatedError,
     AIContextLengthError,
 )
+from .platforms import get_platform, resolve_platform
 
 
 # google-genai >=2.18 logs a warning on every direct ``models.generate_content``
@@ -46,62 +47,193 @@ def _enum_name(value) -> Optional[str]:
 class GeminiProvider(BaseAIProvider):
     """
     Google Gemini AI provider implementation.
-    
-    Supports both Google AI Studio (backend="gemini") and Vertex AI (backend="vertexai").
+
+    Access modes (see ``platforms.py``):
+
+    * direct (default, ``backend="gemini"``): Google AI Studio with an API key.
+    * ``platform="vertexai"`` (or the legacy ``backend="vertexai"``): Google
+      Vertex AI. With no ``api_key`` the client authenticates with
+      Application Default Credentials; no key is required or sent.
+
     Uses the google-genai SDK.
     """
-    
+
     PROVIDER_NAME = "gemini"
-    
-    def __init__(self, api_key: str, model: str, backend: str = "gemini", project_id: Optional[str] = None, model_info=None, require_pricing: bool = True):
+
+    # Class-level defaults: direct mode (also read by tests' _bare() helper).
+    backend: str = "gemini"
+    project_id: Optional[str] = None
+    quota_project: Optional[str] = None
+
+    def __init__(
+        self,
+        api_key: Optional[str],
+        model: str,
+        backend: str = "gemini",
+        project_id: Optional[str] = None,
+        model_info=None,
+        require_pricing: bool = True,
+        *,
+        platform: Optional[str] = None,
+        location: Optional[str] = None,
+        quota_project: Optional[str] = None,
+    ):
         """
         Initialize the Gemini provider.
 
         Args:
-            api_key: The Google API key
+            api_key: The Google API key. Optional on Vertex AI: without one
+                the client uses Application Default Credentials.
             model: The model ID to use
-            backend: The Google backend to use ('gemini' or 'vertexai')
+            backend: Legacy switch -- 'gemini' (AI Studio) or 'vertexai'
+                (same as ``platform="vertexai"``).
             project_id: The Google Cloud project ID (required for Vertex AI)
             require_pricing: Fast-fail on missing/unknown price (see base).
+            platform: ``"vertexai"`` for Google Vertex AI; ``None`` = direct.
+            location: Vertex location (default ``"us-central1"``, unchanged
+                from before platform mode). ``"global"`` serves the newest
+                models, e.g. gemini-3.5-flash.
+            quota_project: Project billed for quota (for user ADC created
+                with ``--disable-quota-project``). Applied to the ADC
+                credentials, because google-genai overwrites an
+                ``x-goog-user-project`` header with the credentials' own
+                quota project whenever they carry one. ADC only: rejected
+                together with ``api_key``.
         """
-        self.backend = backend
+        self.platform = resolve_platform(platform, backend, provider=self.PROVIDER_NAME)
+        self.backend = "vertexai" if self.platform == "vertexai" else backend
         self.project_id = project_id
+        self.quota_project = quota_project
+        self.location = location.lower() if location else None
+        if self.platform:
+            spec = get_platform(self.platform, self.PROVIDER_NAME)
+            self.location = self.location or spec.default_location.get(self.PROVIDER_NAME)
+            self._price_multiplier = spec.price_multiplier(self.PROVIDER_NAME, self.location)
         super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
 
     def _initialize_client(self) -> None:
-        """Initialize the Gemini client."""
+        """Initialize the Gemini client for this access mode."""
         try:
             from google import genai
-            
-            # Configure client based on backend
-            if self.backend == "vertexai":
+
+            if self.platform == "vertexai":
                 if not self.project_id:
                     raise AIProviderError(
                         "project_id is required for Vertex AI backend",
                         provider=self.PROVIDER_NAME
                     )
+                client_kwargs = {}
+                if self.api_key:
+                    if self.quota_project:
+                        raise AIProviderError(
+                            "quota_project applies to Application Default "
+                            "Credentials; omit api_key to use it",
+                            provider=self.PROVIDER_NAME,
+                        )
+                    # Keyed Vertex: exactly the client arguments used before
+                    # platform mode.
+                    client_kwargs["api_key"] = self.api_key
+                elif self.quota_project:
+                    import google.auth
+                    credentials, _ = google.auth.default(
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                        quota_project_id=self.quota_project,
+                    )
+                    client_kwargs["credentials"] = credentials
+                # No api_key and no credentials: google-genai resolves ADC
+                # lazily, at the first request.
                 self._client = genai.Client(
-                    api_key=self.api_key,
                     vertexai=True,
                     project=self.project_id,
-                    location="us-central1" # Default location for Vertex
+                    location=self.location,
+                    **client_kwargs,
+                )
+            elif self.platform:
+                raise AIProviderError(
+                    f"platform '{self.platform}' is not implemented for Gemini",
+                    provider=self.PROVIDER_NAME,
                 )
             else:
                 # Default to Google AI Studio
                 self._client = genai.Client(api_key=self.api_key)
-                
+
         except ImportError:
             raise AIProviderError(
                 "google-genai package not installed. "
                 "Install with: pip install google-genai",
                 provider=self.PROVIDER_NAME
             )
+        except AIProviderError:
+            raise
         except Exception as e:
+            if type(e).__name__ in ("DefaultCredentialsError", "RefreshError"):
+                raise AIAuthenticationError(
+                    f"Google Application Default Credentials unavailable: {e}",
+                    provider=self.PROVIDER_NAME,
+                    original_error=e,
+                )
             raise AIProviderError(
                 f"Failed to initialize Gemini client: {e}",
                 provider=self.PROVIDER_NAME,
                 original_error=e
             )
+
+    def _map_platform_error(self, e: Exception) -> Optional[AIProviderError]:
+        """Map a Vertex AI failure to a Djinnite error, or ``None`` to fall through.
+
+        Platform mode only; the AI Studio mapping is unchanged. Keyed on the
+        google-genai ``APIError`` ``code`` / ``status`` rather than message
+        text, so a 403 that mentions "quota project" is not misread as a
+        rate limit.
+        """
+        code = getattr(e, "code", None)
+        status = str(getattr(e, "status", None) or "")
+        text = getattr(e, "message", None) or str(e)
+        where = f"project '{self.project_id}', location '{self.location}'"
+        type_name = type(e).__name__
+        if code == 429 or status == "RESOURCE_EXHAUSTED":
+            return AIRateLimitError(
+                f"Vertex AI quota or rate limit for '{self.model}' ({where}): {status} {text}".strip(),
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if code in (401, 403) or status in ("PERMISSION_DENIED", "UNAUTHENTICATED"):
+            return AIAuthenticationError(
+                f"Vertex AI refused the request ({where}): {status} {text}".strip(),
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if code == 404 or status == "NOT_FOUND":
+            return AIModelNotFoundError(
+                f"Model '{self.model}' not found on Vertex AI ({where}) -- not "
+                f"served at this location, or not enabled for the project: {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if type_name in ("DefaultCredentialsError", "RefreshError"):
+            return AIAuthenticationError(
+                f"Google Application Default Credentials unavailable ({type_name}): {e}. "
+                f"Run 'gcloud auth application-default login' or attach a service account.",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        return None
+
+    def _gemini_contents(self, turns, gemini_parts):
+        """Native ``contents``: today's flat parts list, or role-tagged turns.
+
+        Without history the request is unchanged (a flat list of Parts).
+        With history every turn becomes ``types.Content(role=...)`` --
+        ``"user"`` or ``"model"`` -- and the prompt is the final user turn.
+        """
+        if not turns:
+            return gemini_parts
+        from google.genai import types
+        contents = [
+            types.Content(
+                role="model" if role == "assistant" else "user",
+                parts=self._map_parts(parts),
+            )
+            for role, parts in turns
+        ]
+        contents.append(types.Content(role="user", parts=gemini_parts))
+        return contents
     
     def _map_parts(self, parts: List[Dict]) -> List:
         """Map internal parts to Gemini SDK parts."""
@@ -142,6 +274,29 @@ class GeminiProvider(BaseAIProvider):
             # Add other types as needed
             
         return gemini_parts
+
+    @staticmethod
+    def _usage_from_metadata(metadata) -> dict:
+        """Token usage from a response's ``usage_metadata``.
+
+        Gemini reports thinking separately: ``candidates_token_count``
+        excludes ``thoughts_token_count``, and Google bills thoughts at the
+        output rate. ``_thinking_billed_separately`` is therefore True, so
+        ``token_cost`` counts them (it used to be False, under-reporting the
+        cost of every thinking call). ``total_token_count`` already
+        includes thoughts.
+        """
+        input_t = getattr(metadata, 'prompt_token_count', 0) or 0
+        output_t = getattr(metadata, 'candidates_token_count', 0) or 0
+        total_t = getattr(metadata, 'total_token_count', None)
+        thinking_t = getattr(metadata, 'thoughts_token_count', None)
+        return {
+            "input_tokens": input_t,
+            "output_tokens": output_t,
+            "total_tokens": total_t if total_t is not None else input_t + output_t,
+            "thinking_tokens": thinking_t,  # None if not reported
+            "_thinking_billed_separately": True,
+        }
 
     @staticmethod
     def _count_search_units(response) -> int:
@@ -293,9 +448,14 @@ class GeminiProvider(BaseAIProvider):
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate a response using Gemini.
+
+        ``history`` (earlier turns) becomes role-tagged ``contents``
+        (``user`` / ``model``); ``prompt`` is the final user turn.
         """
         _orig_caller = {
             "thinking": thinking,
@@ -303,15 +463,17 @@ class GeminiProvider(BaseAIProvider):
             "temperature": temperature,
             "web_search": web_search,
             "system_prompt": system_prompt,
+            "history_turns": len(history or []),
         }
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
 
         try:
             from google.genai import types
 
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             gemini_parts = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
@@ -353,25 +515,14 @@ class GeminiProvider(BaseAIProvider):
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
-                contents=gemini_parts,
+                contents=self._gemini_contents(turns, gemini_parts),
                 config=config
             )
-            
+
             # Extract usage info if available
             usage = {}
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                metadata = response.usage_metadata
-                input_t = getattr(metadata, 'prompt_token_count', 0) or 0
-                output_t = getattr(metadata, 'candidates_token_count', 0) or 0
-                total_t = getattr(metadata, 'total_token_count', None)
-                thinking_t = getattr(metadata, 'thoughts_token_count', None)
-                usage = {
-                    "input_tokens": input_t,
-                    "output_tokens": output_t,
-                    "total_tokens": total_t if total_t is not None else input_t + output_t,
-                    "thinking_tokens": thinking_t,  # None if not reported
-                    "_thinking_billed_separately": False,
-                }
+                usage = self._usage_from_metadata(response.usage_metadata)
 
             # Count billable search events
             s_units = self._count_search_units(response)
@@ -450,8 +601,12 @@ class GeminiProvider(BaseAIProvider):
         except AIProviderError:
             raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
+            if self.platform:
+                mapped = self._map_platform_error(e)
+                if mapped is not None:
+                    raise mapped
             error_message = str(e).lower()
-            
+
             # Detect context length exceeded: Gemini SDK raises exceptions
             # with HTTP 400 INVALID_ARGUMENT when input exceeds context window.
             if "invalid_argument" in error_message and \
@@ -514,6 +669,8 @@ class GeminiProvider(BaseAIProvider):
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generates structured JSON using Gemini's **Constraint Decoding** (``response_schema``).
@@ -530,6 +687,8 @@ class GeminiProvider(BaseAIProvider):
             max_output_tokens: Cap on output tokens (auto-fills from catalog).
             web_search: If True, enable Google Search grounding for current info.
             thinking: Optional thinking/reasoning control (same as generate()).
+            history: Optional earlier turns (same as generate()). The schema
+                constrains only the new turn.
 
         Returns:
             AIResponse whose ``content`` is schema-conforming JSON.
@@ -541,6 +700,7 @@ class GeminiProvider(BaseAIProvider):
             "web_search": web_search,
             "system_prompt": system_prompt,
             "force": force,
+            "history_turns": len(history or []),
         }
         if schema is None:
             raise ValueError(
@@ -557,12 +717,13 @@ class GeminiProvider(BaseAIProvider):
 
         # Validate & normalize thinking
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
 
         try:
             from google.genai import types
 
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             gemini_parts = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
@@ -611,7 +772,7 @@ class GeminiProvider(BaseAIProvider):
             # Generate response
             response = self._client.models.generate_content(
                 model=self.model,
-                contents=gemini_parts,
+                contents=self._gemini_contents(turns, gemini_parts),
                 config=config
             )
 
@@ -646,18 +807,7 @@ class GeminiProvider(BaseAIProvider):
             # Extract usage info if available
             usage = {}
             if hasattr(response, 'usage_metadata') and response.usage_metadata:
-                metadata = response.usage_metadata
-                input_t = getattr(metadata, 'prompt_token_count', 0) or 0
-                output_t = getattr(metadata, 'candidates_token_count', 0) or 0
-                total_t = getattr(metadata, 'total_token_count', None)
-                thinking_t = getattr(metadata, 'thoughts_token_count', None)
-                usage = {
-                    "input_tokens": input_t,
-                    "output_tokens": output_t,
-                    "total_tokens": total_t if total_t is not None else input_t + output_t,
-                    "thinking_tokens": thinking_t,
-                    "_thinking_billed_separately": False,
-                }
+                usage = self._usage_from_metadata(response.usage_metadata)
 
             # Count billable search events
             s_units = self._count_search_units(response)
@@ -696,8 +846,12 @@ class GeminiProvider(BaseAIProvider):
         except AIProviderError:
             raise  # Re-raise all our own errors (including truncation/context)
         except Exception as e:
+            if self.platform:
+                mapped = self._map_platform_error(e)
+                if mapped is not None:
+                    raise mapped
             error_message = str(e).lower()
-            
+
             if "invalid_argument" in error_message and \
                ("token" in error_message or "context" in error_message or "too long" in error_message):
                 raise AIContextLengthError(
@@ -713,10 +867,16 @@ class GeminiProvider(BaseAIProvider):
             )
     
     def is_available(self) -> bool:
-        """Check if Gemini is available and configured."""
-        if not self.api_key:
+        """Check if Gemini is available and configured.
+
+        **Makes a live network call** (lists one model). Direct mode needs
+        an API key; platform mode authenticates with the platform's
+        credentials. Any failure -- missing credentials, IAM refusal, or a
+        zero quota -- returns ``False``.
+        """
+        if not self.platform and not self.api_key:
             return False
-        
+
         try:
             # Try to list models as a connectivity check
             self._client.models.list(config={"page_size": 1})
@@ -724,13 +884,19 @@ class GeminiProvider(BaseAIProvider):
         except Exception:
             return False
 
+    def _availability_call(self) -> None:
+        """Token count for this model: unbilled, and exercises the model's own endpoint."""
+        self._client.models.count_tokens(model=self.model, contents="test")
+
     def list_models(self) -> list[dict]:
         """List available models from Gemini.
-        
+
         Extracts both input_token_limit (context_window) and
         output_token_limit (max_output_tokens) from the API when available.
+        Works in platform mode without an API key (Vertex lists its
+        publisher models).
         """
-        if not self.api_key:
+        if not self.platform and not self.api_key:
             return []
             
         try:

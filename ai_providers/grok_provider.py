@@ -104,8 +104,22 @@ class GrokProvider(BaseAIProvider):
                     })
         return content
 
-    def _build_input(self, openai_content: List[Dict]):
-        """Collapse a single text part to a plain string, else structured input."""
+    def _build_input(self, openai_content: List[Dict], turns=()):
+        """Collapse a single text part to a plain string, else structured input.
+
+        With history, always role-tagged items: the turns, then the prompt.
+        Assistant content is a plain string (the Responses API rejects
+        ``input_text`` parts in the assistant role).
+        """
+        if turns:
+            items: List[Dict] = []
+            for role, parts in turns:
+                if role == "assistant":
+                    items.append({"role": "assistant", "content": self._history_text(parts)})
+                else:
+                    items.append({"role": "user", "content": self._map_parts(parts)})
+            items.append({"role": "user", "content": openai_content})
+            return items
         if len(openai_content) == 1 and openai_content[0].get("type") == "input_text":
             return openai_content[0]["text"]
         return [{"role": "user", "content": openai_content}]
@@ -315,6 +329,8 @@ class GrokProvider(BaseAIProvider):
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """Generate a response using xAI's Responses API."""
         _orig_caller = {
@@ -323,13 +339,15 @@ class GrokProvider(BaseAIProvider):
             "temperature": temperature,
             "web_search": web_search,
             "system_prompt": system_prompt,
+            "history_turns": len(history or []),
         }
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
         thinking_active = thinking is not None and thinking is not False
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             content = self._map_parts(parts)
 
             self._validate_incompatible_combinations({
@@ -341,7 +359,7 @@ class GrokProvider(BaseAIProvider):
 
             kwargs = {
                 "model": self.model,
-                "input": self._build_input(content),
+                "input": self._build_input(content, turns),
             }
 
             if system_prompt:
@@ -468,6 +486,8 @@ class GrokProvider(BaseAIProvider):
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
+        *,
+        history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate structured JSON using xAI's Responses API with schema-enforced
@@ -480,6 +500,7 @@ class GrokProvider(BaseAIProvider):
             "web_search": web_search,
             "system_prompt": system_prompt,
             "force": force,
+            "history_turns": len(history or []),
         }
         if schema is None:
             raise ValueError(
@@ -493,11 +514,12 @@ class GrokProvider(BaseAIProvider):
         json_schema = self._prepare_schema_for_provider(json_schema)
 
         thinking = self._resolve_thinking(thinking)
+        turns = self._normalize_history(history)
         thinking_active = thinking is not None and thinking is not False
 
         try:
             parts = self._normalize_input(prompt)
-            self._validate_vision_limits(parts)
+            self._validate_vision_limits(self._all_parts(turns, parts))
             content = self._map_parts(parts)
 
             self._validate_incompatible_combinations({
@@ -510,7 +532,7 @@ class GrokProvider(BaseAIProvider):
 
             kwargs = {
                 "model": self.model,
-                "input": self._build_input(content),
+                "input": self._build_input(content, turns),
                 "text": {
                     "format": {
                         "type": "json_schema",

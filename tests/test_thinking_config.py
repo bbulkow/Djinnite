@@ -135,14 +135,16 @@ def test_tiny_cap_raises_actionable_error():
 
 
 def test_rejection_message_only_offers_accepted_forms():
-    """Error messages must not recommend a shape the model also rejects."""
-    adaptive_only = [
-        m.id for m in THINKING_MODELS
-        if m.capabilities.thinking_style == ["adaptive"]
-    ]
-    if not adaptive_only:
-        pytest.skip("no adaptive-only Claude models in the catalog")
-    p = _provider(adaptive_only[0])
+    """Error messages must not recommend a shape the model also rejects.
+
+    Uses a synthetic adaptive-only model: the catalog's adaptive-only rows
+    were an artifact of missing "effort" styles and disappear on a reprobe,
+    and this test must not quietly start skipping when they do.
+    """
+    from djinnite.ai_providers.claude_provider import ClaudeProvider
+    from djinnite.tests._stubs import bare, info
+    p = bare(ClaudeProvider, client=None,
+             model_info=info(thinking=["on", "off"], thinking_style=["adaptive"]))
 
     with pytest.raises(ValueError) as int_err:
         p._resolve_thinking(2048)

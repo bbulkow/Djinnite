@@ -64,17 +64,29 @@ from djinnite import (
 
 # Configuration Types
 from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCatalog
+from djinnite.config_loader import PlatformConfig, PlatformModelInfo   # platform mode
 ```
 
 ### Public Function Signatures
 
 ```python
-# Provider factory
-get_provider(provider_name, api_key, model, **kwargs) -> BaseAIProvider
+# Provider factory. api_key is optional: platform mode needs none.
+get_provider(provider_name, api_key=None, model=None, **kwargs) -> BaseAIProvider
+#   platform mode kwargs: platform="vertexai" (legacy alias backend="vertexai"),
+#                         project_id, location, quota_project
 
-# Generation (two distinct methods)
-BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking) -> AIResponse
-BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_output_tokens, web_search, force, thinking) -> AIResponse
+# Generation (two distinct methods). history is keyword-only.
+BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking, *, history=None) -> AIResponse
+BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_output_tokens, web_search, force, thinking, *, history=None) -> AIResponse
+
+# Access mode of a provider instance
+provider.mode       # "direct" | "platform"
+provider.platform   # None | "vertexai"
+provider.location   # platform location, or None in direct mode
+
+# Config -> constructor kwargs (the one place that mapping lives)
+AIConfig.provider_kwargs(name) -> dict
+AIConfig.is_usable(name) -> bool
 
 # Discovery
 load_ai_config() -> AIConfig
@@ -97,11 +109,14 @@ response.finish_reason   # str — provider-native stop reason
 # Token counts
 response.input_tokens    # int
 response.output_tokens   # int
-response.thinking_tokens # Optional[int] — None if not reported
+response.thinking_tokens # Optional[int] — None if not reported (unknown, never 0)
+                         #   Claude/OpenAI/Grok: a SUBSET of output_tokens
+                         #   Gemini: SEPARATE from output_tokens
 response.total_tokens    # int
 
 # Dollar costs (None if model pricing unknown)
-response.token_cost      # Optional[float] — input + output + thinking tokens
+response.token_cost      # Optional[float] — input + output + thinking tokens (thinking billed once),
+                         #   times usage["price_multiplier"] when present (platform location premium)
 response.search_cost     # Optional[float] — web search events
 response.total_cost      # Optional[float] — token_cost + search_cost
 response.search_units    # int — number of billable search events
@@ -191,15 +206,17 @@ thinking: Union[bool, int, str, None] = None
 
 | Value | Description |
 |---|---|
-| `None` (default) | **No opinion** — let the model use its default behavior. Some models default to thinking ON (e.g., Gemini 3 Flash), others default to OFF. |
-| `False` | **Explicitly disable thinking.** Sends a provider-specific "no thinking" signal. Errors on reasoning-only models that cannot disable thinking. |
+| `None` (default) | **Provider default** — nothing is sent. The default varies: Gemini 3 Flash and every Claude 5.x model think (adaptive) by default; Claude Opus 4.x does not. |
+| `False` | **Explicitly disable thinking.** Sends a provider-specific "no thinking" signal (Claude: `{"type": "disabled"}`). Raises locally on models that cannot disable thinking (`"off"` absent from `capabilities.thinking`: Claude Sonnet 5.5, Opus 5.5, Fable). |
 | `True` (**recommended**) | **Enable thinking at maximum budget.** |
 | `int` (e.g. `8192`) | Specific token budget for reasoning. |
 | `str` (`"low"`, `"medium"`, `"high"`) | Effort level hint. |
+| `"between_tools"` | Claude only, on models whose `thinking_style` lists it (Sonnet 5.5): the lowest thinking setting, `{"type": "between_tools"}` — Anthropic's replacement for `disabled` on that model. No effort is sent; the model default (`high`) is the highest level it accepts. Counts as thinking `"off"` for `capabilities.incompatible`. |
 
 **`None` vs `False`:** These are semantically different. `None` = "I don't care, do whatever
 the model normally does." `False` = "I explicitly do NOT want thinking." If you need
 predictable behavior, always pass `True` or `False` — never rely on `None` for production code.
+On Claude 5.x, `None` is **not** off: omitting the block runs adaptive thinking.
 
 **Error behavior:** Each capability in the catalog is a list of supported
 states drawn from a fixed Djinnite vocabulary (see `ModelCapabilities` in
@@ -218,7 +235,7 @@ before any API call is made. The caller introspects
 
 | Provider | `True` → "let the model decide" | `int` budget | `str` effort | `False` → disable | `None` → |
 |---|---|---|---|---|---|
-| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` with a budget sized to leave room for output)* | `thinking={"type": "enabled", "budget_tokens": N}` *(requires `"budget"` in `thinking_style`)* | `output_config={"effort": "low"\|"medium"\|"high"\|"xhigh"\|"max"}` *(requires `"effort"`; **not** a `thinking` block, and no `"minimal"`)* | omit `thinking` block *(opt-in design: omission = disabled)* | omit (model default = off) |
+| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` with a budget sized to leave room for output)* | `thinking={"type": "enabled", "budget_tokens": N}` *(requires `"budget"` in `thinking_style`)* | `output_config={"effort": "low"\|"medium"\|"high"\|"xhigh"\|"max"}` *(requires `"effort"`; **not** a `thinking` block, and no `"minimal"`)*; `"between_tools"` → `thinking={"type": "between_tools"}` *(requires `"between_tools"`)* | `thinking={"type": "disabled"}` *(requires `"off"`; omission is **not** off on 5.x)* | omit (model default: off on Opus 4.x, **adaptive on every 5.x**) |
 | **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | `thinking_config={"thinking_level": ThinkingLevel.<UPPER>}` *(native enum)* | `thinking_config={"thinking_budget": 0}` | omit (model default) |
 | **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | **`ValueError`** — OpenAI is effort-only | `reasoning={"effort": "minimal"\|"low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
 
@@ -240,13 +257,29 @@ and it would be redundant with `True`.
 #### How callers know which shape a model accepts
 
 The catalog field `capabilities.thinking_style` records the *union* of
-native shapes each model accepts, drawn from `{"adaptive","budget","effort"}`:
+native shapes each model accepts, drawn from
+`{"adaptive","budget","effort","between_tools"}`:
 
 * `"adaptive"` — caller passes `True`; provider has a "model decides" mode.
 * `"budget"` — caller passes `int`; provider has an integer-budget field.
 * `"effort"` — caller passes `str` (`"minimal"`/`"low"`/`"medium"`/`"high"`);
   provider has a string-effort field (OpenAI's `reasoning.effort`,
-  Gemini's `thinking_level`).
+  Gemini's `thinking_level`, Claude's `output_config.effort`).
+  `update_models` adds it whenever the provider enumerates `effort_levels`.
+* `"between_tools"` — caller passes the string `"between_tools"`; Claude's
+  lowest thinking setting (Sonnet 5.5). A *setting*, not evidence that the
+  model thinks, so it never establishes the thinking `"on"` state.
+
+`"between_tools"` is accepted because it names a distinct native mode with
+its own constraints (no other field, effort high or below), not a synonym for
+`True` — so the design note above (no `thinking="adaptive"`) does not
+exclude it.
+
+Discovery notes (Claude): the Models API reports
+`thinking.types.{adaptive,enabled}` but nothing about `disabled` or
+`between_tools`, so those come from probes (`probe_thinking_disable` sends
+`{"type": "disabled"}`; `probe_thinking_style` tries `between_tools`). A
+rejected probe is a 400, which Anthropic does not bill.
 
 A model can list multiple — Claude 4.7 is `["adaptive","budget"]`, Gemini
 2.5+ is `["budget","effort"]` — meaning either shape is accepted on
@@ -402,10 +435,12 @@ class AIResponse:
 | `input_tokens` | `int` | Input/prompt tokens |
 | `output_tokens` | `int` | Output/completion tokens |
 | `total_tokens` | `int` | Total tokens (from provider or computed) |
-| `thinking_tokens` | `int \| None` | Reasoning/thinking tokens. **`None` = unknown** (distinct from 0 = no thinking) |
+| `thinking_tokens` | `int \| None` | Reasoning/thinking tokens. **`None` = unknown** (distinct from 0 = no thinking). A **subset of `output_tokens`** on Claude, OpenAI and Grok; **separate from** `output_tokens` on Gemini |
+| `price_multiplier` | `float` (absent = 1.0) | Present only when the access path prices off the catalog, e.g. Claude on Vertex AI at `us` / `eu` / a region (1.10). Already applied to `token_cost` |
 
-Check `response.thinking_tokens is None` to know if `total_tokens` may be
-incomplete (i.e., the provider didn't report thinking tokens separately).
+`total_tokens` includes thinking on every provider (the provider's own total,
+or input + output where output already includes thinking). `token_cost`
+bills thinking exactly once, at the output rate.
 
 The `truncated` and `finish_reason` fields are **always populated** — even when
 `AIOutputTruncatedError` is raised, the partial `AIResponse` on the exception
@@ -474,7 +509,7 @@ class ModelCapabilities:
     thinking:         Optional[list[str]] = None   # subset of {"on","off"}
     web_search:       Optional[list[str]] = None   # subset of {"on","off"}
     json_with_search: Optional[list[str]] = None   # subset of {"on","off"}
-    thinking_style:   Optional[list[str]] = None   # subset of {"adaptive","budget","effort"}
+    thinking_style:   Optional[list[str]] = None   # subset of {"adaptive","budget","effort","between_tools"}
     effort_levels:    Optional[list[str]] = None   # subset of {"minimal","low","medium","high","xhigh","max"}
     incompatible:     Optional[list[dict[str, str]]] = None  # forbidden cross-capability combos
 ```
@@ -499,7 +534,7 @@ the catalog list. Mapping is enforced in `_resolve_thinking`,
 
 | Capability | Caller arg → state | Pre-flight rule |
 |---|---|---|
-| `thinking` | `None` → no check; `False` → `"off"`; `True`/`int`/`str` → `"on"`; additionally `int` → requires `"budget"` in `caps.thinking_style`, `str` → requires `"effort"` in `caps.thinking_style` | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
+| `thinking` | `None` → no check (provider default); `False` → `"off"`; `"between_tools"` → requires `"between_tools"` in `caps.thinking_style` (Claude only; counts as `"off"` for `incompatible`); `True`/`int`/`str` → `"on"`; additionally `int` → requires `"budget"` in `caps.thinking_style`, `str` → requires `"effort"` in `caps.thinking_style` | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
 | `temperature` | caller-passed float → `"any"`; caller-omitted → `"default"` | If `"any"` not in `caps.temperature`, the float is silently stripped (no error) |
 | `structured_json` | schema present → `"on"` | `"on"` must be in `caps.structured_json` |
 | `web_search` | `web_search=True` → `"on"` | `"on"` must be in `caps.web_search` |
@@ -557,7 +592,14 @@ Callers that need to bypass a pre-flight rejection use `force=True` on
 `update_models.py` populates these lists by combining per-provider probes:
 
 * `probe_thinking_style()` returns `list[str]` of styles confirmed to work.
-* `probe_thinking_disable()` returns whether explicit-disable is accepted.
+* `probe_thinking_disable()` returns whether explicit-disable is accepted
+  (Claude sends `{"type": "disabled"}`; it used to return True
+  unconditionally, which marked Sonnet/Opus 5.5 and Fable as `"off"`-capable).
+* `probe_incompatible_combinations()` receives the probed `thinking_style`
+  so the request builder sends a thinking shape the model accepts. Sending a
+  budget block to an adaptive-only model recorded the *shape's* rejection as
+  `{thinking:on, structured_json:on}` / `{thinking:on, web_search:on}` on every
+  Opus 4.7+ / 5.x model; a reprobe clears them.
 * `probe_structured_json()`, `probe_temperature()`, `probe_web_search()`,
   `probe_json_with_search()` each return tri-state `True/False/None`, which
   the orchestrator translates to the on/off list shape.
@@ -576,7 +618,7 @@ X, and what does it become at the wire?"
 | Budget | Djinnite surface | Anthropic Messages API | OpenAI Responses API | Gemini GenerationConfig |
 |---|---|---|---|---|
 | **Output budget** | request param: `max_output_tokens` (`Optional[int]`)<br>catalog: `ModelInfo.max_output_tokens`<br>internal resolver: `_resolve_max_output_tokens`<br>response: `AIResponse.output_tokens` | `max_tokens` *(required int)* — caps **visible output only**; thinking is counted under a separate budget. Anthropic enforces `max_tokens > thinking.budget_tokens`. | `max_output_tokens` *(int)* — caps **visible output + reasoning combined**; OpenAI does not expose them separately. | `GenerationConfig.max_output_tokens` *(int)* — caps **visible output only**; thinking is counted under a separate budget. |
-| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_resolve_thinking`, `_get_max_thinking_budget`, `_EFFORT_LEVELS`<br>catalog: shape support in `ModelCapabilities.thinking_style`; max for `True` read from `ModelInfo.max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens`. `type:"adaptive"` has no explicit budget (model decides). Caller must pass `int` or `True`/`False`/`None`; `str` raises `ValueError` (no native effort field). | `reasoning.effort: "minimal"\|"low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Caller must pass `str` or `True`/`False`/`None`; `int` raises `ValueError` (no native budget field). | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. *Or* `thinking_config.thinking_level` *(`ThinkingLevel.MINIMAL\|LOW\|MEDIUM\|HIGH`)*. **Both fields are alternatives — Djinnite sets exactly one per request based on the caller's shape.** Both are separate from `max_output_tokens`. |
+| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_resolve_thinking`, `_get_max_thinking_budget`, `_EFFORT_LEVELS`<br>catalog: shape support in `ModelCapabilities.thinking_style`; max for `True` read from `ModelInfo.max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens` (rejected by Opus 4.7+ and every 5.x). `type:"adaptive"` has no explicit budget (model decides). `str` effort rides in `output_config.effort` (requires `"effort"` in `thinking_style`); `"between_tools"` sends `thinking={"type":"between_tools"}`. Thinking tokens are reported in `usage.output_tokens_details.thinking_tokens`, a subset of `output_tokens`. | `reasoning.effort: "minimal"\|"low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Caller must pass `str` or `True`/`False`/`None`; `int` raises `ValueError` (no native budget field). | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. *Or* `thinking_config.thinking_level` *(`ThinkingLevel.MINIMAL\|LOW\|MEDIUM\|HIGH`)*. **Both fields are alternatives — Djinnite sets exactly one per request based on the caller's shape.** Both are separate from `max_output_tokens`. |
 | **Total token budget**<br>(input + output + thinking + tool round-trips) | request param: *not exposed — model property, server-enforced*<br>catalog: `ModelInfo.context_window`<br>response: `AIResponse.total_tokens` *(post-hoc usage, not a cap)* | not a request parameter — model property | not a request parameter — model property *(`truncation: "auto"\|"disabled"` chooses overflow handling, not a numeric cap)* | not a request parameter — model property |
 | **Input budget**<br>(max input tokens) | request param: *not exposed*<br>catalog: not stored — derivable from `context_window` minus reserved output / thinking<br>response: `AIResponse.input_tokens` *(post-hoc usage)* | not a request parameter | not a request parameter; `truncation: "auto"` lets the server drop earliest turns on overflow but does not set a cap | not a request parameter |
 | **Search budget**<br>(billing events — *not tokens*) | request param: `web_search: bool`<br>catalog: `ModelCosting.search_cost_per_unit`<br>response: `AIResponse.search_units`, `AIResponse.search_cost` | `tools=[{...web_search…}]` *(enable/disable; no per-call event cap)* | `tools=[{"type":"web_search_preview"}]` *(enable/disable; no per-call event cap)* | `tools=[Tool(google_search=...)]` *(enable/disable; no per-call event cap)* |
@@ -624,6 +666,150 @@ X, and what does it become at the wire?"
   parameter's int form covers it, and splitting would force callers to
   coordinate two parameters with rules like "`thinking_budget` is
   honored only when `thinking=True`."
+
+### Multi-turn input (`history`)
+
+`generate()` and `generate_json()` take an optional keyword-only
+`history=[{"role": "user" | "assistant", "content": str | parts}, ...]` —
+the earlier turns, oldest first. `prompt` is always the final user turn.
+Djinnite keeps no session state: the caller replays the transcript on every
+call. `history=None` (or `[]`) sends exactly the single-turn request.
+
+Rules (each a local `ValueError`): the first turn is `user`; assistant turns
+are text only and non-empty. Vision limits count images across all turns.
+
+| Provider | Native shape |
+|---|---|
+| Claude | `messages`: the turns, then the prompt; assistant content is a plain string |
+| Gemini | `contents`: `types.Content(role="user" \| "model", parts=...)` per turn, then the prompt |
+| OpenAI / Grok | `input`: `{"role", "content"}` items; assistant content is a plain string (the Responses API rejects `input_text` there) |
+
+With `generate_json`, the schema constrains only the turn being generated
+(`output_config.format` / `response_schema` / `text.format` are
+request-level); earlier assistant turns — including JSON the caller is
+replaying — are sent as plain text. Only text is replayed, so Claude's
+"preserved thinking" history checks have no thinking blocks to bind.
+
+### Access modes: direct and platform
+
+Djinnite reaches a model in one of two **access modes**:
+
+* **direct** — the provider's own API (Anthropic, Google AI Studio, OpenAI,
+  xAI), authenticated with that provider's API key. The default.
+* **platform** — a cloud platform serving the provider's models,
+  authenticated with the platform's own credentials. Google Vertex AI
+  (`"vertexai"`) is the first; the design expects more (Bedrock, Foundry),
+  so the *mode* is "platform" and `vertexai` is one platform.
+
+A platform serves some subset of each hosted provider's models, and that
+subset grows and shrinks. So Djinnite **implements the platform's mechanics**
+(per-platform rules in `ai_providers/platforms.py`, client code in each
+provider) and **probes** what the platform offers per model
+(`scripts/probe_platform.py`), rather than encoding model lists.
+
+#### Selecting platform mode
+
+```python
+# Runtime: no api_key.
+p = get_provider("claude", model="claude-sonnet-5-5", platform="vertexai",
+                 project_id="munin-bbulkow", location="us",
+                 quota_project="munin-bbulkow")
+p.mode, p.platform, p.location   # ("platform", "vertexai", "us")
+
+# Legacy alias, unchanged: backend="vertexai" == platform="vertexai".
+g = get_provider("gemini", model="gemini-3.5-flash", backend="vertexai",
+                 project_id="p", location="global")
+```
+
+```jsonc
+// ai_config.json
+"platforms": {
+  "vertexai": {"project_id": "munin-bbulkow", "quota_project": "munin-bbulkow",
+               "locations": ["global", "us"]}   // what probe_platform checks
+},
+"providers": {
+  "claude": {"mode": "platform", "platform": "vertexai", "location": "us",
+             "default_model": "claude-sonnet-5-5"}   // no api_key
+}
+// get_provider(name, model=..., **cfg.provider_kwargs(name))
+```
+
+A provider entry's `project_id` / `location` / `quota_project` override the
+platform block's. A legacy entry with `backend: "vertexai"` loads as platform
+mode. `update_models` and `update_model_costs` are **direct-mode only**: they
+skip a platform-mode entry (`[SKIP] <name>: platform mode -- use
+probe_platform`), because the catalog's top-level fields are direct-mode facts.
+
+#### Vertex AI rules
+
+| | Gemini | Claude |
+|---|---|---|
+| Client | `genai.Client(vertexai=True, project, location)` | `anthropic.AnthropicVertex(project_id, region=location)` |
+| Credentials | ADC; `api_key` passed only if given (legacy keyed Vertex) | ADC; `api_key` never sent |
+| Default location | `us-central1` (unchanged) | `global` (premium-free; 5.x is not served at single-region endpoints) |
+| `quota_project` | applied to the ADC credentials (`google.auth.default(quota_project_id=...)`), because google-genai **overwrites** an `x-goog-user-project` header with the credentials' quota project when they carry one; rejected with `api_key` | sent as `default_headers={"x-goog-user-project": ...}`: AnthropicVertex never derives that header from the credentials, so the explicit header always wins |
+| Price | catalog price (no documented location premium) | catalog price at `global`; **×1.10** at `us`, `eu` and regional endpoints (`usage["price_multiplier"]`) |
+| Model IDs | as catalog | as catalog; dated snapshots rewritten `-YYYYMMDD` → `@YYYYMMDD` |
+| Web search | `google_search` (as direct) | `web_search_20250305` (the only version Vertex serves); search price is the catalog's first-party $10/1k, **unverified for Vertex** |
+| `list_models()` | the platform's model list | Vertex has no Models API: catalog models recorded `available` at this location by `probe_platform` (`[]` if never probed) |
+| `is_available()` | live call | live call (token count); any failure, including a zero quota, is False |
+
+Errors (platform mode only; the direct mappings are unchanged): 429 /
+`RESOURCE_EXHAUSTED` → `AIRateLimitError`; 401 / 403 →
+`AIAuthenticationError` with Google's message; 404 → `AIModelNotFoundError`
+(not served at that location, or not enabled for the project); missing ADC
+(`DefaultCredentialsError` / `RefreshError`) → `AIAuthenticationError`.
+
+#### Catalog: the `platforms` block
+
+Generated per model by `probe_platform --write`, never hand-edited (pin a
+value through `model_overrides.json`, e.g.
+`platforms.vertexai.capabilities.web_search`). `update_models` carries it
+forward untouched.
+
+```json
+"platforms": {"vertexai": {
+  "locations": {"global": "available", "us": "no_quota", "eu": "not_found"},
+  "capabilities": { "thinking": ["on"], "...": "..." },
+  "probed": "2026-10-04"
+}}
+```
+
+Location statuses (`LOCATION_STATUS_VALUES`): `available`, `not_found`
+(404), `no_access` (401/403), `no_quota` (429 / RESOURCE_EXHAUSTED),
+`unknown`. **Availability is informational** — runtime never blocks on it,
+because a stale `not_found` would hide a model the platform has since added.
+**Capabilities** probed on the platform replace the direct-mode values field
+by field (`ModelInfo.for_platform`); `get_provider` applies that view in
+platform mode. Costing is always the direct-mode costing times the
+platform's multiplier.
+
+#### `scripts/probe_platform.py`
+
+```
+uv run python -u -m djinnite.scripts.probe_platform --platform vertexai \
+    [--provider claude] [--model ID] [--location us] [--capabilities] [--write]
+```
+
+Default: one token-count call per model × location (unbilled) → statuses.
+`--capabilities`: the update_models capability suite through the platform
+at the first `available` location, printing `[DIFF] <field>: direct=..
+platform=..` — real generation calls, billed to the platform project.
+Without `--write` nothing is saved. Run it observably (AGENTS.md).
+
+#### Verifying platform mode
+
+Three layers, so verification never rests on one platform:
+
+| Layer | Command | Calls | Proves |
+|---|---|---|---|
+| Offline | `uv run pytest tests/` | none (SDK clients stubbed) | what Djinnite hands each SDK |
+| Direct live | `uv run pytest tests/ --live` | provider APIs, your keys | the call-shape contract (`tests/_contract.py`) per provider; Claude 5.x thinking semantics |
+| Platform e2e | `uv run pytest tests/ --e2e-platform -rA -s` | Vertex AI, dedicated e2e project | the same contract through the platform, plus auth, quota project, routing, error mapping, `probe_platform` |
+
+The e2e tier is manual (no CI) and needs the GCP setup in
+[PLATFORM_E2E_TEST_DESIGN.md](PLATFORM_E2E_TEST_DESIGN.md). A change to
+platform-mode code is finished only when it passes (AGENTS.md).
 
 ---
 
@@ -686,12 +872,14 @@ Vendors publish several prices for one model on the same page:
 | Context length above threshold | $60 / $270 above 272k input tokens | **yes, and it is not modelled** |
 | Flex (off-peak) | $15 / $90 | no — Djinnite never sends `service_tier` |
 | Batch / Priority | varies | no — same reason |
-| Regional data residency | +10% | no |
+| Regional data residency (direct APIs) | +10% | no |
+| Platform location premium (Claude on Vertex AI off `global`) | +10% | **yes** — `usage["price_multiplier"]`, a per-platform rule in `ai_providers/platforms.py` |
 
-**Why this is tolerable for now.** `generate()` takes a single `prompt` string;
-there is no message-history parameter and no accumulating conversation, so
-input size is bounded by what one caller passes in one call. Requests above
-272k input tokens are rare in practice.
+**Why this is tolerable for now.** Djinnite keeps no accumulating
+conversation: a request is one `prompt` plus whatever `history` the caller
+chooses to replay, so input size is bounded by what one caller passes in one
+call. Requests above 272k input tokens are rare in practice -- but a caller
+replaying a long transcript through `history` gets there sooner.
 
 **It is not impossible, though.** A caller may legitimately pass a single
 300k-token prompt — that is well under the 1,050,000 context window, so it
@@ -787,14 +975,17 @@ djinnite/
 ├── ai_providers/
 │   ├── __init__.py          # Provider factory (get_provider) + registry
 │   ├── base_provider.py     # Abstract base + AIResponse + error classes
+│   ├── platforms.py         # Platform registry (access mode "platform")
 │   ├── gemini_provider.py   # Google Gemini implementation
 │   ├── claude_provider.py   # Anthropic Claude implementation
-│   └── openai_provider.py   # OpenAI ChatGPT implementation
+│   ├── openai_provider.py   # OpenAI ChatGPT implementation
+│   └── grok_provider.py     # xAI Grok implementation
 ├── prompts/
 │   └── __init__.py          # Externalized prompt templates
 ├── scripts/
 │   ├── validate_ai.py       # Test provider connectivity
-│   ├── update_models.py     # Refresh model catalog from APIs
+│   ├── update_models.py     # Refresh model catalog from APIs (direct mode)
+│   ├── probe_platform.py    # Probe platform availability/capabilities
 │   ├── update_model_costs.py # AI-discovered per-token pricing
 │   └── clean_disabled_reasons.py  # Catalog maintenance
 ├── tests/
@@ -877,6 +1068,48 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### October 2026: platform access mode, multi-turn `history`, thinking accounting (0.5.0)
+
+**Added (no change for existing callers):** platform access mode
+(`platform="vertexai"`, `location`, `quota_project`; `api_key` optional on
+`get_provider`), Claude on Vertex AI, the `ai_config.json` `platforms` block,
+the catalog's per-model `platforms` block, `scripts/probe_platform.py`,
+the `--e2e-platform` test tier, keyword-only `history=` on `generate()` /
+`generate_json()`, and the Claude sentinel `thinking="between_tools"`.
+
+**Behavior changes (approved):**
+
+* **Claude `thinking=False` now sends `{"type": "disabled"}`.** It used to
+  omit the block — which on Sonnet 5 / Opus 5 (and every 5.x) runs
+  *adaptive* thinking, so `False` silently thought. Opus 4.x: same meaning,
+  different request bytes. On models that cannot disable thinking (Sonnet
+  5.5, Opus 5.5, Fable) `False` raises locally once the catalog is
+  reprobed; until then the API returns a 400 rather than silently thinking.
+* **Gemini thinking is now costed.** `candidates_token_count` excludes
+  `thoughts_token_count`, but Gemini was marked "not billed separately", so
+  `token_cost` left thinking out. It is now billed at the output rate:
+  reported Gemini cost rises to the correct value for thinking calls.
+* **Claude `thinking_tokens` is now reported** from
+  `usage.output_tokens_details.thinking_tokens` (it read a nonexistent field
+  and was always `None`). It is a subset of `output_tokens`, so cost and
+  `total_tokens` do not change; `_thinking_billed_separately` is now False.
+* **Discovery fixes** (take effect on the next reprobe): the combination
+  probe sends a thinking shape the model accepts (budget blocks on Opus 4.7+
+  / 5.x produced bogus `{thinking:on, structured_json:on}` and
+  `{thinking:on, web_search:on}` entries); `probe_thinking_disable` actually
+  probes (it returned True unconditionally); `between_tools` is detected;
+  `effort` joins `thinking_style` whenever `effort_levels` is set.
+
+**Migration:** none required. To correct the current catalog, run
+`update_models --reprobe claude:all` (observably, per AGENTS.md); to record
+what a platform serves, run `probe_platform`.
+
+**Why:** Munin (Cloud Run, Vertex AI only, no API keys) needed Djinnite to
+reach Gemini and Claude through Vertex with ADC, and needed accurate thinking
+and cost numbers for its spend cap. Vertex is modelled as the first of
+several platforms rather than a backend flag, because the set of models a
+platform serves changes over time and has to be probed, not listed.
 
 ### September 2026: human overrides consolidated into `model_overrides.json`
 

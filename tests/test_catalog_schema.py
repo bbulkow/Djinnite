@@ -314,10 +314,10 @@ def test_no_disabled_model_lacks_an_override_entry():
 def test_every_write_path_routes_through_save_catalog():
     """Guards the choke point. Bypassing it drops human overrides silently."""
     import inspect
-    from djinnite.scripts import update_models, update_model_costs
+    from djinnite.scripts import update_models, update_model_costs, probe_platform
 
     offenders = []
-    for mod in (update_models, update_model_costs):
+    for mod in (update_models, update_model_costs, probe_platform):
         src = inspect.getsource(mod)
         for i, line in enumerate(src.split("\n"), 1):
             if "json.dump(catalog" in line:

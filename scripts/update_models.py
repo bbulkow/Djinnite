@@ -485,6 +485,7 @@ def _probe_all_capabilities_for_models(
     provider_cls,
     provider_name: str,
     api_key: str,
+    make_instance=None,
 ) -> dict[str, dict]:
     """
     Probe a list of models to discover ALL capabilities at once.
@@ -494,7 +495,12 @@ def _probe_all_capabilities_for_models(
     * ``thinking`` / ``structured_json`` / ``web_search`` / ``json_with_search``
       → subset of ``("on", "off")`` (or None for unknown).
     * ``temperature`` → subset of ``("any", "default")``.
-    * ``thinking_style`` → subset of ``("adaptive", "budget", "effort")``.
+    * ``thinking_style`` → subset of ``THINKING_STYLE_VALUES``.
+
+    ``make_instance(model_id)`` builds the provider to probe through. The
+    default is a direct-mode ``provider_cls(api_key=..., model=...)``;
+    ``scripts/probe_platform.py`` passes a factory for platform mode so the
+    same suite runs against a cloud platform.
 
     Returns a dict of model_id -> capability dict.
     """
@@ -502,7 +508,10 @@ def _probe_all_capabilities_for_models(
     for m in models_to_probe:
         model_id = m["id"]
         try:
-            instance = provider_cls(api_key=api_key, model=model_id)
+            if make_instance is not None:
+                instance = make_instance(model_id)
+            else:
+                instance = provider_cls(api_key=api_key, model=model_id)
 
             # ---- Per-capability raw probes -----------------------------
             ssj_raw = instance.probe_structured_json()
@@ -536,7 +545,9 @@ def _probe_all_capabilities_for_models(
                 thinking_states: Optional[list[str]] = None
                 thinking_style_states: Optional[list[str]] = None
             else:
-                on_supported = bool(styles_raw)
+                # "between_tools" is a thinking *setting*, not evidence the
+                # model thinks -- only adaptive/budget establish "on".
+                on_supported = any(s in ("adaptive", "budget") for s in styles_raw)
                 states: list[str] = []
                 if on_supported:
                     states.append("on")
@@ -565,6 +576,12 @@ def _probe_all_capabilities_for_models(
                 # (structured_json=on, web_search=on) pair — that exact
                 # combination is already encoded by `json_with_search`.
                 "json_with_search": jws_states,
+                # Not an activatable capability: passed so the request
+                # builders send a thinking shape the model accepts (probe
+                # instances have no catalog entry). Sending a budget block
+                # to an adaptive-only model recorded the shape's rejection
+                # as a thinking+json / thinking+web_search incompatibility.
+                "thinking_style": thinking_style_states,
             }
             try:
                 incompat_states = instance.probe_incompatible_combinations(
@@ -616,6 +633,21 @@ def _probe_all_capabilities_for_models(
             }
             print(f"    [WARN] {model_id}: probe skipped ({e})")
     return results
+
+
+def _ensure_effort_style(caps: Optional[dict]) -> None:
+    """Add ``"effort"`` to ``thinking_style`` when ``effort_levels`` is non-empty.
+
+    Only extends a style list that is already known: an unknown (``None``)
+    ``thinking_style`` stays unknown rather than becoming ``["effort"]``.
+    Replaces the list in ``caps`` (never appends in place: probe results
+    share list objects with the caps they were merged into).
+    """
+    if not isinstance(caps, dict):
+        return
+    styles = caps.get("thinking_style")
+    if caps.get("effort_levels") and isinstance(styles, list) and "effort" not in styles:
+        caps["thinking_style"] = styles + ["effort"]
 
 
 def merge_model_data(
@@ -703,6 +735,12 @@ def merge_model_data(
             # months with their reasons recorded ONLY in the catalog, where
             # the next `disable_models` run would have silently re-enabled
             # them.
+
+            # Preserve the per-platform block. It is written only by
+            # scripts/probe_platform.py; a direct-mode refresh rebuilds each
+            # model from selected fields and would otherwise drop it.
+            if "platforms" in existing:
+                model["platforms"] = existing["platforms"]
 
             # Preserve costing
             if "costing" in existing:
@@ -932,7 +970,15 @@ def merge_model_data(
                             "incompatible"]:
                     if probed.get(key) is not None:
                         caps[key] = probed[key]
-    
+
+    # 5. effort is a thinking style whenever the provider enumerates effort
+    # levels. Runs AFTER the probe merge: probes report only the shapes they
+    # send (adaptive/budget/between_tools), and the merge above replaces
+    # thinking_style wholesale -- that is how sonnet-5-5, opus-5-5 and
+    # fable-5-1 landed without "effort" and refused thinking="high".
+    for model in merged:
+        _ensure_effort_style(model.get("capabilities"))
+
     # Strip the in-memory re-estimation marker now that estimation has run.
     # It must outlive the merge loop (that is where it is set) but must never
     # reach the catalog file.
@@ -1022,6 +1068,12 @@ def update_models():
             continue
         print(f"\nUpdating {name} models...")
         p_config = ai_config.get_provider(name)
+        if p_config and p_config.mode == "platform":
+            # The catalog's top-level fields are direct-mode facts, refreshed
+            # through the provider's own API with its own key. Platform
+            # availability and capabilities are probed separately.
+            print(f"  [SKIP] {name}: platform mode -- use probe_platform")
+            continue
         if not p_config or not p_config.api_key:
             print(f"  [WARN] Provider {name} not configured, skipping.")
             continue

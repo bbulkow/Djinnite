@@ -8,9 +8,9 @@ See PLATFORM_E2E_TEST_DESIGN.md for the GCP setup and the test matrix.
 Configuration is environment variables (DJINNITE_E2E_*), so a run is one
 command and nothing project-specific is committed:
 
-    $env:DJINNITE_E2E_PROJECT       = "djinnite-e2e"
-    $env:DJINNITE_E2E_DECOY_PROJECT = "djinnite-e2e-decoy"
-    $env:DJINNITE_E2E_CREDENTIALS   = "$HOME\\.gcloud-djinnite-e2e\\application_default_credentials.json"
+    $env:DJINNITE_E2E_PROJECT       = "<e2e project id>"
+    $env:DJINNITE_E2E_DECOY_PROJECT = "<decoy project id>"
+    $env:DJINNITE_E2E_CREDENTIALS   = "<runner gcloud dir>\\application_default_credentials.json"
     uv run pytest tests/ --e2e-platform -rA -s
 
 All output is ASCII (Windows consoles are cp1252).

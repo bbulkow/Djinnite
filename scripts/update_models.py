@@ -1022,6 +1022,82 @@ def merge_model_data(
 
     return merged
 
+def _reprobe_scope(reprobe: Optional[set], catalog: dict) -> Optional[dict]:
+    """What a ``--reprobe`` run may touch.
+
+    Returns ``None`` for the whole catalog (no ``--reprobe``, or ``all``);
+    otherwise ``{provider: None}`` for a provider wildcard (``claude:all``)
+    and ``{provider: {model_id, ...}}`` for bare model ids. A bare id that no
+    catalog model has is reported and ignored.
+    """
+    if reprobe is None or "all" in reprobe:
+        return None
+    scope: dict = {}
+    for token in reprobe:
+        if token.endswith(":all"):
+            scope[token[: -len(":all")]] = None
+    for token in sorted(t for t in reprobe if ":" not in t):
+        owners = [p for p, data in catalog.items()
+                  if any(m.get("id") == token for m in data.get("models", []))]
+        if not owners:
+            print(f"[WARN] --reprobe {token}: no catalog model has this id; ignored")
+        for p in owners:
+            if p in scope and scope[p] is None:
+                continue  # already whole-provider
+            scope.setdefault(p, set()).add(token)
+    return scope
+
+
+def _describe_scope(scope: Optional[dict]) -> str:
+    if scope is None:
+        return "all models"
+    if not scope:
+        return "nothing"
+    return ", ".join(f"{p}:all" if ids is None else f"{p}:{','.join(sorted(ids))}"
+                     for p, ids in sorted(scope.items()))
+
+
+def _refresh_provider(provider_cls, p_config, existing_block: Optional[dict],
+                      ai_config, reprobe: Optional[set],
+                      targets: Optional[set]) -> Optional[dict]:
+    """Refresh one provider's catalog block; ``None`` if the API listed nothing.
+
+    ``targets`` (a set of model ids) confines the refresh to those models:
+    they alone are merged, probed and estimated, then spliced back in place.
+    Every other model, the list's membership and order, and the provider's
+    ``last_updated`` stay exactly as they were. ``None`` refreshes the whole
+    provider from ``list_models()``.
+    """
+    instance = provider_cls(api_key=p_config.api_key, model=p_config.default_model)
+    new_list = instance.list_models()
+    if not new_list:
+        return None
+    existing_block = existing_block or {}
+    existing_list = existing_block.get("models", [])
+
+    if targets is not None:
+        listed = {m["id"] for m in new_list}
+        for missing in sorted(targets - listed):
+            print(f"  [WARN] {missing}: not returned by list_models(); left unchanged")
+        new_list = [m for m in new_list if m["id"] in targets]
+
+    merged = merge_model_data(
+        new_list, existing_list, instance,
+        provider_cls, p_config.api_key, ai_config,
+        reprobe=reprobe,
+    )
+
+    if targets is None:
+        return {
+            "models": merged,
+            "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        }
+    refreshed = {m["id"]: m for m in merged}
+    block = dict(existing_block)
+    block["models"] = [refreshed.get(m["id"], m) for m in existing_list]
+    return block
+
+
 def update_models():
     parser = argparse.ArgumentParser(description="Update AI model catalog")
     parser.add_argument("--config", type=str, help="Path to ai_config.json")
@@ -1035,7 +1111,9 @@ def update_models():
              "Accepts: a model ID (e.g. 'claude-opus-4-7'), a provider-scoped "
              "wildcard (e.g. 'claude:all', 'gemini:all', 'chatgpt:all'), or "
              "'all' for every model across every provider. Repeatable: "
-             "--reprobe claude:all --reprobe gemini-2.5-pro.",
+             "--reprobe claude:all --reprobe gemini-2.5-pro. The whole run "
+             "(refresh, probes, cost pass) is limited to the targets; other "
+             "models are left untouched.",
     )
     args = parser.parse_args()
 
@@ -1061,30 +1139,18 @@ def update_models():
         "grok": GrokProvider
     }
 
-    # When --reprobe is provided, scope the provider iteration to the
-    # targets so the user isn't billed for refresh work on providers they
-    # didn't ask to touch. When --reprobe is absent, refresh every
-    # provider (the "generic catalog refresh" mode).
-    def _provider_in_scope(provider_name: str) -> bool:
-        if reprobe_set is None:
-            return True
-        if "all" in reprobe_set:
-            return True
-        if f"{provider_name}:all" in reprobe_set:
-            return True
-        # Bare model IDs: include this provider if any matches its catalog
-        existing_ids = {m["id"] for m in catalog.get(provider_name, {}).get("models", [])}
-        for token in reprobe_set:
-            if ":" in token or token == "all":
-                continue
-            if token in existing_ids:
-                return True
-        return False
+    # --reprobe limits the whole run -- refresh, probes and the cost pass --
+    # to what it names. Without it, every provider is refreshed (the
+    # "generic catalog refresh" mode).
+    scope = _reprobe_scope(reprobe_set, catalog)
+    if reprobe_set is not None:
+        print(f"[INFO] reprobe scope: {_describe_scope(scope)}")
 
     for name, provider_cls in providers.items():
-        if not _provider_in_scope(name):
+        if scope is not None and name not in scope:
             print(f"\n[SKIP] {name}: not in --reprobe scope")
             continue
+        targets = scope.get(name) if scope is not None else None
         print(f"\nUpdating {name} models...")
         p_config = ai_config.get_provider(name)
         if p_config and p_config.mode == "platform":
@@ -1098,21 +1164,17 @@ def update_models():
             continue
 
         try:
-            instance = provider_cls(api_key=p_config.api_key, model=p_config.default_model)
-            new_list = instance.list_models()
-            if new_list:
-                existing_list = catalog.get(name, {}).get("models", [])
-                merged = merge_model_data(
-                    new_list, existing_list, instance,
-                    provider_cls, p_config.api_key, ai_config,
-                    reprobe=reprobe_set,
-                )
-                
-                catalog[name] = {
-                    "models": merged,
-                    "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                }
-                print(f"[OK] Processed {len(merged)} models")
+            block = _refresh_provider(
+                provider_cls, p_config, catalog.get(name), ai_config,
+                reprobe_set, targets,
+            )
+            if block is not None:
+                catalog[name] = block
+                if targets is None:
+                    print(f"[OK] Processed {len(block['models'])} models")
+                else:
+                    print(f"[OK] Refreshed {len(targets)} of {len(block['models'])} "
+                          f"models (the rest untouched)")
         except Exception as e:
             print(f"[FAIL] Failed: {e}")
 
@@ -1129,12 +1191,14 @@ def update_models():
         except ImportError:
             from scripts.update_model_costs import update_model_costs
 
-        print("\n[TOOL] Estimating costs for new models...")
+        print("\n[TOOL] Estimating costs for new models..."
+              + ("" if scope is None else " (reprobe scope only)"))
         update_model_costs(
             force=False,
             dry_run=False,
             catalog_path=catalog_path,
             config_path=config_path,
+            scope=scope,
         )
     except Exception as e:
         print(f"[WARN] Cost estimation failed: {e}")

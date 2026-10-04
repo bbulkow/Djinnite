@@ -50,11 +50,11 @@ def _vertex(location="global", responses=(), model="claude-sonnet-5-5", **stub_k
 def test_vertex_client_gets_project_region_and_quota_header_no_key(sdk):
     direct, vertex = sdk
     p = ClaudeProvider(model="claude-sonnet-5-5", platform="vertexai",
-                       project_id="munin-bbulkow", location="us",
-                       quota_project="munin-bbulkow")
+                       project_id="my-project", location="us",
+                       quota_project="my-quota-project")
     vertex.assert_called_once_with(
-        project_id="munin-bbulkow", region="us",
-        default_headers={"x-goog-user-project": "munin-bbulkow"},
+        project_id="my-project", region="us",
+        default_headers={"x-goog-user-project": "my-quota-project"},
     )
     direct.assert_not_called()
     assert p.mode == "platform" and p.platform == "vertexai"

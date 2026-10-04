@@ -360,6 +360,7 @@ def update_model_costs(
     verify: bool = False,
     hold_divergent: bool = False,
     refresh_unknown: bool = False,
+    scope: Optional[dict] = None,
 ) -> None:
     """
     Main function to update per-token pricing in the model catalog.
@@ -384,6 +385,11 @@ def update_model_costs(
         hold_divergent: Hold large-divergence changes for review instead of
             applying them (default applies and reports them).
         refresh_unknown: Re-attempt models stuck in the ``unknown`` state.
+        scope: Limit the run to part of the catalog: ``{provider: None}``
+            for all of a provider's models, ``{provider: {model_id, ...}}``
+            for specific models. ``None`` (default) is the whole catalog.
+            ``update_models --reprobe`` passes its own scope, so a scoped
+            reprobe never re-prices models it was not asked to touch.
     """
     print("[TOOL] Model Cost Updater")
     print("-" * 40)
@@ -392,6 +398,10 @@ def update_model_costs(
     print(f"Verify: {verify} | Hold-divergent: {hold_divergent}")
     if provider_filter:
         print(f"Provider filter: {provider_filter}")
+    if scope is not None:
+        print("Scope: " + (", ".join(
+            f"{p}:all" if ids is None else f"{p}:{','.join(sorted(ids))}"
+            for p, ids in sorted(scope.items())) or "(nothing)"))
     print()
 
     ai_config = load_ai_config(config_path)
@@ -440,6 +450,9 @@ def update_model_costs(
     for provider_name, provider_data in catalog.items():
         if provider_filter and provider_name != provider_filter:
             continue
+        if scope is not None and provider_name not in scope:
+            continue
+        allowed = scope.get(provider_name) if scope is not None else None
 
         models = provider_data.get("models", [])
         if not models:
@@ -447,11 +460,14 @@ def update_model_costs(
 
         print(f"{provider_name.upper()} ({len(models)} models)")
 
+        # Siblings come from the full list: classification compares ids.
         sibling_ids = [m["id"] for m in models]
         models_needing_estimation = []
 
         for model in models:
             model_id = model["id"]
+            if allowed is not None and model_id not in allowed:
+                continue  # outside the requested scope: not even classified
 
             # Ensure costing block exists
             if "costing" not in model:

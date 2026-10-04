@@ -85,7 +85,7 @@ def test_ai_config_platform_mode(tmp_path):
     path = _write_config(tmp_path, {
         "platforms": {
             "_note": "notes are ignored",
-            "vertexai": {"project_id": "munin-bbulkow", "quota_project": "munin-bbulkow",
+            "vertexai": {"project_id": "my-project", "quota_project": "my-quota-project",
                          "locations": ["global", "us"]},
         },
         "providers": {
@@ -102,16 +102,16 @@ def test_ai_config_platform_mode(tmp_path):
 
     claude = cfg.providers["claude"]
     assert (claude.mode, claude.platform, claude.location) == ("platform", "vertexai", "us")
-    assert claude.project_id == "munin-bbulkow"       # from the platform block
-    assert claude.quota_project == "munin-bbulkow"
+    assert claude.project_id == "my-project"         # from the platform block
+    assert claude.quota_project == "my-quota-project"
     assert cfg.provider_kwargs("claude") == {
-        "api_key": None, "platform": "vertexai", "project_id": "munin-bbulkow",
-        "location": "us", "quota_project": "munin-bbulkow",
+        "api_key": None, "platform": "vertexai", "project_id": "my-project",
+        "location": "us", "quota_project": "my-quota-project",
     }
 
     gemini = cfg.providers["gemini"]  # legacy backend=vertexai entry
     assert (gemini.mode, gemini.platform, gemini.project_id) == ("platform", "vertexai", "legacy-proj")
-    assert gemini.quota_project == "munin-bbulkow"  # entry lacks it; platform block supplies it
+    assert gemini.quota_project == "my-quota-project"  # entry lacks it; platform block supplies it
 
     assert cfg.provider_kwargs("chatgpt") == {"api_key": "sk-real-looking-key"}
     assert cfg.providers["chatgpt"].mode == "direct"

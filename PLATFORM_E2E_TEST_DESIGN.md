@@ -161,14 +161,26 @@ sends. Extended test X3 settles it.
 ## GCP setup (one time)
 
 Run as a user with Owner on the billing account's org/folder (or equivalent).
-PowerShell; set the variables first.
+PowerShell. Every account, project and billing value is **configuration you
+supply** -- nothing below names a real one. Set the variables first:
+
+| Variable | What to supply | Harness variable it becomes |
+|---|---|---|
+| `$PROJECT` | a new, globally unique project ID for the e2e tier | `DJINNITE_E2E_PROJECT` |
+| `$DECOY` | a second new project ID the runner will have no rights on | `DJINNITE_E2E_DECOY_PROJECT` |
+| `$BILLING` | the billing account ID to charge | -- |
+| `$OPERATOR` | the operator's Google account, as `user:<email>` | -- |
+| `$RUNNER` | a name for the runner service account | -- |
+| `$GCLOUD_DIR` | a separate gcloud config directory for the runner's credentials | `DJINNITE_E2E_CREDENTIALS` = `$GCLOUD_DIR\application_default_credentials.json` |
 
 ```powershell
-$PROJECT = "djinnite-e2e"            # dedicated test project
-$DECOY   = "djinnite-e2e-decoy"      # empty project the runner has NO rights on
-$BILLING = "XXXXXX-XXXXXX-XXXXXX"    # billing account id
-$ME      = "user:brian@bulkowski.org"
-$SA      = "djinnite-e2e-runner@$PROJECT.iam.gserviceaccount.com"
+$PROJECT    = "<e2e project id>"            # dedicated test project
+$DECOY      = "<decoy project id>"          # empty project the runner has NO rights on
+$BILLING    = "<billing account id>"
+$OPERATOR   = "user:<operator email>"       # the operator's Google account
+$RUNNER     = "<runner service account name>"
+$GCLOUD_DIR = "<directory for the runner's gcloud config>"
+$SA         = "$RUNNER@$PROJECT.iam.gserviceaccount.com"
 
 # 1. Projects
 gcloud projects create $PROJECT
@@ -179,7 +191,7 @@ gcloud projects create $DECOY          # no billing, no APIs, no grants -- by de
 gcloud services enable aiplatform.googleapis.com iamcredentials.googleapis.com --project=$PROJECT
 
 # 3. The runner identity (no keys are ever created for it)
-gcloud iam service-accounts create djinnite-e2e-runner --project=$PROJECT `
+gcloud iam service-accounts create $RUNNER --project=$PROJECT `
     --display-name="Djinnite e2e runner"
 
 # 4. Runner grants: call models; use the project for quota/billing
@@ -188,12 +200,12 @@ gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --
 
 # 5. Human grants: impersonate the runner; enable partner models in Model Garden
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT `
-    --member=$ME --role="roles/iam.serviceAccountTokenCreator"
-gcloud projects add-iam-policy-binding $PROJECT --member=$ME `
+    --member=$OPERATOR --role="roles/iam.serviceAccountTokenCreator"
+gcloud projects add-iam-policy-binding $PROJECT --member=$OPERATOR `
     --role="roles/consumerprocurement.entitlementManager"
 
 # 6. Budget alert (alerts only -- GCP budgets do not stop spending)
-gcloud billing budgets create --billing-account=$BILLING --display-name="djinnite-e2e" `
+gcloud billing budgets create --billing-account=$BILLING --display-name="$PROJECT" `
     --budget-amount=10USD --filter-projects="projects/$PROJECT" `
     --threshold-rule=percent=0.5 --threshold-rule=percent=1.0
 ```
@@ -203,8 +215,8 @@ gcloud billing budgets create --billing-account=$BILLING --display-name="djinnit
 | `roles/aiplatform.user` | runner SA, test project | `aiplatform.endpoints.predict` (generate, count tokens) and model listing |
 | `roles/serviceusage.serviceUsageConsumer` | runner SA, test project | lets the runner name the test project as its quota project (`x-goog-user-project`) |
 | *(nothing)* | runner SA, decoy project | deliberately absent: naming the decoy as quota project must fail with 403 |
-| `roles/iam.serviceAccountTokenCreator` | you, on the runner SA | local runs impersonate the runner -- no key files |
-| `roles/consumerprocurement.entitlementManager` | you, test project | required to enable partner (Anthropic) models in Model Garden |
+| `roles/iam.serviceAccountTokenCreator` | the operator, on the runner SA | local runs impersonate the runner -- no key files |
+| `roles/consumerprocurement.entitlementManager` | the operator, test project | required to enable partner (Anthropic) models in Model Garden |
 
 **Console steps** (no CLI equivalent worth scripting):
 
@@ -235,14 +247,15 @@ gcloud billing budgets create --billing-account=$BILLING --display-name="djinnit
 
 ## Credentials on a developer machine
 
-Keep the e2e identity separate from any consumer's ADC (Munin's lives in the
-default gcloud config) by giving it its own gcloud config directory:
+Keep the e2e identity separate from any other ADC on the machine (a
+consumer's usually lives in the default gcloud config) by giving it its own
+gcloud config directory:
 
 ```powershell
-$env:CLOUDSDK_CONFIG = "$HOME\.gcloud-djinnite-e2e"
+$env:CLOUDSDK_CONFIG = $GCLOUD_DIR
 gcloud auth application-default login --impersonate-service-account=$SA
 Remove-Item Env:CLOUDSDK_CONFIG
-# -> $HOME\.gcloud-djinnite-e2e\application_default_credentials.json
+# -> $GCLOUD_DIR\application_default_credentials.json
 #    (type "impersonated_service_account"; google-auth reads it natively)
 ```
 
@@ -339,7 +352,7 @@ count, which Google does not bill.
 | C12 | truncation | `AIOutputTruncatedError` | yes (tiny) |
 
 If Haiku is `no_quota` everywhere, C7-C12 skip with
-`"no Claude quota in project djinnite-e2e (haiku: no_quota @ global,us)"`,
+`"no Claude quota in project <e2e project> (haiku: no_quota @ global,us)"`,
 listed in the summary. C1-C6 still run.
 
 ### Scripts (default tier)
@@ -434,7 +447,8 @@ zero-quota model, since one model cannot be both.
 
 ## Decisions (2026-10-04)
 
-1. **Dedicated project** `djinnite-e2e` -- adopted. It keeps tests off
+1. **Dedicated project** -- adopted; its ID is configuration
+   (`DJINNITE_E2E_PROJECT`). It keeps tests off
    Munin's quota and budget; it starts with no Claude quota or usage history.
 2. **Agents run the default tier** as part of finishing platform work, under
    the $0.50 cap -- adopted.

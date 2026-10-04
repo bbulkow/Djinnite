@@ -712,19 +712,19 @@ provider) and **probes** what the platform offers per model
 ```python
 # Runtime: no api_key.
 p = get_provider("claude", model="claude-sonnet-5-5", platform="vertexai",
-                 project_id="munin-bbulkow", location="us",
-                 quota_project="munin-bbulkow")
+                 project_id="my-project", location="us",
+                 quota_project="my-project")
 p.mode, p.platform, p.location   # ("platform", "vertexai", "us")
 
 # Legacy alias, unchanged: backend="vertexai" == platform="vertexai".
 g = get_provider("gemini", model="gemini-3.5-flash", backend="vertexai",
-                 project_id="p", location="global")
+                 project_id="my-project", location="global")
 ```
 
 ```jsonc
 // ai_config.json
 "platforms": {
-  "vertexai": {"project_id": "munin-bbulkow", "quota_project": "munin-bbulkow",
+  "vertexai": {"project_id": "my-project", "quota_project": "my-project",
                "locations": ["global", "us"]}   // what probe_platform checks
 },
 "providers": {

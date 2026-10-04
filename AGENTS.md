@@ -60,6 +60,18 @@ and any string written to stdout/stderr from code in this repo.
 (Markdown docs and JSON catalog values are unaffected — the rule is
 specifically about runtime Python output.)
 
+### Accounts, projects and regions are configuration
+
+No design, doc or code in this repo assumes a particular account, project or
+region. They come from configuration (`ai_config.json`, `DJINNITE_E2E_*`) or a
+parameter, and docs name the role ("the operator's Google account", "the e2e
+project") rather than a value. Examples and tests use neutral placeholders
+(`my-project`), never a real deployment such as a consumer's project.
+
+Defaults that are overridable and describe behavior rather than a deployment
+are fine: the platform registry's default locations (Gemini `us-central1`,
+Claude `global`) and the e2e harness's default test locations and models.
+
 ### Fix "pre-existing" test failures before starting new work
 
 When a test fails, errors during collection, or is skipped for a reason that
@@ -346,21 +358,18 @@ API calls against three providers and costs real tokens. Don't run it
 unprompted to "verify" something — scope down to one or two model IDs
 first. The user has paid for surprise probes more than once.
 
-**Known bug (2026-10-04): `--reprobe <model-id>` is not scoped.** Reprobing
-only `claude-sonnet-5-5` and `claude-opus-5-5` also:
+**`--reprobe` scopes the whole run.** `--reprobe <model-id>` refreshes,
+probes and re-prices only those models; every other model, the provider's
+model list and its `last_updated` are left exactly as they were.
+`--reprobe <provider>:all` covers that provider only, and `--reprobe all`
+(or no `--reprobe`) covers the whole catalog. The run prints its scope
+first (`[INFO] reprobe scope: ...`) -- check it before the probes start.
 
-* ran the end-of-run `update_model_costs` pass over **every** provider. It
-  re-estimated all 19 floating-priced models (3 Gemini, 16 OpenAI) with paid
-  AI calls, and rewrote their `updated`, `source_url` and `published_figure`
-  -- dropping, for example, the "resolves to gemini-3.8-flash" note;
-* applied the `effort` thinking-style pass to every Claude model
-  (`claude-fable-5-1` gained `"effort"`);
-* refreshed every listed Claude model's top-level fields from `list_models()`
-  (for example, `vision_limits` defaults on `claude-sonnet-5-5`).
-
-A model-scoped reprobe should touch only those models. Until this is fixed,
-expect a scoped reprobe to cost the cost pass as well, and diff the catalog
-for out-of-scope changes.
+This was a bug until 2026-10-04: reprobing only `claude-sonnet-5-5` and
+`claude-opus-5-5` re-priced all 19 floating models on every provider (paid
+AI calls that rewrote their `source_url` / `published_figure`), added
+`"effort"` to the untargeted `claude-fable-5-1`, and refreshed every listed
+Claude model. `tests/test_update_models_scope.py` guards it.
 
 ## Pointers
 

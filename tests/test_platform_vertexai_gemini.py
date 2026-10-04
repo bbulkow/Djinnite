@@ -48,8 +48,8 @@ def _vertex(error=None, location="global"):
 
 def test_vertex_adc_client_kwargs(client_cls):
     GeminiProvider(api_key=None, model="gemini-3.5-flash", backend="vertexai",
-                   project_id="munin-bbulkow", location="global")
-    client_cls.assert_called_once_with(vertexai=True, project="munin-bbulkow", location="global")
+                   project_id="my-project", location="global")
+    client_cls.assert_called_once_with(vertexai=True, project="my-project", location="global")
     assert "api_key" not in client_cls.call_args.kwargs
 
 

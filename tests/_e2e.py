@@ -34,7 +34,6 @@ class E2EConfig:
     decoy_project: Optional[str]
     locations: tuple
     gemini_model: str
-    gemini_legacy_model: str
     claude_model: str
     claude_canary: str
     claude_5x_model: Optional[str]
@@ -53,7 +52,6 @@ class E2EConfig:
                 if loc.strip()
             ),
             gemini_model=env("DJINNITE_E2E_GEMINI_MODEL", "gemini-3.5-flash"),
-            gemini_legacy_model=env("DJINNITE_E2E_GEMINI_LEGACY_MODEL", "gemini-2.5-flash"),
             claude_model=env("DJINNITE_E2E_CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
             claude_canary=env("DJINNITE_E2E_CLAUDE_CANARY", "claude-sonnet-5-5"),
             claude_5x_model=env("DJINNITE_E2E_CLAUDE_5X_MODEL") or None,

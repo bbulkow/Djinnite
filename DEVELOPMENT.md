@@ -746,9 +746,9 @@ probe_platform`), because the catalog's top-level fields are direct-mode facts.
 |---|---|---|
 | Client | `genai.Client(vertexai=True, project, location)` | `anthropic.AnthropicVertex(project_id, region=location)` |
 | Credentials | ADC; `api_key` passed only if given (legacy keyed Vertex) | ADC; `api_key` never sent |
-| Default location | `us-central1` (unchanged) | `global` (premium-free; 5.x is not served at single-region endpoints) |
+| Default location | `global` (was `us-central1` before 0.5.0; `gemini-3.5-flash` is not served there) | `global` (premium-free; 5.x is not served at single-region endpoints) |
 | `quota_project` | applied to the ADC credentials (`google.auth.default(quota_project_id=...)`), because google-genai **overwrites** an `x-goog-user-project` header with the credentials' quota project when they carry one; rejected with `api_key` | sent as `default_headers={"x-goog-user-project": ...}`: AnthropicVertex never derives that header from the credentials, so the explicit header always wins |
-| Price | catalog price (no documented location premium) | catalog price at `global`; **×1.10** at `us`, `eu` and regional endpoints (`usage["price_multiplier"]`) |
+| Price | catalog price; Google charges GA Gemini 3+ **10% more** off `global`, which Djinnite does not apply yet (the premium is per model, so it cannot be a provider-wide rule) | catalog price at `global`; **×1.10** at `us`, `eu` and regional endpoints (`usage["price_multiplier"]`) |
 | Model IDs | as catalog | as catalog; dated snapshots rewritten `-YYYYMMDD` → `@YYYYMMDD` |
 | Web search | `google_search` (as direct) | `web_search_20250305` (the only version Vertex serves); search price is the catalog's first-party $10/1k, **unverified for Vertex** |
 | `list_models()` | the platform's model list | Vertex has no Models API: catalog models recorded `available` at this location by `probe_platform` (`[]` if never probed) |
@@ -1100,8 +1100,15 @@ the `--e2e-platform` test tier, keyword-only `history=` on `generate()` /
   `{thinking:on, web_search:on}` entries); `probe_thinking_disable` actually
   probes (it returned True unconditionally); `between_tools` is detected;
   `effort` joins `thinking_style` whenever `effort_levels` is set.
+* **Gemini on Vertex defaults to `location="global"`** (was `us-central1`).
+  The current Gemini models, `gemini-3.5-flash` among them, are not served at
+  `us-central1`, and `global` is the only location without Google's 10%
+  premium. Code that omits `location` now sends Gemini requests to `global`,
+  where they may be processed in any region. To keep processing in the US,
+  pass `location="us"` (or set it in `ai_config.json`).
 
-**Migration:** none required. To correct the current catalog, run
+**Migration:** none required, unless you relied on the Gemini default to keep
+processing in the US -- set `location` explicitly. To correct the current catalog, run
 `update_models --reprobe claude:all` (observably, per AGENTS.md); to record
 what a platform serves, run `probe_platform`.
 

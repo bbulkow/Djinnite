@@ -90,9 +90,9 @@ class GeminiProvider(BaseAIProvider):
             project_id: The Google Cloud project ID (required for Vertex AI)
             require_pricing: Fast-fail on missing/unknown price (see base).
             platform: ``"vertexai"`` for Google Vertex AI; ``None`` = direct.
-            location: Vertex location (default ``"us-central1"``, unchanged
-                from before platform mode). ``"global"`` serves the newest
-                models, e.g. gemini-3.5-flash.
+            location: Vertex location (default ``"global"``; ``"us-central1"``
+                before 0.5.0). ``"global"`` serves every current model,
+                e.g. gemini-3.5-flash, which is not served at us-central1.
             quota_project: Project billed for quota (for user ADC created
                 with ``--disable-quota-project``). Applied to the ADC
                 credentials, because google-genai overwrites an

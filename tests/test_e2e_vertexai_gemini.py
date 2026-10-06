@@ -3,7 +3,7 @@ Gemini on Google Vertex AI, end to end (opt-in: ``--e2e-platform``).
 
 Real calls in the e2e test project. Billed tests cost fractions of a cent;
 rejected requests (403/404) are not billed. Matrix: PLATFORM_E2E_TEST_DESIGN.md
-("Gemini on Vertex", G1-G11).
+("Gemini on Vertex", G1-G11; G6 was removed).
 
     uv run pytest tests/test_e2e_vertexai_gemini.py --e2e-platform -rA -s
 """
@@ -75,17 +75,6 @@ def test_g5_truncation(gemini, e2e_ledger):
     partial = gemini_call(lambda: contract.check_truncation(gemini, thinking=False))
     e2e_ledger.record("gemini G5 truncation (partial)", partial)
     contract.assert_usage(partial)
-
-
-def test_g6_legacy_backend_default_location(e2e_session, e2e_ledger):
-    """backend="vertexai" with no location still means us-central1."""
-    cfg = e2e_session
-    p = get_provider("gemini", model=cfg.gemini_legacy_model, backend="vertexai",
-                     project_id=cfg.project)
-    assert p.location == "us-central1"
-    r = gemini_call(lambda: contract.check_generate(p))
-    e2e_ledger.record("gemini G6 legacy @us-central1", r)
-    contract.assert_usage(r)
 
 
 def test_g7_quota_project_succeeds(e2e_session, e2e_ledger):

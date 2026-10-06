@@ -63,7 +63,6 @@ is an access-path bug (or a provider/platform difference worth recording).
 | Role | Model | Why |
 |---|---|---|
 | Gemini, primary | `gemini-3.5-flash` @ `global` | Current flash; supports schema, thinking, history. Shared dynamic quota, so no quota request. ~$0.002 / test call. |
-| Gemini, legacy default location | `gemini-2.5-flash` @ `us-central1` | Proves the unchanged default location still works. A model served in us-central1 is required. **Retires 2026-10-20** -- replace before then (see "Consequences", 4). |
 | Claude, functional | `claude-haiku-4-5-20251001` | Cheapest Claude ($1 / $5). A dated snapshot, so every call exercises the `-YYYYMMDD` -> `@YYYYMMDD` rewrite. Supports structured outputs and budget thinking. |
 | Claude, zero-quota canary | `claude-sonnet-5-5` | Enabled in Model Garden, **no quota requested**. A call must return 429 -> `AIRateLimitError`. Once Munin-style quota is granted for it, it graduates to the 5.x tier (between_tools, always-on thinking). |
 
@@ -86,9 +85,12 @@ relying on them after a Google pricing or quota change.
 * **Claude Sonnet 5.5 and Opus 5.5** are served at `global`, `us` and `eu`,
   not at single regions such as `us-east5`. Multi-region endpoints serve
   Claude 4.7 and later.
-* **`gemini-2.5-flash`** is served at `us-central1`, and **retires
-  2026-10-20**.
-  ([model card](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/2-5-flash))
+* **`gemini-3.5-flash`** (GA) is served at `global`, the `us` and `eu`
+  multi-regions, and `northamerica-northeast1`, `europe-west2`,
+  `europe-west3`, `asia-northeast1`, `asia-south1`, `asia-southeast1` and
+  `australia-southeast1` -- **not** at `us-central1`, Gemini's Vertex default
+  before 0.5.0. (Checked 2026-10-05.)
+  ([model card](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash))
 
 **Pricing**
 
@@ -141,8 +143,8 @@ sends. Extended test X3 settles it.
 ### Consequences (open -- not yet acted on)
 
 1. **Gemini platform pricing is wrong for Gemini 3+ off `global`.** The
-   registry applies no Gemini premium, so `gemini-3.5-flash` at `us-central1`
-   is under-reported by 10%. Because the premium depends on the model (GA
+   registry applies no Gemini premium, so `gemini-3.5-flash` anywhere but
+   `global` (for example `us`) is under-reported by 10%. Because the premium depends on the model (GA
    Gemini 3+), it cannot be a provider-wide rule in `platforms.py`; it needs a
    per-model, catalog-driven source.
 2. **Count-tokens cannot prove availability everywhere.** It doesn't exist at
@@ -153,9 +155,11 @@ sends. Extended test X3 settles it.
 3. **Haiku's regional-premium test (C8) must use `us-east5`**, picked from a
    generation attempt, not from count-tokens discovery; Sonnet 5.5 covers the
    `us` multi-region.
-4. **G6 needs a new model before 2026-10-20.** `gemini-2.5-flash` retires; its
-   replacement at `us-central1` will be a GA Gemini 3+ model, so G6 will also
-   exercise the Gemini premium (consequence 1).
+4. **Resolved 2026-10-05: Gemini's default location is now `global`.**
+   `gemini-3.5-flash` is not served at `us-central1`, the old default, so
+   testing that default live needed a model weeks from retirement. G6, which
+   did, was removed; the offline suite pins the new default, and discovery
+   still token-counts Gemini at `us`.
 5. **Step 8/9 below** use the metric names and policy values above.
 
 ## GCP setup (one time)
@@ -171,7 +175,7 @@ nothing below names a real one:
 | Variable | What to supply | Harness variable it becomes |
 |---|---|---|
 | `$PROJECT` | a new, globally unique project ID for the e2e tier | `DJINNITE_E2E_PROJECT` |
-| `$DECOY` | a second new project ID the runner will have no rights on | `DJINNITE_E2E_DECOY_PROJECT` |
+| `$DECOY` | an **existing** project ID the runner has no rights on | `DJINNITE_E2E_DECOY_PROJECT` |
 | `$BILLING` | the billing account ID to charge | -- |
 | `$OPERATOR` | the operator's Google account, as `user:<email>` | -- |
 | `$RUNNER` | a name for the runner service account | -- |
@@ -187,13 +191,17 @@ $GCLOUD_DIR = "<directory for the runner's gcloud config>"
 $SA         = "$RUNNER@$PROJECT.iam.gserviceaccount.com"
 ```
 
-**A. Create the projects** (the guide assumes one exists):
+**A. Create the e2e project** (the guide assumes one exists):
 
 ```powershell
 gcloud projects create $PROJECT
 gcloud billing projects link $PROJECT --billing-account=$BILLING
-gcloud projects create $DECOY          # no billing, no APIs, no grants -- by design
 ```
+
+The decoy is **not** created. Projects count against an account's project
+quota, so use any existing project the runner service account has no rights
+on. The decoy tests only name it as the quota project and expect a 403;
+nothing is created, enabled or billed there.
 
 **B. Follow VERTEX_AI_SETUP.md steps 1-6 for `$PROJECT`**, with these choices
 (the models and locations are those in "Model choice" above):
@@ -203,7 +211,7 @@ gcloud projects create $DECOY          # no billing, no APIs, no grants -- by de
 | 1. Sign in, check project | `$PROJECT` is the project created in A |
 | 2. Vertex AI API | also enable `iamcredentials.googleapis.com` (impersonation) |
 | 3. Model Garden | enable Haiku 4.5 and Sonnet 5.5 |
-| 4. Org policy | allow `:structured_outputs` for `claude-haiku-4-5` and `claude-sonnet-5-5`; add `:web_search` only for extended test X3 |
+| 4. Org policy | the guide's file, with the `claude-haiku-4-5` and `claude-sonnet-5-5` lines (`:structured_outputs` and `:web_search`) |
 | 5. Quota | request Haiku 4.5 quota at `global`, plus `us-east5` (regional `online_prediction_requests_per_base_model`) for the regional-premium test. **Do not** request quota for Sonnet 5.5: it is the 429 canary. New projects are often refused Claude quota; until it is granted the Claude functional tests skip by name and the plumbing tests still run. |
 | 6. Identity | the **"As a service account"** path, with `$RUNNER` as the service account (`roles/aiplatform.user`), the operator as its Token Creator, and the credentials kept in `$GCLOUD_DIR` (next section) |
 
@@ -281,7 +289,6 @@ stays offline and free.
 | `DJINNITE_E2E_DECOY_PROJECT` | unset -> decoy tests fail | project the runner has no rights on |
 | `DJINNITE_E2E_LOCATIONS` | `global,us` | locations to discover |
 | `DJINNITE_E2E_GEMINI_MODEL` | `gemini-3.5-flash` | |
-| `DJINNITE_E2E_GEMINI_LEGACY_MODEL` | `gemini-2.5-flash` | for the `us-central1` default test |
 | `DJINNITE_E2E_CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | |
 | `DJINNITE_E2E_CLAUDE_CANARY` | `claude-sonnet-5-5` | must have zero quota |
 | `DJINNITE_E2E_MAX_COST` | `0.50` | session hard cap, dollars |
@@ -318,7 +325,7 @@ count, which Google does not bill.
 | G3 | `generate_json` + `history` (two exchanges) | recalls facts given only in history (e.g. 7 and "blue") | yes |
 | G4 | `thinking=False`, then `thinking="low"` | thinking_tokens 0/None, then > 0; `token_cost` == input + (output + thinking) x rate | yes (2) |
 | G5 | `max_output_tokens=5` | `AIOutputTruncatedError` with partial usage | yes (tiny) |
-| G6 | legacy: `backend="vertexai"`, no location | client location is `us-central1`; call succeeds with the legacy model | yes |
+| G6 | *(removed 2026-10-05: tested the old region-specific default location)* | | |
 | G7 | `quota_project` = test project | succeeds (credentials carry the quota project) | yes (tiny) |
 | G8 | `quota_project` = decoy | `AIAuthenticationError` whose message names the decoy -- proves the quota project actually travels | no |
 | G9 | unknown model ID | `AIModelNotFoundError` | no |
@@ -399,7 +406,7 @@ enough not to flake, small enough to stop a runaway loop.
 |---|---|
 | Keyless `get_provider` / ADC | G1, C1 |
 | Location routing (global / multi-region) | G1, C1, C8, discovery |
-| Gemini default location unchanged | G6 |
+| Gemini default location `global` | offline (`test_default_location_is_global`) |
 | Quota project travels (both mechanisms) | G7, G8, C3 |
 | `@` dated-snapshot rewrite | C1 (Haiku is dated) |
 | Error mapping 429 / 403 / 404 / ADC | C2, G8/C3, G9/C4, G10/C5 |

@@ -3,8 +3,8 @@ Gemini on the ``vertexai`` platform (offline; ``genai.Client`` is mocked).
 
 Covers Munin's acceptance criteria: ``genai.Client`` receives
 ``vertexai=True``, the project and ``location="global"`` and no ``api_key``;
-the default location is unchanged (``us-central1``); and ``get_provider``
-constructs with no key.
+the default location is ``global`` (``us-central1`` before 0.5.0); and
+``get_provider`` constructs with no key.
 
     uv run pytest tests/test_platform_vertexai_gemini.py -v
 """
@@ -53,16 +53,16 @@ def test_vertex_adc_client_kwargs(client_cls):
     assert "api_key" not in client_cls.call_args.kwargs
 
 
-def test_default_location_is_unchanged(client_cls):
+def test_default_location_is_global(client_cls):
     p = GeminiProvider(api_key=None, model="gemini-3.5-flash", backend="vertexai", project_id="p")
-    assert client_cls.call_args.kwargs["location"] == "us-central1"
-    assert p.location == "us-central1"
+    assert client_cls.call_args.kwargs["location"] == "global"
+    assert p.location == "global"
 
 
-def test_keyed_vertex_kwargs_are_todays(client_cls):
+def test_keyed_vertex_kwargs(client_cls):
     GeminiProvider(api_key="AIza-key", model="gemini-3.5-flash", backend="vertexai", project_id="p")
     assert client_cls.call_args.kwargs == {
-        "api_key": "AIza-key", "vertexai": True, "project": "p", "location": "us-central1",
+        "api_key": "AIza-key", "vertexai": True, "project": "p", "location": "global",
     }
 
 

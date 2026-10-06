@@ -28,8 +28,11 @@ Throughout, replace `my-project` and the other example values with your own.
   works). Two one-time steps need roles that Owner may not include -- they
   are called out where they come up.
 
-Every command below names the project explicitly (`--project=$PROJECT`), so
-nothing changes gcloud's default project or affects other shells.
+Run everything in one PowerShell window. Step 1 sets `$PROJECT`, an ordinary
+PowerShell variable, and every command after it names the project with
+`$PROJECT`. Nothing changes gcloud's saved default project, the environment,
+or any other shell. If you open a new window partway through, set `$PROJECT`
+there first.
 
 ## Step 1. Sign in and check the project
 
@@ -43,13 +46,21 @@ The account marked `*` runs the commands in this guide. If the account you
 need is not listed, add it with `gcloud auth login` (this also makes it the
 active account; `gcloud config set account <email>` switches back later).
 
-Then check the project:
+Then set `$PROJECT` and check the project:
 
 ```powershell
 $PROJECT = "my-project"
 gcloud projects describe $PROJECT --format="value(projectId,lifecycleState)"
 gcloud billing projects describe $PROJECT --format="value(billingEnabled)"
 ```
+
+Use the project ID (lowercase), not the display name the console shows.
+Every gcloud command below names the project with `$PROJECT`. A command that
+named no project would charge its API call to your saved default project,
+and might offer to enable APIs there. If gcloud ever asks to enable an API
+on a project other than yours, answer **N** and check the command. If
+`$PROJECT` is not set, gcloud stops with "The project property is set to the
+empty string" rather than using your default project.
 
 **Check:** the first command prints your project ID and `ACTIVE`; the second
 prints `True`. An error from the first means the ID is wrong or your account
@@ -102,26 +113,72 @@ Claude's `generate_json()` cannot work. (Projects with no organization skip
 this step.)
 
 Setting it needs the **Organization Policy Administrator** role
-(`roles/orgpolicy.policyAdmin`), usually held at the organization level.
+(`roles/orgpolicy.policyAdmin`), usually held at the organization level, and
+the Organization Policy API enabled on the project. See what is enforced now:
 
-Write `claude-features.yaml`, listing each model you enabled:
+```powershell
+gcloud services enable orgpolicy.googleapis.com --project=$PROJECT
+gcloud org-policies describe vertexai.allowedPartnerModelFeatures --project=$PROJECT --effective
+```
+
+`denyAll: true` in the output means Claude's features are blocked for this
+project -- the default in an organization.
+
+Create `claude-features.yaml` that contain the features we'll need, 
+and then you'll apply it.  The policy allows every feature
+Djinnite uses -- structured outputs and web search -- for each model, so the
+project can do everything the models can. Keep one pair of lines per model
+you enabled in step 3, and delete the `web_search` lines only if you want web
+search blocked. 
 
 ```yaml
-name: projects/my-project/policies/vertexai.allowedPartnerModelFeatures
+name: projects/[my-project here]/policies/vertexai.allowedPartnerModelFeatures
 spec:
   rules:
   - values:
       allowedValues:
       - publishers/anthropic/models/claude-sonnet-5-5:structured_outputs
+      - publishers/anthropic/models/claude-sonnet-5-5:web_search
       - publishers/anthropic/models/claude-opus-5-5:structured_outputs
+      - publishers/anthropic/models/claude-opus-5-5:web_search
       - publishers/anthropic/models/claude-haiku-4-5:structured_outputs
+      - publishers/anthropic/models/claude-haiku-4-5:web_search
 ```
 
-Add `publishers/anthropic/models/<model>:web_search` entries only if you will
-call Claude with `web_search=True`. Then apply it:
+Or to create this file with a command line in powershell:
 
 ```powershell
-gcloud org-policies set-policy claude-features.yaml
+@"
+name: projects/$PROJECT/policies/vertexai.allowedPartnerModelFeatures
+spec:
+  rules:
+  - values:
+      allowedValues:
+      - publishers/anthropic/models/claude-sonnet-5-5:structured_outputs
+      - publishers/anthropic/models/claude-sonnet-5-5:web_search
+      - publishers/anthropic/models/claude-opus-5-5:structured_outputs
+      - publishers/anthropic/models/claude-opus-5-5:web_search
+      - publishers/anthropic/models/claude-haiku-4-5:structured_outputs
+      - publishers/anthropic/models/claude-haiku-4-5:web_search
+"@ | Set-Content -Encoding ascii claude-features.yaml
+
+Get-Content claude-features.yaml | Select-Object -First 1
+```
+
+**Before applying, check the name line.** It must print
+`name: projects/<your project ID>/...`. The policy lands on the project that
+line names, whatever `--project` says. If it shows `$PROJECT` or
+`my-project`, the file was not filled in -- write your project ID into that
+line by hand.
+
+Then apply it using the org-policies set-policy command.
+
+ `--billing-project` charges the call itself to your project;
+without it, gcloud falls back to your default project and may offer to
+enable the Organization Policy API in the wrong project:
+
+```powershell
+gcloud org-policies set-policy claude-features.yaml --billing-project=$PROJECT
 ```
 
 **Check:** `gcloud org-policies describe vertexai.allowedPartnerModelFeatures --project=$PROJECT`
@@ -136,6 +193,13 @@ your organization's policies.
 
 A new project often has **zero** quota for Claude models. Calls then fail
 immediately with a quota error, even though everything else is right.
+
+This quota doesn't just take minutes: it currently requires a discussion
+with a Google Cloud Enterprise Account Manager. Try enabling the quota, but 
+be prepared to be rejected within a few minutes. The issue isn't a new project,
+these quotas are gate-kept by a discussion with an Enterprise Account Manager. 
+Open a chat window with Google Enterprise Sales, and be prepared for the pain
+of a sales call.
 
 In the console: **IAM & Admin -> Quotas & System Limits**, filter by the
 metric below and the model's name, and request an increase for each location
@@ -162,24 +226,32 @@ of usage history. Gemini needs no quota request.
 Djinnite uses Google's **Application Default Credentials (ADC)**: whatever
 identity the environment provides. No key file, no API key.
 
+First you will create a user, but then you will follow the necessary path for
+execution either in Cloud Run, or from a local machine.
+
 That identity needs **Vertex AI User** (`roles/aiplatform.user`) on the
-project.
+project. A service account is the recommended identity, in production and on
+your own machine. Create one and grant it the role:
+
+```powershell
+$SA_NAME = "my-app"
+$SA = "$SA_NAME@$PROJECT.iam.gserviceaccount.com"
+gcloud iam service-accounts create $SA_NAME --project=$PROJECT
+gcloud projects add-iam-policy-binding $PROJECT `
+    --member="serviceAccount:$SA" --role="roles/aiplatform.user"
+```
+
+`my-app` is any name you choose: 6 to 30 lowercase letters, digits and
+hyphens. (Running as yourself on your own machine needs no service account:
+skip to **As yourself** below.)
 
 ### On Cloud Run (or GKE, Compute Engine)
 
-Create a service account, grant it the role, and run your service as it:
+Run your service as that service account. On Cloud Run, add
+`--service-account=$SA` to your `gcloud run deploy` command. Nothing else:
+ADC picks up the service account automatically.
 
-```powershell
-gcloud iam service-accounts create my-app --project=$PROJECT
-$SA = "my-app@$PROJECT.iam.gserviceaccount.com"
-gcloud projects add-iam-policy-binding $PROJECT `
-    --member="serviceAccount:$SA" --role="roles/aiplatform.user"
-gcloud run deploy my-service --project=$PROJECT --service-account=$SA ...   # your usual deploy flags
-```
-
-Nothing else: ADC picks up the service account automatically.
-
-### On your own machine
+### On your localmachine
 
 Nothing here needs a machine-wide change. Your normal `gcloud` login and any
 credentials other programs use stay as they are.
@@ -193,34 +265,37 @@ this order:
    `CLOUDSDK_CONFIG`.
 
 So you can keep Djinnite's credentials in a directory of their own and point
-only the processes that need them at it. An environment variable set with
-`$env:` lasts for that PowerShell window only.
-
-**As a service account** (recommended; matches production, no key file).
-You need **Service Account Token Creator** on the account:
+only the processes that need them at it. Choose an empty directory, outside
+any code repository:
 
 ```powershell
-gcloud iam service-accounts add-iam-policy-binding $SA `
+$CREDS_DIR = "<an empty directory for these credentials>"
+New-Item -ItemType Directory -Force $CREDS_DIR | Out-Null
+```
+
+Then write the credentials there, as the service account or as yourself. In
+both, `CLOUDSDK_CONFIG` points gcloud at that directory for this window only
+and is removed straight after the login. (Run without it, the login replaces
+the machine's default credentials file instead.)
+
+**As a service account** (recommended; matches production, no key file).
+This uses the service account created above. You need **Service Account
+Token Creator** on it:
+
+```powershell
+gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT `
     --member="user:<your email>" --role="roles/iam.serviceAccountTokenCreator"
 
-# Write impersonated credentials to a directory of their own.
-# CLOUDSDK_CONFIG applies to this window only and is removed afterwards.
-$CREDS_DIR = "<an empty directory for these credentials>"
 $env:CLOUDSDK_CONFIG = $CREDS_DIR
 gcloud auth application-default login --impersonate-service-account=$SA
 Remove-Item Env:CLOUDSDK_CONFIG
 ```
 
-Then, in the window (or the service definition) of the program that uses
-Djinnite:
-
-```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS = "$CREDS_DIR\application_default_credentials.json"
-```
+A browser opens: sign in as `<your email>`. A new grant can take a few
+minutes to take effect.
 
 **As yourself.** Your Google account needs `roles/aiplatform.user` on the
-project (Owner has it). If you already use Application Default Credentials
-for something else, use the same separate-directory pattern:
+project (Owner has it):
 
 ```powershell
 $env:CLOUDSDK_CONFIG = $CREDS_DIR
@@ -228,11 +303,18 @@ gcloud auth application-default login
 Remove-Item Env:CLOUDSDK_CONFIG
 ```
 
-(Run without `CLOUDSDK_CONFIG`, this replaces the machine's default
-credentials file instead.) If Google's errors say a quota project is
-required, tell Djinnite which project to bill (`quota_project`, step 7); your
-account then needs `roles/serviceusage.serviceUsageConsumer` on that project
-(Owner and Editor include it).
+If Google's errors say a quota project is required, tell Djinnite which
+project to bill (`quota_project`, step 7); your account then needs
+`roles/serviceusage.serviceUsageConsumer` on that project (Owner and Editor
+include it).
+
+**Either way**, point the program that uses Djinnite at the file, in its
+window (or its service definition). An environment variable set with `$env:`
+lasts for that PowerShell window only:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS = "$CREDS_DIR\application_default_credentials.json"
+```
 
 **Check**, in the window that has `GOOGLE_APPLICATION_CREDENTIALS` set:
 
@@ -276,8 +358,7 @@ USE.md), or directly in code.
 * `platforms.vertexai` holds settings shared by every provider on Vertex.
   A provider entry may override `project_id`, `location` or `quota_project`.
 * `location`: one where the model is served (see "Where models are
-  served"). Set it for Gemini rather than relying on the `us-central1`
-  default.
+  served"). If you leave it out, Djinnite uses `global`.
 * `quota_project`: omit it unless step 6 told you to set it.
 * `locations`: the locations `probe_platform` checks (step 8); not used for
   calls.
@@ -361,17 +442,15 @@ code starts calling a new Claude model or location.
 |---|---|---|
 | `claude-sonnet-5-5`, `claude-opus-5-5` | `global`, `us`, `eu` | not at single regions such as `us-east5` |
 | `claude-haiku-4-5-20251001` | `global`, `us-east5`, `europe-west1` | not at `us` |
-| `gemini-3.5-flash` | `global`; check the model's Google page for others | |
-| `gemini-2.5-flash` | `us-central1` and others | Google retires it on 2026-10-20 |
+| `gemini-3.5-flash` | `global`, `us`, `eu`, and some single regions | not at `us-central1` |
 
 * **Use `global` unless you have a reason not to.** It is the most available
   endpoint and, for Claude and for Gemini 3 and later, the cheapest:
   `us`, `eu` and single regions cost 10% more (see "Costs").
 * Use `us` or `eu` when data must be processed in that geography.
-* Djinnite's default location is `global` for Claude and `us-central1` for
-  Gemini. **For Gemini, set `location` explicitly** -- usually `global` --
-  rather than relying on that default, and confirm on the model's Google page
-  that it is served there.
+* Djinnite's default location is `global` for both Claude and Gemini. If
+  you set another, confirm on the model's Google page that it is served
+  there.
 * Model ids: use Djinnite's ids (the left column). Djinnite translates dated
   ids for Vertex (`claude-haiku-4-5-20251001` is sent as
   `claude-haiku-4-5@20251001`). Google's own pages and org-policy values use

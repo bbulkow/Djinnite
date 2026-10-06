@@ -69,8 +69,8 @@ project") rather than a value. Examples and tests use neutral placeholders
 (`my-project`), never a real deployment such as a consumer's project.
 
 Defaults that are overridable and describe behavior rather than a deployment
-are fine: the platform registry's default locations (Gemini `us-central1`,
-Claude `global`) and the e2e harness's default test locations and models.
+are fine: the platform registry's default locations (`global` for Gemini and
+Claude) and the e2e harness's default test locations and models.
 
 ### Fix "pre-existing" test failures before starting new work
 

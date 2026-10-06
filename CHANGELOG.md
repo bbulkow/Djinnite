@@ -13,8 +13,9 @@ modes: direct and platform".
 - **`get_provider(..., platform="vertexai", project_id=..., location=...,
   quota_project=...)`** with no `api_key`; `api_key` is now optional. The
   legacy `backend="vertexai"` still works and means the same thing.
-- **Gemini on Vertex:** configurable `location` (default unchanged,
-  `us-central1`), Application Default Credentials when no key is given,
+- **Gemini on Vertex:** configurable `location`, **default now `global`**
+  (was `us-central1`, where the current Gemini models are not served; pass
+  `location="us"` to keep processing in the US), Application Default Credentials when no key is given,
   `quota_project` applied to the credentials, and `is_available()` /
   `list_models()` without a key.
 - **Claude on Vertex:** `anthropic.AnthropicVertex` with ADC (never an API

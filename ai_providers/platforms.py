@@ -69,11 +69,11 @@ PLATFORMS: dict = {
         name="vertexai",
         providers=frozenset({"gemini", "claude"}),
         default_location={
-            # Gemini's default predates platform mode and is kept so existing
-            # callers are unchanged. Claude defaults to "global": Anthropic's
-            # recommended endpoint, the only premium-free one, and the 5.x
+            # "global" for both: it serves every current model and is the only
+            # premium-free endpoint. Gemini 3.5 Flash is not served at
+            # us-central1 (Gemini's default before 0.5.0), and the Claude 5.x
             # models are not served at single-region endpoints.
-            "gemini": "us-central1",
+            "gemini": "global",
             "claude": "global",
         },
         premium_free_locations=frozenset({"global"}),

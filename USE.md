@@ -74,8 +74,8 @@ locally. No API key is needed or sent. Put the platform's settings in a
 }
 ```
 
-* `location`: Gemini defaults to `us-central1` (unchanged), Claude to
-  `global`. Newer models are often served only at `global` / `us` / `eu`
+* `location`: both default to `global` (Gemini's default was
+  `us-central1` before 0.5.0). Newer models are often served only at `global` / `us` / `eu`
   (e.g. `gemini-3.5-flash`, Claude 5.x). Claude at `us`, `eu` or a region
   costs 10% more than at `global`; `usage["price_multiplier"]` records it.
 * `quota_project`: the project billed for quota, needed for user ADC created

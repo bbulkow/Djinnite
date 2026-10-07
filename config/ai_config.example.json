@@ -41,13 +41,19 @@
   },
   "default_provider": "gemini",
   "platforms": {
-    "_comment": "Platform mode: a cloud platform serving a provider's models, authenticated with the platform's own credentials (no api_key). To use it, set a provider entry to {\"mode\": \"platform\", \"platform\": \"vertexai\", \"location\": \"global\"} -- see _example_provider_entry. 'locations' are what scripts/probe_platform.py checks. Keys starting with _ are notes.",
+    "_comment": "Platform mode: a cloud platform serving a provider's models, authenticated with the platform's own credentials (no api_key). Keys under 'providers' are entry names you choose; an entry's provider type is its \"provider\" field, defaulting to the entry name. To reach a provider through Vertex AI as well as directly, add a second entry under 'providers' with another name (e.g. \"claude-vertex\") and \"provider\": \"claude\" -- see _example_provider_entry. Each key may appear only once in the file. 'deny' lists capabilities the deployment's policy does not allow (structured_json, web_search, json_with_search): a list for every model, or a map of model ID (or \"*\" for every model) to a list. Build it in code with load_ai_config().build_provider(\"claude-vertex\"). 'locations' are what scripts/probe_platform.py checks. Keys starting with _ are notes.",
     "_example_provider_entry": {
+      "provider": "claude",
       "mode": "platform",
       "platform": "vertexai",
       "location": "global",
       "enabled": true,
-      "default_model": "claude-sonnet-5-5"
+      "default_model": "claude-sonnet-5-5",
+      "deny": {
+        "*": ["web_search"],
+        "claude-haiku-4-5-20251001": ["structured_json"]
+      },
+      "deny_reason": "org policy vertexai.allowedPartnerModelFeatures in my-project"
     },
     "vertexai": {
       "project_id": "your-google-cloud-project-id",

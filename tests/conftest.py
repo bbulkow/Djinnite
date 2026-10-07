@@ -8,7 +8,8 @@ Three kinds of tests live side by side in this directory:
 * **Live tests (direct mode)** -- they call the providers' own APIs with the
   keys in ai_config.json, which costs money. Any test that requests the
   ``provider`` fixture, or is marked ``live``, is skipped unless you pass
-  ``--live``.
+  ``--live``. Each provider type runs through its direct-mode entry
+  (``AIConfig.direct_entry``); platform entries are the e2e tier's job.
 * **Platform end-to-end tests** -- they call Google Vertex AI in a dedicated
   test project with platform credentials (see PLATFORM_E2E_TEST_DESIGN.md).
   Marked ``e2e_platform``; skipped unless you pass ``--e2e-platform``. Tests
@@ -35,7 +36,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from djinnite.config_loader import load_ai_config
-from djinnite.ai_providers import get_provider
 
 
 PROVIDER_NAMES = ["gemini", "claude", "chatgpt"]
@@ -179,13 +179,18 @@ def provider_name(request):
 
 @pytest.fixture
 def provider(provider_name, ai_config):
-    """A live provider built from ai_config.json, or a skip if unconfigured."""
-    p_config = ai_config.get_provider(provider_name)
-    # Platform-mode entries need no API key (platform credentials).
-    if not p_config or not ai_config.is_usable(provider_name):
-        pytest.skip(f"{provider_name} not configured in ai_config.json")
+    """A live direct-mode provider built from ai_config.json, or a skip if unconfigured.
 
-    return get_provider(
-        provider_name, model=p_config.default_model,
-        **ai_config.provider_kwargs(provider_name),
-    )
+    ``provider_name`` is a provider *type*. The entry used is that type's
+    direct-mode entry (``AIConfig.direct_entry``): the one named after the
+    type, else the only one. Platform entries are the e2e tier's job
+    (``--e2e-platform``). Several direct entries of a type with none named
+    after it is a misconfiguration, so it fails rather than skips.
+    """
+    try:
+        entry = ai_config.direct_entry(provider_name)
+    except ValueError as e:
+        pytest.fail(f"--live: {e}")
+    if entry is None:
+        pytest.skip(f"no direct-mode entry for {provider_name} in ai_config.json")
+    return ai_config.build_provider(entry)

@@ -1,6 +1,6 @@
 # Access Paths -- Requirements and Design
 
-> **Status:** Proposed 2026-10-06, awaiting review
+> **Status:** Accepted 2026-10-06; implemented (offline-verified), e2e tier pending
 > **Scope:** configuring one provider type through more than one access path
 > at the same time (for example Claude direct *and* Claude on Vertex AI), and
 > declaring what a given path may not do.
@@ -69,8 +69,8 @@ it, they are the same string **by default**.
 * **R7.** Configuration mistakes fail when the config loads, with a message
   naming the entry: duplicate keys, an explicit unknown type, a `deny` value
   outside the vocabulary.
-* **R8.** Maintenance scripts (`update_models`, `update_model_costs`) use the
-  direct-mode entry of each type by a stated rule, report which entry they
+* **R8.** Maintenance scripts (`update_models`, `update_model_costs`) use
+  direct-mode entries chosen by one stated rule, report which entry they
   used, and never change prices when they cannot estimate them.
 * **R9.** Public API changes are additive. Existing signatures and return
   values stay as they are.
@@ -309,16 +309,25 @@ The catalog's top-level fields are direct-mode facts, so maintenance needs a
 
 Each run prints the entry it used (`Updating claude models (entry 'claude')`).
 
+The rule above is how `update_models` picks the entry it refreshes each type
+through. `update_model_costs` does not work per type: it re-prices every
+catalog section, whatever entries are configured, through one estimator.
+
 * **Estimator** (the model that estimates prices and limits): one resolver
-  shared by `update_models` and `update_model_costs`. It takes the CLI
-  `--estimator` first, then `known_model_defaults.estimator`, then the
-  default entry. `known_model_defaults.estimator.provider` is a **type**. The
-  entry it runs through is `direct_entry(type)`.
+  (`scripts/estimator.py`) shared by `update_models` and
+  `update_model_costs`. It takes the CLI `--estimator` first, then
+  `known_model_defaults.estimator`, then the default entry.
+  `known_model_defaults.estimator.provider` is a **type**. The entry it runs
+  through is `direct_entry(type)` -- the same rule, not the default entry by
+  preference.
+* **The estimator's entry must allow what estimation uses**: web search for
+  prices, structured JSON for limits and modalities. If its `deny` blocks
+  one, every request would be refused, so the estimator is unavailable.
 * **`update_model_costs` without a usable estimator** stops before any
-  write: `[FAIL] Estimator: <reason> -- no prices changed`, exit 1. Today a
-  platform-mode estimator entry sets existing prices to `None` with
-  `source: "failed"`. DEVELOPMENT.md and USE.md say this script skips
-  platform entries; it does not, and the docs will be corrected.
+  write: `[FAIL] Estimator: <reason> -- no prices changed`, exit 1. Before
+  this change, a platform-mode estimator entry set existing prices to `None`
+  with `source: "failed"`, and DEVELOPMENT.md and USE.md wrongly said the
+  script skipped platform entries.
 * **`probe_platform`** is unchanged. It reads only the `platforms` block.
 * **`validate_ai`, `validate_json`, `validate_models`** iterate entries
   rather than a hard-coded list of types, so second entries (and grok) are
@@ -336,7 +345,8 @@ No existing config needs editing. Behavior changes:
 3. `_` keys under `providers` are notes.
 4. `is_usable` is False for an entry whose type cannot be determined.
 5. `update_model_costs` stops without writing when it has no usable direct
-   estimator. (It used to set prices to `None`.)
+   estimator, and keeps an existing price when an estimate fails. (It used
+   to set prices to `None`.)
 6. `update_models` and the estimator choose the direct entry by the rule
    above.
 7. The `--live` test fixtures use each type's direct entry. Platform entries

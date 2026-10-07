@@ -18,6 +18,7 @@ from .ai_providers import (
     AIAuthenticationError,
     AIModelNotFoundError,
     DjinniteModalityError,
+    DjinniteCapabilityDeniedError,
 )
 from .config_loader import load_ai_config, load_model_catalog
 
@@ -33,6 +34,7 @@ __all__ = [
     "AIAuthenticationError",
     "AIModelNotFoundError",
     "DjinniteModalityError",
+    "DjinniteCapabilityDeniedError",
     "load_ai_config",
     "load_model_catalog",
 ]

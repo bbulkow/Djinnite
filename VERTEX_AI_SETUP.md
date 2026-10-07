@@ -189,6 +189,44 @@ all, the allowed values there take the form
 `publishers/anthropic/models/claude-sonnet-5-5:predict`; ask whoever manages
 your organization's policies.
 
+### If you cannot change the policy
+
+You may not hold the Organization Policy Administrator role, or your
+organization may deliberately keep some features off. Then tell Djinnite what
+the policy does not allow, with `deny` on the Vertex entry in step 7. Djinnite
+does not discover the policy; it enforces what you write, and a request that
+uses a denied feature fails at once on your side, before anything is sent,
+with an error naming the entry and your reason
+(`DjinniteCapabilityDeniedError`).
+
+Write `deny` per model, the way the policy is written. Each `allowedValues`
+line the policy is **missing** becomes a `deny` value for that model:
+
+| Policy value not allowed | `deny` in ai_config.json |
+|---|---|
+| `publishers/anthropic/models/claude-haiku-4-5:structured_outputs` | `"claude-haiku-4-5-20251001": ["structured_json"]` |
+| `publishers/anthropic/models/<model>:web_search` | `"<Djinnite model id>": ["web_search"]` |
+
+Policy values use Google's short model id (`claude-haiku-4-5`); `deny` keys
+are Djinnite's ids, the left column of "Where models are served"
+(`claude-haiku-4-5-20251001`). Use `"*"` for a feature that is off for every
+model. For example, web search off everywhere and structured outputs off for
+Haiku only:
+
+```json
+"deny": {
+  "*": ["web_search"],
+  "claude-haiku-4-5-20251001": ["structured_json"]
+},
+"deny_reason": "org policy vertexai.allowedPartnerModelFeatures in my-project"
+```
+
+`deny_reason` is free text shown in the error, so whoever hits it knows where
+the restriction comes from. Denying `structured_json` means `generate_json()`
+on that model fails; `generate()` still works. If you need the feature anyway,
+add a second, direct-mode Claude entry with an Anthropic API key (step 7) and
+use that entry for those calls.
+
 ## Step 5. Get Claude quota (Claude only)
 
 A new project often has **zero** quota for Claude models. Calls then fail
@@ -381,38 +419,61 @@ USE.md), or directly in code.
     }
   },
   "providers": {
-    "claude": {
+    "claude-vertex": {
+      "provider": "claude",
       "mode": "platform", "platform": "vertexai", "location": "global",
       "enabled": true, "default_model": "claude-sonnet-5-5"
     },
     "gemini": {
       "mode": "platform", "platform": "vertexai", "location": "global",
       "enabled": true, "default_model": "gemini-3.5-flash"
+    },
+    "claude": {
+      "api_key": "sk-ant-...",
+      "enabled": true, "default_model": "claude-sonnet-5-5"
     }
   },
-  "default_provider": "claude"
+  "default_provider": "claude-vertex"
 }
 ```
 
-* `platforms.vertexai` holds settings shared by every provider on Vertex.
-  A provider entry may override `project_id`, `location` or `quota_project`.
+* **Entry names.** Each key under `providers` is a name you choose for one
+  way of reaching a provider. The entry's `"provider"` field says which
+  provider it is (`claude`, `gemini`, ...); without it, the name is the
+  provider, so `"gemini"` above is a Gemini entry. Here `claude-vertex` is
+  Claude on Vertex and `claude` is Claude direct with an Anthropic API key.
+  You only need the direct `claude` entry if some calls must go to Anthropic
+  directly (for example for a feature your policy denies on Vertex); leave it
+  out otherwise. Each name may appear only once in the file -- Djinnite
+  stops with an error on a duplicate rather than silently using one of them.
+* **Your code chooses the entry** by name. Djinnite never switches between
+  `claude-vertex` and `claude` by itself, because they differ in billing and
+  in where data is handled.
+* `platforms.vertexai` holds settings shared by every entry on Vertex.
+  An entry may override `project_id`, `location` or `quota_project`.
 * `location`: one where the model is served (see "Where models are
   served"). If you leave it out, Djinnite uses `global`.
 * `quota_project`: omit it unless step 6 told you to set it.
 * `locations`: the locations `probe_platform` checks (step 8); not used for
   calls.
-* No `api_key` anywhere. A provider can be in platform mode while another
-  stays in direct mode with its key.
+* No `api_key` on platform entries.
+* `deny` / `deny_reason`: add them to `claude-vertex` if step 4's policy does
+  not allow every feature (see "If you cannot change the policy").
 
-Then:
+Then build a provider from an entry:
 
 ```python
-from djinnite import get_provider, load_ai_config
+from djinnite import load_ai_config
 
 cfg = load_ai_config()
-claude = get_provider("claude", model=cfg.providers["claude"].default_model,
-                      **cfg.provider_kwargs("claude"))
+claude = cfg.build_provider("claude-vertex")                    # its default_model
+haiku  = cfg.build_provider("claude-vertex", model="claude-haiku-4-5-20251001")
+claude.entry, claude.mode                                       # ("claude-vertex", "platform")
 ```
+
+`build_provider` uses the entry's provider, project, location and `deny`.
+You can pass `location`, `project_id` or `quota_project` for one call; to
+change anything else, configure another entry.
 
 ### In code
 
@@ -426,6 +487,10 @@ gemini = get_provider("gemini", model="gemini-3.5-flash",
                       platform="vertexai", project_id="my-project",
                       location="global", quota_project="my-project")
 ```
+
+Built this way, a provider carries no `deny`. To declare what the policy does
+not allow, pass it yourself: `get_provider("claude", ..., deny=["web_search"],
+deny_reason="org policy in my-project")`.
 
 Everything after construction -- `generate()`, `generate_json()`,
 `history=`, `thinking=`, costs, errors -- works as in direct mode.
@@ -521,6 +586,7 @@ explanation.
 | `AIRateLimitError` | `RESOURCE_EXHAUSTED`, quota | Zero or exhausted quota for that model at that location: step 5. Common for Claude on new projects. |
 | `AIModelNotFoundError` | "not served at this location, or not enabled in Model Garden" | Wrong location for the model (see "Where models are served"), or the Claude model isn't enabled (step 3). |
 | Claude `generate()` works but `generate_json()` fails | structured outputs, or an organization policy | Structured outputs are not allowed for that model: step 4. |
+| `DjinniteCapabilityDeniedError` | "which ai_config entry '...' denies", "deployment restriction, not a model limit" | Raised on your side, before anything is sent: the request uses a feature the entry's `deny` lists (step 4, "If you cannot change the policy"). Use an entry that allows it, or drop the feature from the request. `force=True` does not bypass it. |
 | `AIProviderError` | "project_id is required" | Set `project_id` (ai_config `platforms.vertexai` or the keyword). |
 
 For the full error contract, see USE.md "Error Handling Contract".
@@ -534,7 +600,11 @@ For the full error contract, see USE.md "Error Handling Contract".
   `probe_platform` use token counting, which Claude offers only at `global`
   and `us`.
 * **Catalog maintenance** (`update_models`, `update_model_costs`) uses
-  provider API keys; platform-mode entries are skipped. The catalog that
-  ships with Djinnite works for platform mode as-is.
+  provider API keys, never a platform entry. `update_models` refreshes each
+  provider through its direct-mode entry (the one named after the provider,
+  such as `claude`, else the only one); a provider you configure only on
+  Vertex is not refreshed by it, and `probe_platform` records what Vertex
+  serves. `update_model_costs` needs one direct entry for its estimator
+  model. The catalog that ships with Djinnite works for platform mode as-is.
 * **Claude web search on Vertex** is billed at the catalog's first-party
   price ($10 per 1,000 searches); Vertex's own price is not yet verified.

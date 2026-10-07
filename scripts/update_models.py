@@ -22,6 +22,7 @@ from typing import Optional, Dict, List
 try:
     from djinnite.config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
     from djinnite.scripts.model_overrides import load_overrides, lookup, save_catalog
+    from djinnite.scripts.estimator import resolve_estimator, EstimatorUnavailable, Estimator
     from djinnite.ai_providers import get_provider, BaseAIProvider
     from djinnite.ai_providers.gemini_provider import GeminiProvider
     from djinnite.ai_providers.claude_provider import ClaudeProvider
@@ -36,6 +37,7 @@ except ImportError:
     
     from config_loader import load_ai_config, CONFIG_DIR, Modalities, _serialize_vision_limit, _resolve_config_file, ModelCapabilities
     from scripts.model_overrides import load_overrides, lookup, save_catalog
+    from scripts.estimator import resolve_estimator, EstimatorUnavailable, Estimator
     from ai_providers import get_provider, BaseAIProvider
     from ai_providers.gemini_provider import GeminiProvider
     from ai_providers.claude_provider import ClaudeProvider
@@ -76,26 +78,38 @@ _estimator_config = _known_defaults.get("estimator", {})
 _vision_defaults = _known_defaults.get("vision_defaults", {})
 
 
-def _resolve_estimator(ai_config) -> tuple:
-    """
-    Resolve the estimator provider/model for AI estimation tasks.
-    
-    Priority: 1) known_model_defaults.json  2) ai_config default
-    
-    Returns:
-        (provider_name, model_id, api_key) or (None, None, None)
-    """
-    if _estimator_config.get("model"):
-        est_provider = _estimator_config.get("provider", "gemini")
-        est_model = _estimator_config["model"]
-    else:
-        est_provider = ai_config.default_provider
-        p_config = ai_config.get_provider(est_provider)
-        est_model = p_config.default_model if p_config else None
+def _resolve_estimator(ai_config) -> Estimator:
+    """The estimator for AI estimation tasks (``scripts/estimator.py``).
 
-    p_config = ai_config.get_provider(est_provider)
-    est_api_key = p_config.api_key if p_config else None
-    return est_provider, est_model, est_api_key
+    Precedence: known_model_defaults.json ``estimator``, then the
+    ``default_provider`` entry. It runs through a direct-mode entry of its
+    type; this script has no ``--estimator`` flag.
+
+    Raises:
+        EstimatorUnavailable: no usable direct-mode entry for the estimator.
+    """
+    # Both estimation requests are generate_json calls (limits may add web
+    # search, with a JSON-only fallback), so the entry must allow JSON.
+    return resolve_estimator(ai_config, known_defaults=_estimator_config,
+                             needs=("structured_json",))
+
+
+def _estimator_unavailable(ai_config) -> Optional[str]:
+    """Why AI estimation cannot run, or ``None`` when an estimator resolves."""
+    try:
+        _resolve_estimator(ai_config)
+    except EstimatorUnavailable as e:
+        return str(e)
+    return None
+
+
+def _build_estimator(ai_config, est: Estimator):
+    """A provider for ``est``, built from its ai_config entry.
+
+    ``require_pricing=False``: the estimator must run even when its own model
+    has no price yet, or a fresh catalog could never be priced.
+    """
+    return ai_config.build_provider(est.entry, est.model, require_pricing=False)
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +266,10 @@ def estimate_modalities_with_ai(
     is needed. Returns a ``{model_id: {"input": [...], "output": [...]}}``
     dict (transformed from the schema's array shape).
     """
-    est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
-    if not est_api_key:
+    try:
+        est = _resolve_estimator(ai_config)
+    except EstimatorUnavailable as e:
+        print(f"  [WARN] Modality estimation skipped: {e}")
         return {}
 
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
@@ -264,8 +280,9 @@ def estimate_modalities_with_ai(
         # Use the Djinnite-internal estimator model with provider-native
         # Constraint Decoding — the response is schema-valid by
         # construction.
-        print(f"    Querying {est_provider}/{est_model} for {len(models)} models...")
-        instance = get_provider(est_provider, est_api_key, est_model)
+        print(f"    Querying {est.provider_type}/{est.model} (entry '{est.entry}') "
+              f"for {len(models)} models...")
+        instance = _build_estimator(ai_config, est)
         resp = instance.generate_json(
             prompt=prompt,
             schema=MODALITY_SCHEMA,
@@ -338,8 +355,10 @@ def estimate_output_limits_with_ai(
     support combining structured JSON with web search, falls back to a
     JSON-only request and warns.
     """
-    est_provider, est_model, est_api_key = _resolve_estimator(ai_config)
-    if not est_api_key:
+    try:
+        est = _resolve_estimator(ai_config)
+    except EstimatorUnavailable as e:
+        print(f"  [WARN] Output limit estimation skipped: {e}")
         return {}
 
     provider_company = {"gemini": "Google", "claude": "Anthropic", "chatgpt": "OpenAI"}.get(provider_name, provider_name)
@@ -373,7 +392,7 @@ def estimate_output_limits_with_ai(
         print(f'    Done. Got limits for {len(combined)}/{len(models)} models')
         return combined
 
-    instance = get_provider(est_provider, est_api_key, est_model)
+    instance = _build_estimator(ai_config, est)
 
     def _call(use_web_search: bool):
         return instance.generate_json(
@@ -386,7 +405,8 @@ def estimate_output_limits_with_ai(
     resp = None
     try:
         # Prefer web-search grounding for current docs.
-        print(f"    Querying {est_provider}/{est_model} (web search) for {len(models)} models...")
+        print(f"    Querying {est.provider_type}/{est.model} (entry '{est.entry}') "
+              f"(web search) for {len(models)} models...")
         try:
             resp = _call(use_web_search=True)
         except Exception as e:
@@ -395,7 +415,7 @@ def estimate_output_limits_with_ai(
             # the combo on models that don't support it. Fall back to
             # JSON-only (model uses cached training knowledge).
             if "json_with_search" in err or "web search" in err or "web_search" in err:
-                print(f"  [WARN] {est_model} does not support JSON+web_search; "
+                print(f"  [WARN] {est.model} does not support JSON+web_search; "
                       f"falling back to JSON-only: {e}")
                 resp = _call(use_web_search=False)
             else:
@@ -936,8 +956,16 @@ def merge_model_data(
         # Remove old flat supports_structured_json if present (migrated to capabilities dict)
         if "supports_structured_json" in model: del model["supports_structured_json"]
     
+    # AI estimation needs a usable direct-mode estimator entry
+    # (scripts/estimator.py). Without one, estimation is skipped and said so.
+    no_estimator = (_estimator_unavailable(ai_config)
+                    if uncertain_models or unknown_output_limit_models else None)
+    if no_estimator:
+        print(f"  [WARN] AI estimation skipped for {len(uncertain_models)} modality and "
+              f"{len(unknown_output_limit_models)} output-limit models: {no_estimator}")
+
     # 2. AI Estimation Fallback for uncertain new models (modalities)
-    if uncertain_models and ai_config.get_provider(ai_config.default_provider):
+    if uncertain_models and not no_estimator:
         print(f"  [AI] Requesting AI estimation for {len(uncertain_models)} uncertain models...")
         estimates = estimate_modalities_with_ai(uncertain_models, provider_instance.PROVIDER_NAME, ai_config)
         for model in uncertain_models:
@@ -945,7 +973,7 @@ def merge_model_data(
                 model["modalities"] = estimates[model["id"]]
     
     # 3. AI Estimation Fallback for unknown output limits
-    if unknown_output_limit_models and ai_config.get_provider(ai_config.default_provider):
+    if unknown_output_limit_models and not no_estimator:
         print(f"  [AI] Estimating output limits for {len(unknown_output_limit_models)} models with AI...")
         limit_estimates = estimate_output_limits_with_ai(
             unknown_output_limit_models, provider_instance.PROVIDER_NAME, ai_config
@@ -1057,6 +1085,34 @@ def _describe_scope(scope: Optional[dict]) -> str:
                      for p, ids in sorted(scope.items()))
 
 
+def _entry_for_refresh(ai_config, ptype: str) -> tuple[Optional[str], str]:
+    """The ai_config entry that refreshes ``ptype``, and the line to print.
+
+    The catalog's top-level fields are direct-mode facts, refreshed through
+    the provider's own API with its own key, so only a direct-mode entry
+    serves: ``AIConfig.direct_entry`` (named after the type, else the only
+    one). Platform availability and capabilities are probed separately
+    (``probe_platform``).
+
+    Returns:
+        ``(entry, "Updating <type> models (entry '<entry>')...")``, or
+        ``(None, reason)`` when the type is not refreshed: several direct
+        entries and none named after the type (``[FAIL]``), platform entries
+        only (``[SKIP]``), or nothing usable configured (``[WARN]``).
+    """
+    try:
+        entry = ai_config.direct_entry(ptype)
+    except ValueError as e:
+        return None, f"[FAIL] {ptype}: {e}"
+    if entry is not None:
+        return entry, f"Updating {ptype} models (entry '{entry}')..."
+    platform = ai_config.entries_of_type(ptype, mode="platform")
+    if platform and not ai_config.entries_of_type(ptype, mode="direct"):
+        return None, (f"[SKIP] {ptype}: platform mode only ({', '.join(platform)}) "
+                      f"-- use probe_platform")
+    return None, f"[WARN] Provider {ptype} not configured, skipping."
+
+
 def _refresh_provider(provider_cls, p_config, existing_block: Optional[dict],
                       ai_config, reprobe: Optional[set],
                       targets: Optional[set]) -> Optional[dict]:
@@ -1151,17 +1207,11 @@ def update_models():
             print(f"\n[SKIP] {name}: not in --reprobe scope")
             continue
         targets = scope.get(name) if scope is not None else None
-        print(f"\nUpdating {name} models...")
-        p_config = ai_config.get_provider(name)
-        if p_config and p_config.mode == "platform":
-            # The catalog's top-level fields are direct-mode facts, refreshed
-            # through the provider's own API with its own key. Platform
-            # availability and capabilities are probed separately.
-            print(f"  [SKIP] {name}: platform mode -- use probe_platform")
+        entry, message = _entry_for_refresh(ai_config, name)
+        print(f"\n{message}")
+        if entry is None:
             continue
-        if not p_config or not p_config.api_key:
-            print(f"  [WARN] Provider {name} not configured, skipping.")
-            continue
+        p_config = ai_config.providers[entry]
 
         try:
             block = _refresh_provider(
@@ -1193,13 +1243,16 @@ def update_models():
 
         print("\n[TOOL] Estimating costs for new models..."
               + ("" if scope is None else " (reprobe scope only)"))
-        update_model_costs(
+        ok = update_model_costs(
             force=False,
             dry_run=False,
             catalog_path=catalog_path,
             config_path=config_path,
             scope=scope,
         )
+        if ok is False:
+            print("[WARN] Cost estimation did not run (see the [FAIL] line above); no prices changed.")
+            print("  Run 'python -m djinnite.scripts.update_model_costs' manually to retry.")
     except Exception as e:
         print(f"[WARN] Cost estimation failed: {e}")
         print("  Run 'python -m djinnite.scripts.update_model_costs' manually to retry.")

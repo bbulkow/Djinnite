@@ -38,6 +38,52 @@ modes: direct and platform".
 - `anthropic` dependency is now `anthropic[vertex]` (google-auth was already
   present via google-genai).
 
+### 0.5.0 -- Added: several access paths per provider type
+
+One provider can now be configured through more than one path at once, for
+example Claude direct and Claude on Vertex AI. See ACCESS_PATHS_DESIGN.md and
+DEVELOPMENT.md "Several access paths for one provider type". No existing
+config needs editing.
+
+- **Named entries:** `ai_config.json` `providers` keys are entry names. An
+  entry's provider type is its new **`"provider"`** field, defaulting to the
+  entry name, so existing configs load and behave as before. `default_provider`
+  names an entry. Keys starting with `_` are notes.
+- **`AIConfig.build_provider(entry, model=None, **overrides)`** builds a ready
+  provider from an entry (type, credentials, platform settings, `deny`);
+  overrides are limited to `api_key`, `require_pricing`, and for platform
+  entries `location`, `project_id`, `quota_project`. New
+  `provider.entry`. Djinnite never picks or falls back between entries.
+- **New `AIConfig` methods:** `provider_type(name)`, `entries_of_type(type,
+  *, mode=None, usable_only=False)`, `direct_entry(type)`,
+  `resolve_use_case(use_case, entry=None)` returning
+  `ModelChoice(entry, provider_type, model)`, and
+  `capabilities_for(entry, model)`. `get_model_for_use_case`,
+  `provider_kwargs` and `is_usable` are unchanged (`is_usable` is also False
+  for an entry whose type cannot be determined).
+- **`deny` / `deny_reason`** on an entry declare capabilities the deployment
+  does not allow (`structured_json`, `web_search`, `json_with_search`), as a
+  list for every model or a map per model with `"*"`. A request that uses one
+  raises the new **`DjinniteCapabilityDeniedError`** (exported from
+  `djinnite`; `e.entry`, `e.model`, `e.capabilities`, `e.reason`) before any
+  network call, on every provider; `force=True` does not bypass it.
+  `get_provider(..., entry=, deny=, deny_reason=)` accepts the same.
+- **Duplicate keys in `ai_config.json` are rejected** at load with a
+  `ValueError` (they used to drop one entry silently), as is an explicit
+  unknown `"provider"` or a malformed `deny`.
+- **`update_model_costs` no longer nulls prices without an estimator:** with
+  no usable direct-mode estimator entry it stops before any write (exit 1).
+  It used to set existing prices to `None` with `source: "failed"`. It
+  also stops when the estimator's entry denies web search, which every
+  price request uses. When the estimator runs but a model's estimate
+  fails, a price the catalog already has is kept (only an unpriced model
+  is marked `failed`). `update_models` and the estimator use each type's
+  direct entry (`AIConfig.direct_entry`) and report which one they used.
+- **`platforms.<name>.location`** is now the default location for that
+  platform's entries (an entry's own `location` wins), as the docs said.
+- **`validate_ai`** reports every enabled entry it cannot build -- a
+  placeholder key or an unknown type -- as `[FAIL]`.
+
 ### 0.5.0 -- Added: multi-turn `history`
 
 - **`generate(..., history=[...])` / `generate_json(..., history=[...])`**

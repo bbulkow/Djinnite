@@ -23,9 +23,15 @@ pytestmark = pytest.mark.live
 
 @pytest.fixture(scope="module")
 def claude_key(ai_config):
-    if not ai_config.is_usable("claude") or ai_config.providers["claude"].mode != "direct":
-        pytest.skip("no direct-mode Claude API key in ai_config.json")
-    return ai_config.providers["claude"].api_key
+    # The Claude type's direct-mode entry (named "claude", else the only
+    # one). Ambiguity is a misconfiguration: fail, do not skip.
+    try:
+        entry = ai_config.direct_entry("claude")
+    except ValueError as e:
+        pytest.fail(f"--live: {e}")
+    if entry is None:
+        pytest.skip("no direct-mode Claude entry with an API key in ai_config.json")
+    return ai_config.providers[entry].api_key
 
 
 def _claude(key, model):

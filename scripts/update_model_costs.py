@@ -17,7 +17,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
 try:
     from djinnite.config_loader import load_ai_config, CONFIG_DIR, _resolve_config_file
@@ -25,6 +25,7 @@ try:
     from djinnite.llm_logger import LLMLogger
     from djinnite.prompts import COST_ESTIMATION_CONFIG
     from djinnite.pricing_class import classify_model
+    from djinnite.scripts.estimator import resolve_estimator, EstimatorUnavailable
 except ImportError:
     # Fallback for direct execution when package is not installed
     # Adds the project root (one level up from scripts/) to sys.path
@@ -39,6 +40,7 @@ except ImportError:
     from llm_logger import LLMLogger
     from prompts import COST_ESTIMATION_CONFIG
     from pricing_class import classify_model
+    from scripts.estimator import resolve_estimator, EstimatorUnavailable
 
 
 def _load_estimator_config() -> dict:
@@ -109,10 +111,15 @@ def _run_estimation_pass(
     estimator_model: str,
     api_key: str,
     logger: LLMLogger,
-    gemini_api_key: Optional[str] = None,
+    make_provider: Optional[Callable[[], Any]] = None,
 ) -> dict[str, dict]:
     """
     One web-search estimation pass over ``models_to_estimate`` (batched).
+
+    ``make_provider`` builds the estimator provider (``update_model_costs``
+    passes one that calls ``AIConfig.build_provider`` on the estimator's
+    entry). Without it the provider is built from ``estimator_provider``,
+    ``api_key`` and ``estimator_model`` directly.
 
     Returns dict mapping model_id to one of:
         {"no_public_price": True}                       -- specialty model, no price
@@ -157,10 +164,13 @@ def _run_estimation_pass(
         try:
             # require_pricing=False: the estimator must run even if its own model
             # has no price, otherwise cost updates could deadlock.
-            provider = get_provider(
-                estimator_provider, api_key, estimator_model,
-                gemini_api_key=gemini_api_key, require_pricing=False,
-            )
+            if make_provider is not None:
+                provider = make_provider()
+            else:
+                provider = get_provider(
+                    estimator_provider, api_key, estimator_model,
+                    require_pricing=False,
+                )
             # Use generate() with JSON-requesting system prompt because the
             # response schema is dynamic (model IDs as keys).  Strict schema
             # enforcement via generate_json() requires a fixed schema.
@@ -271,8 +281,9 @@ def estimate_costs_with_ai(
     estimator_model: str,
     api_key: str,
     logger: Optional[LLMLogger] = None,
-    gemini_api_key: Optional[str] = None,
+    *,
     verify: bool = False,
+    make_provider: Optional[Callable[[], Any]] = None,
 ) -> dict[str, dict]:
     """
     Use AI with web search to discover per-model pricing.
@@ -281,6 +292,9 @@ def estimate_costs_with_ai(
     estimate is accepted only if both passes agree within ``VERIFY_TOLERANCE``;
     otherwise the entry is flagged ``verification_mismatch`` (the caller keeps
     the prior price and surfaces it for human review).
+
+    ``make_provider`` builds the estimator provider (see
+    ``_run_estimation_pass``).
 
     Returns dict mapping model_id to a per-model result (see
     ``_run_estimation_pass``), possibly carrying ``verification_mismatch``.
@@ -293,7 +307,7 @@ def estimate_costs_with_ai(
 
     first = _run_estimation_pass(
         models_to_estimate, provider_name, estimator_provider,
-        estimator_model, api_key, logger, gemini_api_key,
+        estimator_model, api_key, logger, make_provider,
     )
     if not verify:
         return first
@@ -301,7 +315,7 @@ def estimate_costs_with_ai(
     print("  ... Verification pass (second independent estimate) ...")
     second = _run_estimation_pass(
         models_to_estimate, provider_name, estimator_provider,
-        estimator_model, api_key, logger, gemini_api_key,
+        estimator_model, api_key, logger, make_provider,
     )
 
     for mid, e in first.items():
@@ -361,7 +375,7 @@ def update_model_costs(
     hold_divergent: bool = False,
     refresh_unknown: bool = False,
     scope: Optional[dict] = None,
-) -> None:
+) -> bool:
     """
     Main function to update per-token pricing in the model catalog.
 
@@ -390,6 +404,12 @@ def update_model_costs(
             for specific models. ``None`` (default) is the whole catalog.
             ``update_models --reprobe`` passes its own scope, so a scoped
             reprobe never re-prices models it was not asked to touch.
+
+    Returns:
+        ``True`` when the pass ran; ``False`` when no usable estimator
+        resolved (``scripts/estimator.py``: e.g. only a platform-mode entry
+        of the estimator's type). In that case nothing is written and every
+        existing price is left as it was; the CLI exits 1.
     """
     print("[TOOL] Model Cost Updater")
     print("-" * 40)
@@ -407,37 +427,28 @@ def update_model_costs(
     ai_config = load_ai_config(config_path)
     catalog = load_catalog(catalog_path)
 
-    # Determine estimator model.
-    # Priority: 1) --estimator CLI flag  2) known_model_defaults.json  3) ai_config default
-    if estimator_model:
-        # CLI override
-        est_provider, est_model = None, estimator_model
-        for prov_name, prov_data in catalog.items():
-            model_ids = [m["id"] for m in prov_data.get("models", [])]
-            if estimator_model in model_ids:
-                est_provider = prov_name
-                break
-        if not est_provider:
-            est_provider = ai_config.default_provider
-    elif _estimator_config.get("model"):
-        # Djinnite-internal estimator from known_model_defaults.json
-        est_provider = _estimator_config.get("provider", "gemini")
-        est_model = _estimator_config["model"]
-    else:
-        # Fallback to user's default provider/model
-        est_provider = ai_config.default_provider
-        prov_config = ai_config.get_provider(est_provider)
-        est_model = prov_config.default_model if prov_config else None
-    
-    est_api_key = None
-    if est_provider:
-        prov_config = ai_config.get_provider(est_provider)
-        if prov_config:
-            est_api_key = prov_config.api_key
-    
-    print(f"Estimator: {est_provider}/{est_model}")
+    # Determine the estimator once (scripts/estimator.py), before touching
+    # the catalog. Priority: 1) --estimator CLI flag 2) known_model_defaults.json
+    # 3) the default_provider entry; it runs through direct_entry(type).
+    # Without one -- or if that entry denies a capability the requests use --
+    # stop here: nothing is written, so existing prices survive. (This used
+    # to null every price it meant to re-estimate.)
+    needs = ("web_search",) if COST_ESTIMATION_CONFIG.get("web_search") else ()
+    try:
+        estimator = resolve_estimator(ai_config, cli_model=estimator_model, catalog=catalog,
+                                      known_defaults=_estimator_config, needs=needs)
+    except EstimatorUnavailable as e:
+        print(f"[FAIL] Estimator: {e} -- no prices changed")
+        return False
+
+    print(f"Estimator: {estimator.provider_type}/{estimator.model} (entry '{estimator.entry}')")
     print()
-    
+
+    def make_estimator():
+        # require_pricing=False: the estimator must run even if its own model
+        # has no price, otherwise cost updates could deadlock.
+        return ai_config.build_provider(estimator.entry, estimator.model, require_pricing=False)
+
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     stats = {"updated": 0, "new": 0, "unchanged": 0, "estimated": 0, "failed": 0}
     # Human-review buckets surfaced in the audit report at the end.
@@ -541,19 +552,17 @@ def update_model_costs(
                 print(f"  [SKIP] {model_id}: ${inp}/{out} per 1M (fixed)")
                 stats["unchanged"] += 1
 
-        if models_needing_estimation and est_api_key:
+        if models_needing_estimation:
             print(f"  [AI] Estimating {len(models_needing_estimation)} models with AI...")
-            gemini_config = ai_config.get_provider("gemini")
-            gemini_api_key = gemini_config.api_key if gemini_config else None
 
             estimates = estimate_costs_with_ai(
                 models_needing_estimation,
                 provider_name,
-                est_provider,
-                est_model,
-                est_api_key,
-                gemini_api_key=gemini_api_key,
+                estimator.provider_type,
+                estimator.model,
+                estimator.api_key,
                 verify=verify,
+                make_provider=make_estimator,
             )
 
             for m in models_needing_estimation:
@@ -564,7 +573,14 @@ def update_model_costs(
 
                 est = estimates.get(model_id)
 
-                # 1. Estimator omitted / errored -> transient failure.
+                # 1. Estimator omitted / errored -> transient failure. A price
+                #    the catalog already has is kept: a failed estimate is no
+                #    evidence the price changed (ACCESS_PATHS_DESIGN.md R8).
+                if est is None and (prior_in is not None or prior_out is not None):
+                    print(f"  [WARN] {model_id}: estimate failed -- kept existing "
+                          f"${prior_in}/{prior_out} per 1M")
+                    stats["failed"] += 1
+                    continue
                 if est is None:
                     costing["input_per_1m"] = None
                     costing["output_per_1m"] = None
@@ -661,17 +677,6 @@ def update_model_costs(
                 stats["estimated"] += 1
                 stats["updated" if has_prev else "new"] += 1
 
-        elif models_needing_estimation:
-            print(f"  [FAIL] No AI estimator available - marking as FAILED...")
-            for m in models_needing_estimation:
-                costing = m["_model_ref"]["costing"]
-                costing["input_per_1m"] = None
-                costing["output_per_1m"] = None
-                costing["source"] = "failed"
-                costing["updated"] = today
-                print(f"  [FAIL] {m['id']}: None (FAILED - no estimator available)")
-                stats["failed"] += 1
-
         print()
 
     print("-" * 40)
@@ -689,6 +694,7 @@ def update_model_costs(
         print(f"   [FAIL] FAILED: {stats['failed']} models (need manual review)")
 
     _print_audit_report(report)
+    return True
 
 
 def _print_audit_report(report: dict) -> None:
@@ -745,7 +751,9 @@ def main():
         "--estimator",
         type=str,
         default=None,
-        help="Specific model to use for AI estimation (e.g., gemini-2.5-pro)"
+        help="Specific model to use for AI estimation (e.g., gemini-2.5-pro). Its "
+             "provider type is the catalog section listing it; it runs through "
+             "that type's direct-mode ai_config entry."
     )
     parser.add_argument(
         "--provider", "-p",
@@ -785,7 +793,7 @@ def main():
 
     args = parser.parse_args()
 
-    update_model_costs(
+    ok = update_model_costs(
         force=args.force,
         dry_run=args.dry_run,
         estimator_model=args.estimator,
@@ -796,6 +804,8 @@ def main():
         hold_divergent=args.hold_divergent,
         refresh_unknown=args.refresh_unknown,
     )
+    if not ok:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

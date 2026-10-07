@@ -364,6 +364,20 @@ listed in the summary. C1-C6 still run.
 |---|---|---|---|
 | S1 | `probe_platform --write` against a **temp copy** of the catalog (subprocess, `-u`) | exit 0; ASCII output; written `platforms.vertexai.locations` equals the discovery table; real catalog untouched | no |
 
+### Access paths (default tier)
+
+Named entries and `deny` (ACCESS_PATHS_DESIGN.md) through a real build. A
+temporary `ai_config.json` (pytest `tmp_path`) on the e2e project declares
+two platform entries: `claude-vertex` (`"provider": "claude"`, default model
+`DJINNITE_E2E_CLAUDE_MODEL`, `deny` `{"*": ["web_search"], <Haiku>:
+["structured_json"]}`, a `deny_reason`) and `gemini-vertex`
+(`"provider": "gemini"`, default model `DJINNITE_E2E_GEMINI_MODEL`, no
+`deny`).
+
+| # | Test | Asserts | Billed |
+|---|---|---|---|
+| A1 | `build_provider` for both entries; `deny` per model | each builds with `entry` set, platform mode, no key; `probe_availability()` (token count) returns a known status. `claude-vertex` `generate(web_search=True)` raises `DjinniteCapabilityDeniedError` for Haiku **and** the canary (`"*"`); `generate_json` on Haiku raises it (`structured_json`). Denied calls run with the SDK client replaced by a tripwire, so they provably never leave the process; the error names the entry, model and `deny_reason`. `generate_json` on the canary is **not** denied: it reaches Vertex and gets the canary's 429 (`AIRateLimitError`). Nothing is recorded in the cost ledger unless the canary unexpectedly answers. | no |
+
 ### Extended tier (`--e2e-extended`, needs a go-ahead per run)
 
 | # | Test | Billed |
@@ -418,6 +432,7 @@ enough not to flake, small enough to stop a runaway loop.
 | `probe_platform` | S1, X1 |
 | Web search on platform | X2, X3 |
 | 5.x thinking semantics | direct-mode companion; X4 once quota exists |
+| Named entries / deny via `build_provider` | A1 |
 
 **Not covered until Claude quota exists:** C7-C12 and X4. C1-C6 still
 prove the Claude platform plumbing.
@@ -434,12 +449,13 @@ and any run against another project, needs the user's go-ahead.
 
 | File | Contents |
 |---|---|
-| `tests/conftest.py` | `--e2e-platform` / `--e2e-extended`; gating; opt-in without config is a `UsageError`; session fixtures `e2e_session` (credentials + preflight), `e2e_availability`, `e2e_ledger` (cap) |
+| `tests/conftest.py` | `--e2e-platform` / `--e2e-extended`; gating; opt-in without config is a `UsageError`; session fixtures `e2e_session` (credentials + preflight), `e2e_availability`, `e2e_ledger` (cap); the `--live` `provider` fixture builds each type's direct-mode entry (`AIConfig.direct_entry`) |
 | `tests/_e2e.py` | `E2EConfig` (DJINNITE_E2E_*), credential description, `CostLedger`, Gemini 429 retry, missing-ADC subprocess probe |
 | `tests/_contract.py` | the call-shape contract, shared by direct live and platform e2e |
 | `tests/test_e2e_vertexai_gemini.py` | G1-G11, X2 |
 | `tests/test_e2e_vertexai_claude.py` | C1-C12, X3, X4 |
 | `tests/test_e2e_probe_platform.py` | S1, X1 |
+| `tests/test_e2e_access_paths.py` | A1 (temporary ai_config with named platform entries and `deny`) |
 | `tests/test_live_contract.py` | the contract in direct mode (`--live`) |
 | `tests/test_live_claude_thinking.py` | 5.x thinking semantics in direct mode (`--live`) |
 | `scripts/smoke_platform.py` | removed |

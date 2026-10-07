@@ -699,6 +699,11 @@ class ClaudeProvider(BaseAIProvider):
             thinking_active = self._thinking_active(thinking)
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
+            # Catalog web-search check first, so its message wins over an
+            # ai_config deny (checked in the combination pre-flight below).
+            if web_search:
+                self._check_capability("web_search")
+
             # Cross-capability pre-flight from catalog (e.g. temp + thinking
             # is rejected on every current Claude thinking model).
             self._validate_incompatible_combinations({
@@ -744,10 +749,9 @@ class ClaudeProvider(BaseAIProvider):
             if effort is not None:
                 kwargs.setdefault("output_config", {})["effort"] = effort
 
-            # Web search: catalog decides support; the access path decides
-            # the tool version.
+            # Web search: catalog decides support (checked above); the access
+            # path decides the tool version.
             if web_search:
-                self._check_capability("web_search")
                 kwargs["tools"] = [self._web_search_tool()]
 
             self._debug_dump_request(

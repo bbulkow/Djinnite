@@ -1,7 +1,7 @@
 {
   "_comment": "MINIMAL overrides only. Do NOT add values here that can be discovered dynamically via API calls, probes, or AI estimation. Results are persisted in model_catalog.json. See DEVELOPMENT.md for the policy on static model data.",
   "estimator": {
-    "_comment": "Model used by Djinnite maintenance scripts (cost estimation, modality estimation, output limit estimation). Separate from the user's default_model in ai_config.json. Should be a model with good web search integration for current pricing data.",
+    "_comment": "Model used by Djinnite maintenance scripts (cost estimation, modality estimation, output limit estimation). Separate from the user's default_model in ai_config.json. Should be a model with good web search integration for current pricing data. 'provider' is a provider TYPE (gemini, claude, chatgpt, grok), not an ai_config entry name: the estimator runs through that type's direct-mode entry (AIConfig.direct_entry: the usable direct entry named after the type, else the only one; several and none named after the type is an error), and that entry must not deny a capability estimation uses. Estimation needs a provider API key, so a platform-mode entry never serves; with no usable direct entry update_model_costs stops without changing any price. update_model_costs --estimator MODEL overrides this.",
     "provider": "claude",
     "model": "claude-opus-4-6"
   },

@@ -60,20 +60,35 @@ from djinnite import (
     AIAuthenticationError,    # Invalid API key (HTTP 401)
     AIModelNotFoundError,     # Model does not exist (HTTP 404)
     DjinniteModalityError,    # Unsupported modality requested (client-side)
+    DjinniteCapabilityDeniedError,  # Capability denied by the ai_config entry (client-side)
 )
 
 # Configuration Types
 from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCatalog
 from djinnite.config_loader import PlatformConfig, PlatformModelInfo   # platform mode
+from djinnite.config_loader import ModelChoice   # (entry, provider_type, model)
 ```
 
 ### Public Function Signatures
 
 ```python
 # Provider factory. api_key is optional: platform mode needs none.
+#   provider_name is a provider TYPE (gemini, claude, chatgpt, grok).
 get_provider(provider_name, api_key=None, model=None, **kwargs) -> BaseAIProvider
 #   platform mode kwargs: platform="vertexai" (legacy alias backend="vertexai"),
 #                         project_id, location, quota_project
+#   access-path kwargs:   entry=None (recorded as provider.entry),
+#                         deny=None (list of capabilities this deployment does
+#                           not allow: structured_json, web_search, json_with_search),
+#                         deny_reason=None (shown in DjinniteCapabilityDeniedError)
+
+# Build a ready provider from a named ai_config entry (preferred over
+# assembling get_provider(type, **provider_kwargs(name)) by hand).
+AIConfig.build_provider(name, model=None, **overrides) -> BaseAIProvider
+#   model defaults to the entry's default_model; overrides: api_key,
+#   require_pricing, and (platform entries only) location, project_id,
+#   quota_project. Anything else (platform, backend, mode, deny, entry, ...)
+#   raises ValueError: configure another entry instead.
 
 # Generation (two distinct methods). history is keyword-only.
 BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking, *, history=None) -> AIResponse
@@ -83,10 +98,18 @@ BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_out
 provider.mode       # "direct" | "platform"
 provider.platform   # None | "vertexai"
 provider.location   # platform location, or None in direct mode
+provider.entry      # ai_config entry name, or None when built with get_provider directly
 
-# Config -> constructor kwargs (the one place that mapping lives)
-AIConfig.provider_kwargs(name) -> dict
-AIConfig.is_usable(name) -> bool
+# ai_config entries. Every `name` below is an ENTRY name (a key of
+# ai_config.json "providers"), which is not necessarily a provider type.
+AIConfig.provider_kwargs(name) -> dict          # constructor kwargs; excludes type and deny
+AIConfig.is_usable(name) -> bool                # False also for an unknown provider type
+AIConfig.provider_type(name) -> str             # the entry's "provider", else its name
+AIConfig.entries_of_type(provider_type, *, mode=None, usable_only=False) -> list[str]
+AIConfig.direct_entry(provider_type) -> Optional[str]   # maintenance rule; ValueError if ambiguous
+AIConfig.resolve_use_case(use_case, entry=None) -> ModelChoice
+AIConfig.get_model_for_use_case(use_case, provider_name=None) -> tuple[str, str]  # (entry, model), unchanged
+AIConfig.capabilities_for(name, model, catalog=None) -> ModelCapabilities  # effective view, for inspection
 
 # Discovery
 load_ai_config() -> AIConfig
@@ -380,6 +403,7 @@ to avoid acting on incomplete data.
 | `AIAuthenticationError` | 401 | Invalid or missing API key | Standard error info |
 | `AIModelNotFoundError` | 404 | Requested model doesn't exist | Standard error info |
 | `DjinniteModalityError` | N/A (client) | Prompt contains unsupported modalities | `e.requested_modalities`, `e.supported_modalities` |
+| `DjinniteCapabilityDeniedError` | N/A (client) | The request uses a capability the provider's ai_config entry denies (`deny`). Raised before any network call; `force=True` does not bypass it | `e.entry`, `e.model`, `e.capabilities` (the denied ones the request used), `e.reason` (the entry's `deny_reason`) |
 
 All exceptions inherit from `AIProviderError`, which itself inherits from `Exception`.
 Every `AIProviderError` carries `e.provider` (str) and `e.original_error` (Optional[Exception]).
@@ -587,6 +611,19 @@ The runtime raises distinct error messages for each failure mode:
 Callers that need to bypass a pre-flight rejection use `force=True` on
 `generate_json()` (existing escape hatch — unchanged).
 
+A fifth case is not a catalog fact but a deployment restriction:
+
+* a capability the provider's ai_config entry denies (`deny`, see
+  "Several access paths for one provider type") →
+  `DjinniteCapabilityDeniedError`, "which ai_config entry '<entry>' denies for
+  model '<model>' … This is a deployment restriction, not a model limit."
+
+`force=True` does **not** bypass it: `force` skips the catalog checks so probes
+can find out what a model really does, while a `deny` is the operator's
+statement about the deployment (the platform would refuse the request anyway).
+It is enforced even when the model has no catalog entry. When the catalog and
+a `deny` both reject a request, the catalog's message is raised.
+
 #### Capability discovery
 
 `update_models.py` populates these lists by combining per-provider probes:
@@ -728,17 +765,117 @@ g = get_provider("gemini", model="gemini-3.5-flash", backend="vertexai",
                "locations": ["global", "us"]}   // what probe_platform checks
 },
 "providers": {
-  "claude": {"mode": "platform", "platform": "vertexai", "location": "us",
-             "default_model": "claude-sonnet-5-5"}   // no api_key
+  "claude": {"api_key": "sk-ant-...",                   // direct; type "claude" (implicit)
+             "default_model": "claude-sonnet-5-5"},
+  "claude-vertex": {"provider": "claude",              // platform; no api_key
+                    "mode": "platform", "platform": "vertexai", "location": "us",
+                    "default_model": "claude-sonnet-5-5"}
 }
-// get_provider(name, model=..., **cfg.provider_kwargs(name))
+```
+
+```python
+cfg = load_ai_config()
+p = cfg.build_provider("claude-vertex")                     # default_model
+p = cfg.build_provider("claude-vertex", model="claude-opus-5-5", location="global")
+p.entry, p.mode                                             # ("claude-vertex", "platform")
 ```
 
 A provider entry's `project_id` / `location` / `quota_project` override the
 platform block's. A legacy entry with `backend: "vertexai"` loads as platform
-mode. `update_models` and `update_model_costs` are **direct-mode only**: they
-skip a platform-mode entry (`[SKIP] <name>: platform mode -- use
-probe_platform`), because the catalog's top-level fields are direct-mode facts.
+mode.
+
+`update_models` and `update_model_costs` are **direct-mode only**, because the
+catalog's top-level fields are direct-mode facts. `update_models` refreshes
+each provider type through that type's direct entry, by the rule in
+`AIConfig.direct_entry(type)`:
+among enabled, usable, direct-mode entries of the type, the one named after
+the type, else the only one. A type with only platform entries is not
+refreshed (`[SKIP] claude: platform mode only (claude-vertex) -- use
+probe_platform`); several direct entries with none named after the type is a
+`[FAIL]` that says how to resolve it (name one after the type, or disable the
+others). Each run reports which entry it used. The price/limit estimator is
+chosen by one resolver (`scripts/estimator.py`: CLI `--estimator`, then
+`known_model_defaults.estimator`, whose `provider` is a **type**, then the
+default entry) and always runs through `direct_entry(type)` -- the same rule,
+never the default entry by preference. `update_model_costs` re-prices every
+catalog section through that estimator, whatever entries are configured. With
+no usable direct estimator entry, or one whose `deny` blocks a capability the
+estimation requests use (web search for prices, structured JSON for limits
+and modalities), it **stops before any write** (`[FAIL] Estimator: <reason> --
+no prices changed`, exit 1). Before this rule, a platform-mode estimator entry was not skipped: it
+set existing prices to `None` with `source: "failed"`.
+
+#### Several access paths for one provider type
+
+The keys under `providers` in `ai_config.json` are **entry names**, chosen by
+the user. An entry's **provider type** (`gemini`, `claude`, `chatgpt`, `grok`;
+`config_loader.PROVIDER_TYPES`) is its `"provider"` field, defaulting to the
+entry name, so an existing config whose keys are type names is unchanged.
+Several entries may share a type, in any mix of modes (for example `claude`
+direct plus `claude-vertex` on Vertex AI), because the paths are not
+interchangeable: different credentials, billing, data handling and allowed
+features.
+
+* **The caller names the entry.** Djinnite never picks an entry and never
+  falls back from one entry to another (that would silently change billing
+  and data handling). Callers who want fallback write the loop themselves.
+* **`build_provider(name, model=None, **overrides)`** is the one call that
+  turns an entry into a provider: type, credentials, platform settings and
+  `deny`. Building with `get_provider(type, **cfg.provider_kwargs(name))`
+  still works but carries **no** `deny` restriction; that is deliberate and
+  visible in the code.
+* **`default_provider`** and the `name` argument of `provider_kwargs`,
+  `is_usable`, `get_provider` (on `AIConfig`) and `get_model_for_use_case`
+  are entry names. `resolve_use_case` returns a `ModelChoice(entry,
+  provider_type, model)`; look the model up with
+  `catalog.get_model(choice.provider_type, choice.model)`. The catalog,
+  `model_overrides.json` and `known_model_defaults.json` stay keyed by
+  **type**.
+* **Load-time validation:** a duplicate key anywhere in the file, an explicit
+  unknown `"provider"`, or a malformed `deny` raises `ValueError` naming the
+  entry. An entry with no `"provider"` whose name is not a known type (an old
+  `"openai"` entry) still loads, but `is_usable` is False and `build_provider`
+  raises, saying to add `"provider"`. Keys under `providers` starting with `_`
+  are notes and are skipped.
+
+**`deny`** declares capabilities an entry does not allow: a deployment fact
+(this project's or organization's policy), never discovered by Djinnite. A
+list applies to every model; a map applies per model, with `"*"` for every
+model, and a model's own list is added to `"*"`:
+
+```jsonc
+"claude-vertex": {
+  "provider": "claude", "mode": "platform", "platform": "vertexai",
+  "deny": {
+    "*":                         ["web_search"],
+    "claude-haiku-4-5-20251001": ["structured_json"]
+  },
+  "deny_reason": "org policy vertexai.allowedPartnerModelFeatures in my-project"
+}
+```
+
+Model keys are Djinnite model IDs. The vocabulary is
+`config_loader.DENIABLE_CAPABILITIES`: `structured_json`, `web_search`,
+`json_with_search`; each removes that capability's `"on"` state. `thinking`
+and `temperature` are not deniable (no platform policy gates them). A denied
+request raises `DjinniteCapabilityDeniedError` before any network call, on
+every `generate()` / `generate_json()` path of every provider, regardless of
+`force` and with or without a catalog entry (see "Pre-flight error
+semantics").
+
+**Capability resolution** has three layers, each narrower than the one
+before:
+
+| Layer | Source | Written by |
+|---|---|---|
+| 1. Model, direct | catalog top-level `capabilities` | `update_models` |
+| 2. Model, on the platform | catalog `platforms.<name>.capabilities`, overlaid field by field (`ModelInfo.for_platform`) | `probe_platform --capabilities` |
+| 3. Entry | ai_config `deny` (`ModelInfo.with_denied`) | the operator |
+
+The catalog holds platform facts; `ai_config.json` holds deployment facts;
+neither is written into the other. `cfg.capabilities_for(entry, model)`
+returns the combined view for inspection. Full design:
+[ACCESS_PATHS_DESIGN.md](ACCESS_PATHS_DESIGN.md).
 
 #### Vertex AI rules
 
@@ -909,7 +1046,7 @@ is what stops this becoming a file per parameter:
 
 | file | role | edited by |
 |---|---|---|
-| `ai_config.json` | which providers, which keys | human |
+| `ai_config.json` | which access paths (named entries), credentials, deployment restrictions (`deny`) | human |
 | `known_model_defaults.json` | **inputs to** discovery (estimator choice, provider vision defaults) | human |
 | `model_overrides.json` | **decisions on top of** discovery — any field, any model | human |
 | `model_catalog.json` | generated output of the above plus the provider APIs | **nobody** |
@@ -987,6 +1124,7 @@ djinnite/
 │   ├── update_models.py     # Refresh model catalog from APIs (direct mode)
 │   ├── probe_platform.py    # Probe platform availability/capabilities
 │   ├── update_model_costs.py # AI-discovered per-token pricing
+│   ├── estimator.py         # Estimator entry resolution shared by update_models / update_model_costs
 │   └── clean_disabled_reasons.py  # Catalog maintenance
 ├── tests/
 │   └── probe_anthropic_beta.py    # Anthropic beta feature probe
@@ -996,6 +1134,7 @@ djinnite/
 │   └── known_model_defaults.json  # Package default model defaults (fallback for projects)
 ├── requirements.txt         # Direct dependencies
 ├── DEVELOPMENT.md           # This file
+├── ACCESS_PATHS_DESIGN.md   # Several access paths per provider type (named entries, deny)
 └── README.md                # Package overview (TODO)
 ```
 
@@ -1021,6 +1160,9 @@ This means consuming projects only need `ai_config.json` in their `config/` dire
 1. Create `djinnite/ai_providers/new_provider.py`
 2. Subclass `BaseAIProvider` and implement all abstract methods
 3. Register in `djinnite/ai_providers/__init__.py` → `PROVIDERS` dict
+   and add the type to `PROVIDER_TYPES` in `djinnite/config_loader.py`
+   (a test pins the two together; `ai_config.json` is read without importing
+   any provider SDK, so the loader keeps its own copy)
 4. Add SDK dependency to `pyproject.toml` and `requirements.txt`
 5. Test with `uv run python -m djinnite.scripts.validate_ai`
 
@@ -1077,6 +1219,32 @@ When running validation scripts (like `validate_models.py`), it is critical to *
 the catalog's per-model `platforms` block, `scripts/probe_platform.py`,
 the `--e2e-platform` test tier, keyword-only `history=` on `generate()` /
 `generate_json()`, and the Claude sentinel `thinking="between_tools"`.
+
+Also added: **several access paths per provider type**
+([ACCESS_PATHS_DESIGN.md](ACCESS_PATHS_DESIGN.md)). `ai_config.json`
+`providers` keys are now entry names; an entry's type is its `"provider"`
+field, defaulting to the name, so existing configs are unchanged. New:
+`AIConfig.build_provider`, `provider_type`, `entries_of_type`,
+`direct_entry`, `resolve_use_case` (returning `ModelChoice`),
+`capabilities_for`; `provider.entry`; `get_provider(..., entry=, deny=,
+deny_reason=)`; the entry fields `provider`, `deny`, `deny_reason`; and
+`DjinniteCapabilityDeniedError`. Existing signatures and return values are
+unchanged (`get_model_for_use_case` still returns `(entry_name, model)`).
+
+**Behavior changes from access paths** (no existing config needs editing):
+
+1. A duplicate key in `ai_config.json` raises at load. (It used to drop one
+   entry silently.)
+2. An explicit unknown `provider` raises at load.
+3. `_` keys under `providers` are notes.
+4. `is_usable` is False for an entry whose type cannot be determined.
+5. `update_model_costs` keeps an existing price when an estimate fails, and
+   stops without writing when it has no usable direct
+   estimator. (It used to set prices to `None`.)
+6. `update_models` and the estimator choose the direct entry by the rule
+   in `AIConfig.direct_entry` (named after the type, else the only one).
+7. The `--live` test fixtures use each type's direct entry. Platform entries
+   are the e2e tier's job.
 
 **Behavior changes (approved):**
 

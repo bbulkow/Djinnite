@@ -21,6 +21,7 @@ from .base_provider import (
     AIModelNotFoundError,
     AIPricingError,
     DjinniteModalityError,
+    DjinniteCapabilityDeniedError,
 )
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
@@ -33,15 +34,15 @@ from .platforms import ACCESS_MODES, PLATFORMS, resolve_platform
 # back to the package's own config/ -- so host projects only need ai_config.json
 # while model_catalog.json is inherited from the distribution.
 try:
-    from djinnite.config_loader import _resolve_config_file, load_model_catalog
+    from djinnite.config_loader import _resolve_config_file, load_model_catalog, _parse_deny_list
 except ImportError:
     try:
-        from ..config_loader import _resolve_config_file, load_model_catalog
+        from ..config_loader import _resolve_config_file, load_model_catalog, _parse_deny_list
     except (ImportError, ValueError):
         # Direct execution: ai_providers was imported as a top-level package
         # (e.g. via update_models.py adding the project root to sys.path).
         # Fall back to a sibling import.
-        from config_loader import _resolve_config_file, load_model_catalog
+        from config_loader import _resolve_config_file, load_model_catalog, _parse_deny_list
 
 
 # Registry of available providers
@@ -112,6 +113,11 @@ def get_provider(
       Application Default Credentials) are used. If the catalog records
       capabilities probed on that platform, they are used for pre-flight.
 
+    ``provider_name`` is a provider *type*. To build from a named
+    ai_config.json entry (which may not be named after its type), use
+    ``load_ai_config().build_provider(entry)``; it passes ``entry``,
+    ``deny`` and ``deny_reason`` here.
+
     Args:
         provider_name: Name of the provider (gemini, claude, chatgpt, grok)
         api_key: API key for the provider. Required in direct mode (a
@@ -121,13 +127,19 @@ def get_provider(
         gemini_api_key: Optional Gemini API key for web search (used by OpenAI)
         **kwargs: Additional provider-specific arguments: ``platform``,
             ``backend``, ``project_id``, ``location``, ``quota_project``,
-            ``require_pricing``.
+            ``require_pricing``. Access-path arguments, applied after
+            construction: ``entry`` (the ai_config entry name, recorded as
+            ``provider.entry``), ``deny`` (a list of capabilities from
+            ``DENIABLE_CAPABILITIES`` this deployment does not allow; requests
+            using one raise ``DjinniteCapabilityDeniedError`` before any
+            network call) and ``deny_reason`` (shown in that error).
 
     Returns:
         Configured provider instance
 
     Raises:
-        ValueError: If provider name is not recognized
+        ValueError: If provider name is not recognized, or ``deny`` names a
+            capability outside ``DENIABLE_CAPABILITIES``
         AIProviderError: If the catalog is missing/unreadable, model is
             not found, the model is disabled, or the platform is unknown
             or does not host this provider
@@ -135,8 +147,15 @@ def get_provider(
     if provider_name not in PROVIDERS:
         available = ", ".join(PROVIDERS.keys())
         raise ValueError(
-            f"Unknown provider: {provider_name}. Available: {available}"
+            f"Unknown provider: {provider_name}. Available: {available}. "
+            f"If this is an ai_config.json entry name, use "
+            f"load_ai_config().build_provider({provider_name!r})."
         )
+
+    # Access-path settings are not constructor arguments: applied below.
+    entry = kwargs.pop("entry", None)
+    deny = _parse_deny_list(kwargs.pop("deny", None) or [], "get_provider(deny=...)")
+    deny_reason = kwargs.pop("deny_reason", None)
 
     # Platform mode: validate before building anything, so an unhosted
     # provider fails with a clear message instead of a constructor TypeError.
@@ -183,9 +202,11 @@ def get_provider(
     
     # OpenAI needs Gemini API key for web search capability
     if provider_name == "chatgpt" and gemini_api_key:
-        return provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key, model_info=model_info, **kwargs)
-    
-    return provider_class(api_key=api_key, model=model, model_info=model_info, **kwargs)
+        instance = provider_class(api_key=api_key, model=model, gemini_api_key=gemini_api_key, model_info=model_info, **kwargs)
+    else:
+        instance = provider_class(api_key=api_key, model=model, model_info=model_info, **kwargs)
+    instance._set_access_entry(entry, deny, deny_reason)
+    return instance
 
 
 def list_available_providers() -> list[str]:
@@ -205,6 +226,7 @@ __all__ = [
     "AIModelNotFoundError",
     "AIPricingError",
     "DjinniteModalityError",
+    "DjinniteCapabilityDeniedError",
     "GeminiProvider",
     "ClaudeProvider",
     "OpenAIProvider",

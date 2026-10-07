@@ -22,6 +22,67 @@ This file contains your API keys and provider-specific settings.
 3. Add your API keys and enable the providers you want to use.
 4. **Validate your configuration** immediately after setup (see below).
 
+#### Entry names and provider types
+
+Each key under `providers` is an **entry name** you choose. An entry is one
+way of reaching one provider (one *access path*). The provider **type** --
+`gemini`, `claude`, `chatgpt` or `grok` -- is the entry's `"provider"` field,
+and defaults to the entry name. So `"claude": {...}` is a Claude entry, and a
+config whose keys are type names (every config written before named entries)
+works unchanged.
+
+Name an entry something else, and set `"provider"`, when you want the same
+provider through more than one path -- for example Claude direct (Anthropic
+API key) for work that needs web search, and Claude on Vertex AI for work
+that must stay in your Google Cloud project:
+
+```json
+{
+  "platforms": {
+    "vertexai": {"project_id": "my-project", "locations": ["global", "us"]}
+  },
+  "providers": {
+    "claude": {
+      "api_key": "sk-ant-...",
+      "default_model": "claude-sonnet-5-5"
+    },
+    "claude-vertex": {
+      "provider": "claude",
+      "mode": "platform", "platform": "vertexai", "location": "global",
+      "default_model": "claude-sonnet-5-5",
+      "deny": {
+        "*": ["web_search"],
+        "claude-haiku-4-5-20251001": ["structured_json"]
+      },
+      "deny_reason": "org policy vertexai.allowedPartnerModelFeatures in my-project"
+    }
+  },
+  "default_provider": "claude"
+}
+```
+
+* **Your code names the entry** (`config.build_provider("claude-vertex")`).
+  Djinnite never picks an entry for you and never falls back from one entry
+  to another: the paths differ in billing and data handling, so switching
+  silently would be wrong. If you want fallback, write the loop yourself.
+* **`default_provider`** names an entry.
+* **`deny`** lists capabilities this entry does not allow, copied from your
+  deployment's policy: a list (every model) or a map of model ID to list,
+  where `"*"` means every model. The vocabulary is `structured_json`,
+  `web_search` and `json_with_search`. A request that uses one raises
+  `DjinniteCapabilityDeniedError` before anything is sent (see "Error
+  Handling Contract"). `deny_reason` is free text shown in that error.
+  Djinnite does not discover these restrictions; you declare them.
+* **Mistakes fail at load**, naming the entry: the same key twice in the
+  file (previously one entry was silently dropped -- give the second one
+  another name plus `"provider"`), a `"provider"` that is not a known type,
+  or a `deny` value outside the vocabulary.
+* Keys under `providers` starting with `_` are notes and are ignored.
+* The model catalog, `model_overrides.json` and `known_model_defaults.json`
+  stay keyed by provider **type** (`claude`), not by entry name.
+
+The full design is in [ACCESS_PATHS_DESIGN.md](ACCESS_PATHS_DESIGN.md).
+
 #### Google Gemini Configuration
 Djinnite supports both **Google AI Studio** and **Vertex AI** (Google Cloud).
 
@@ -85,9 +146,22 @@ locally. No API key is needed or sent. Put the platform's settings in a
   entry still works and means the same thing. An `api_key` on it is still
   passed through (Vertex express mode).
 
-Platform-mode entries are skipped by `update_models` / `update_model_costs`
-(those refresh direct-mode facts with provider keys). To record which models
-Vertex serves, and where, run:
+An entry's `mode` is `platform` when it sets `platform`, else `direct`. The
+example above puts both Gemini and Claude on Vertex; to keep a direct path
+too, add another entry with `"provider"` set (see "Entry names and provider
+types").
+
+`update_models` refreshes direct-mode facts with provider keys, so for each
+provider type it uses that type's **direct entry**: the enabled direct-mode
+entry with a usable key that is named after the type, else the only one. A
+type configured only in platform mode is not refreshed by it. Each run
+reports which entry it used.
+
+`update_model_costs` re-prices every provider section of the catalog, whatever
+entries are configured, through one **estimator** model. The estimator runs
+through its own type's direct entry; if there is none, or that entry's `deny`
+blocks web search, it stops without changing any price.
+To record which models Vertex serves, and where, run:
 
 ```bash
 uv run python -u -m djinnite.scripts.probe_platform --platform vertexai          # availability (unbilled)
@@ -136,6 +210,7 @@ Fetch the latest models from Gemini, Claude, and OpenAI APIs:
 ```bash
 uv run python -m djinnite.scripts.update_models
 ```
+*   **Which entry:** for each provider type it uses that type's direct-mode entry (the one named after the type, else the only one) and reports which. Several direct entries of one type, none named after it, is an error that says how to resolve it; a type with only platform-mode entries is skipped (use `probe_platform`).
 *   **What it does:** Discovers new models, identifies deprecated ones, updates context window information, and **automatically estimates costs for any new models** found.
 *   **Safety:** Preserves your existing manual cost overrides and existing pricing. Only new/unknown models are estimated.
 *   **Cost estimation:** After saving the updated catalog, the script automatically runs `update_model_costs` in default mode (new models only). If cost estimation fails, a warning is printed and you can re-run it manually.
@@ -150,6 +225,7 @@ uv run python -m djinnite.scripts.update_model_costs --dry-run # Preview without
 *   **Default behavior:** Only discovers pricing for **new models** that don't have cost data yet. Existing pricing is preserved.
 *   **`--all` flag:** Re-discovers all model pricing from scratch (useful when provider pricing changes).
 *   **AI-Powered:** Uses an LLM with web search to look up current $/1M-token pricing from official provider pages (openai.com/pricing, anthropic.com/pricing, ai.google.dev/pricing).
+*   **Estimator:** chosen by `--estimator`, then `known_model_defaults.json` `estimator` (whose `provider` is a provider type), then the default entry, and run through that type's direct entry. With no usable direct estimator the script stops before writing anything: no price is changed.
 *   **Gemini models:** Use algorithmic pricing derived from the anchor model (Gemini 2.5 Flash).
 *   **Output:** Each model gets `input_per_1m`, `output_per_1m`, and `search_cost_per_unit` stored in the catalog.
 
@@ -242,28 +318,41 @@ Load your configuration and initialize providers using the built-in loader:
 
 ```python
 from djinnite.config_loader import load_ai_config, load_model_catalog
-from djinnite.ai_providers import get_provider
 
 # 1. Load configuration and model catalog
 config = load_ai_config()
 catalog = load_model_catalog()
 
-# 2. Get the right provider and model for a specific use case
-# (Defined in your ai_config.json)
-provider_name, model_id = config.get_model_for_use_case("coding")
+# 2. Resolve a use case (defined in your ai_config.json) to an entry, its
+#    provider type and a model. entry= picks the entry; it defaults to
+#    default_provider.
+choice = config.resolve_use_case("coding")                  # or entry="claude-vertex"
+# choice.entry, choice.provider_type, choice.model
 
-# 3. Initialize the provider. provider_kwargs() maps the config entry to
-#    constructor kwargs: api_key for direct mode, or platform / project_id /
-#    location / quota_project for platform mode (no key).
-provider = get_provider(provider_name, model=model_id,
-                        **config.provider_kwargs(provider_name))
+# 3. Build the provider from the entry: its type, credentials (api_key in
+#    direct mode; platform / project_id / location / quota_project in
+#    platform mode) and its deny restrictions.
+provider = config.build_provider(choice.entry, choice.model)
 
-# 4. Use the provider — check max_output_tokens to avoid truncation
-model_info = catalog.get_model(provider_name, model_id)
+# 4. Use the provider — check max_output_tokens to avoid truncation.
+#    The catalog is keyed by provider TYPE, not by entry name.
+model_info = catalog.get_model(choice.provider_type, choice.model)
 max_out = model_info.max_output_tokens if model_info else None
 
 response = provider.generate("Hello!", max_output_tokens=max_out)
 ```
+
+`build_provider(entry, model=None, **overrides)` takes per-call settings:
+`api_key`, `require_pricing`, and for platform entries `location`,
+`project_id`, `quota_project`. Overriding anything that would make it a
+different access path (`platform`, `mode`, `deny`, ...) raises `ValueError`;
+configure another entry instead. `provider.entry` records the entry name.
+
+`get_model_for_use_case(use_case)` still works and returns `(entry_name,
+model)`. The entry name is not necessarily a provider type, so do not pass it
+to `get_provider()` or `catalog.get_model()`; use `resolve_use_case`.
+`cfg.capabilities_for(entry, model)` shows what a request through that entry
+may use: the catalog's capabilities, the platform's, then the entry's `deny`.
 
 ### Multi-turn Conversations (`history`)
 
@@ -371,8 +460,27 @@ AIProviderError                  # Base class — catches everything
 ├── AIRateLimitError             # Rate limit / quota exceeded (HTTP 429)
 ├── AIAuthenticationError        # Invalid API key (HTTP 401)
 ├── AIModelNotFoundError         # Model doesn't exist (HTTP 404)
-└── DjinniteModalityError        # Unsupported modality (client-side, no HTTP call)
+├── DjinniteModalityError        # Unsupported modality (client-side, no HTTP call)
+└── DjinniteCapabilityDeniedError # Capability denied by the ai_config entry (client-side, no HTTP call)
 ```
+
+#### Capabilities your entry denies
+
+When a request uses a capability the provider's ai_config entry denies
+(`deny`, see "Entry names and provider types"), Djinnite raises
+`DjinniteCapabilityDeniedError` **before any network call**, on `generate()`
+and `generate_json()` of every provider. `force=True` does not bypass it, and
+it applies even to a model with no catalog entry. It carries `e.entry`,
+`e.model`, `e.capabilities` (the denied capabilities the request used) and
+`e.reason` (the entry's `deny_reason`). It is a deployment restriction, not a
+model limit: use an entry that allows the capability, or drop it from the
+request. A provider built with `get_provider()` directly carries no `deny`
+unless you pass `deny=[...]`.
+
+If the catalog also rejects the request (the model itself cannot do it), the
+catalog's error is raised instead. A restriction you have *not* declared is
+not detected: the request goes out and the platform's own refusal is mapped
+as usual (on Vertex AI, `AIAuthenticationError`).
 
 #### The Critical Failure Modes
 
@@ -440,6 +548,7 @@ from djinnite import (
     AIEmptyResponseError,
     AIContextLengthError,
     AIRateLimitError,
+    DjinniteCapabilityDeniedError,
     AIProviderError,
 )
 
@@ -480,8 +589,14 @@ except AIContextLengthError as e:
     raise
 
 except AIRateLimitError:
-    # Rate limited — implement backoff or try another provider
+    # Rate limited — implement backoff, or try another entry yourself
+    # (Djinnite never falls back between entries on its own)
     time.sleep(60)
+
+except DjinniteCapabilityDeniedError as e:
+    # Nothing was sent. The entry's deny forbids e.capabilities for e.model.
+    log.error(f"Entry {e.entry} denies {e.capabilities}: {e.reason}")
+    raise
     
 except AIProviderError as e:
     # Catch-all for other provider errors
@@ -543,7 +658,8 @@ uv run python -m djinnite.scripts.update_model_costs --config ../config/ai_confi
 
 ### Key Principles for Integration
 *   **Isolation:** Keep your `ai_config.json` out of version control. Always host it in your main project's `config/` directory, never inside the Djinnite module itself.
-*   **Consistency:** Use `get_model_for_use_case` to avoid hardcoding model IDs in your logic.
+*   **Consistency:** Use `resolve_use_case` (with `build_provider`) to avoid hardcoding model IDs in your logic.
+*   **Name the entry:** build providers from ai_config entries with `config.build_provider(entry)`. `get_provider()` takes a provider *type*, not an entry name, and does not apply the entry's `deny`.
 *   **Updates:** Regularly run maintenance scripts against your project's config to stay current with provider APIs and pricing.
 
 ---

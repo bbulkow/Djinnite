@@ -155,6 +155,14 @@ Don't just switch providers—**use them in parallel**. Djinnite lets you orches
 }
 ```
 
+Each key under `providers` is an **entry name** you choose; the provider type
+is the entry's `"provider"` field and defaults to the name, so the config
+above is two entries, `gemini` and `claude`. Name entries differently to
+reach one provider through several paths at once, for example `"claude"`
+direct plus `"claude-vertex"` (`"provider": "claude"`) on Google Vertex AI,
+and declare per entry what its deployment does not allow (`"deny"`). See
+[USE.md](USE.md) and [ACCESS_PATHS_DESIGN.md](ACCESS_PATHS_DESIGN.md).
+
 ### **Universal Grounding & Web Search**
 All three providers support native web search:
 
@@ -217,15 +225,14 @@ uv sync
 ### Basic Usage
 
 ```python
-from djinnite.ai_providers import get_provider
 from djinnite.config_loader import load_ai_config
 
 # Load configuration
 config = load_ai_config()
-provider_name, model = config.get_model_for_use_case("general")
+choice = config.resolve_use_case("general")   # entry, provider_type, model
 
-# Create provider
-provider = get_provider(provider_name, config.providers[provider_name].api_key, model)
+# Create the provider from the named ai_config entry
+provider = config.build_provider(choice.entry, choice.model)
 
 # Generate response
 response = provider.generate(
@@ -372,6 +379,7 @@ from djinnite import (
     AIAuthenticationError,    # Bad API key (HTTP 401)
     AIModelNotFoundError,     # Model doesn't exist (HTTP 404)
     DjinniteModalityError,    # Unsupported modality (client-side check)
+    DjinniteCapabilityDeniedError,  # Capability the ai_config entry denies (client-side)
 )
 
 try:
@@ -396,8 +404,12 @@ except AIContextLengthError as e:
 except DjinniteModalityError as e:
     # Model doesn't support one of the requested modalities (e.g. video)
     print(f"Unsupported: {e.requested_modalities}")
+except DjinniteCapabilityDeniedError as e:
+    # The entry's "deny" forbids this (e.g. web search on a Vertex project
+    # whose org policy blocks it). Nothing was sent; force=True does not help.
+    print(f"Entry {e.entry} denies {e.capabilities}: {e.reason}")
 except AIRateLimitError:
-    # Switch to different provider or implement backoff
+    # Back off, or switch to another entry yourself (Djinnite never does)
     pass
 except AIProviderError as e:
     # General provider error (catches all the above too)
@@ -508,38 +520,36 @@ Configure different models for different purposes:
 ```python
 # Automatic model selection by use case
 config = load_ai_config()
-provider_name, model = config.get_model_for_use_case("coding")
-provider = get_provider(provider_name, config.providers[provider_name].api_key, model)
+choice = config.resolve_use_case("coding")            # default entry
+provider = config.build_provider(choice.entry, choice.model)
 ```
 
 ### Provider Fallback Chains
 
-Implement robust fallback for production systems:
+Djinnite never falls back from one entry to another by itself: entries can
+differ in billing and data handling, so switching silently would be wrong. If
+your application wants fallback, write the loop over the **entry names** you
+are willing to use:
 
 ```python
-def generate_with_fallback(prompt, providers=["gemini", "claude", "chatgpt"]):
-    """Try multiple providers until one succeeds."""
+def generate_with_fallback(prompt, entries=("gemini", "claude", "claude-vertex")):
+    """Try ai_config entries in order until one succeeds."""
     config = load_ai_config()
-    
-    for provider_name in providers:
+
+    for entry in entries:
+        if not config.get_provider(entry) or not config.is_usable(entry):
+            continue  # not configured, disabled, or no usable key
+
         try:
-            provider_config = config.get_provider(provider_name)
-            if not provider_config:
-                continue
-                
-            provider = get_provider(
-                provider_name, 
-                provider_config.api_key, 
-                provider_config.default_model
-            )
+            provider = config.build_provider(entry)   # the entry's default_model
             return provider.generate(prompt)
-            
+
         except AIRateLimitError:
-            continue  # Try next provider
+            continue  # Try next entry
         except AIProviderError:
-            continue  # Try next provider
-    
-    raise Exception("All providers failed")
+            continue  # Try next entry
+
+    raise Exception("All entries failed")
 ```
 
 ### Request/Response Logging

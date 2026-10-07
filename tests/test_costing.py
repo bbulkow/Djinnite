@@ -21,7 +21,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from djinnite.config_loader import load_ai_config, load_model_catalog, ModelInfo, ModelCosting
-from djinnite.ai_providers import get_provider
 from djinnite.ai_providers.base_provider import AIProviderError, AIPricingError, BaseAIProvider
 
 
@@ -314,10 +313,17 @@ def run_costing_tests():
         total_fail += 1
 
     for name in provider_names:
-        p_config = config.get_provider(name)
-        if not p_config or not p_config.api_key:
-            print(f"\n{name}: Not configured (skipping)")
+        # name is a provider type; run through its direct-mode entry.
+        try:
+            entry = config.direct_entry(name)
+        except ValueError as e:
+            print(f"\n{name}: [FAIL] {e}")
+            total_fail += 3
             continue
+        if entry is None:
+            print(f"\n{name}: [SKIP] no direct-mode entry configured")
+            continue
+        p_config = config.providers[entry]
 
         model_id = p_config.default_model
         model_info = catalog.get_model(name, model_id)
@@ -326,19 +332,12 @@ def run_costing_tests():
         if model_info and model_info.costing and model_info.costing.input_per_1m is not None:
             inp = model_info.costing.input_per_1m
             out = model_info.costing.output_per_1m
-            print(f"\n{name} ({model_id}) -- ${inp}/1M in, ${out}/1M out:")
+            print(f"\n{name} ({model_id}, entry '{entry}') -- ${inp}/1M in, ${out}/1M out:")
         else:
-            print(f"\n{name} ({model_id}) -- WARNING: no pricing in catalog")
+            print(f"\n{name} ({model_id}, entry '{entry}') -- [WARN] no pricing in catalog")
 
         try:
-            kwargs = {}
-            if name == "gemini":
-                kwargs["backend"] = p_config.backend
-                kwargs["project_id"] = p_config.project_id
-
-            provider = get_provider(
-                name, api_key=p_config.api_key, model=model_id, **kwargs,
-            )
+            provider = config.build_provider(entry, model=model_id)
         except Exception as e:
             print(f"  FAIL Provider init failed: {e}")
             total_fail += 3

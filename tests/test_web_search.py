@@ -22,7 +22,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from djinnite.config_loader import load_ai_config
-from djinnite.ai_providers import get_provider
 from djinnite.ai_providers.base_provider import AIProviderError, AIOutputTruncatedError
 
 
@@ -158,11 +157,8 @@ def test_structured_web_search(provider, provider_name, ai_config):
     """
     target = provider
     if provider_name == "gemini" and not provider.model.startswith("gemini-3"):
-        p_config = ai_config.get_provider("gemini")
-        target = get_provider(
-            "gemini", api_key=p_config.api_key, model=_GEMINI_JSON_SEARCH_MODEL,
-            backend=p_config.backend, project_id=p_config.project_id,
-        )
+        # Same entry as the fixture's provider, another model.
+        target = ai_config.build_provider(provider.entry, model=_GEMINI_JSON_SEARCH_MODEL)
     assert _check_structured_web_search(target, provider_name)
 
 
@@ -187,20 +183,22 @@ def run_web_search_tests():
     total_fail = 0
 
     for name in provider_names:
-        p_config = config.get_provider(name)
-        if not p_config or not p_config.api_key:
-            print(f"\n{name}: [--] Not configured (skipping)")
+        # name is a provider type; run through its direct-mode entry.
+        try:
+            entry = config.direct_entry(name)
+        except ValueError as e:
+            print(f"\n{name}: [FAIL] {e}")
+            total_fail += 2
             continue
+        if entry is None:
+            print(f"\n{name}: [SKIP] no direct-mode entry configured")
+            continue
+        p_config = config.providers[entry]
 
-        print(f"\n{name} ({p_config.default_model}):")
+        print(f"\n{name} ({p_config.default_model}, entry '{entry}'):")
 
         try:
-            kwargs = {}
-            if name == "gemini":
-                kwargs["backend"] = p_config.backend
-                kwargs["project_id"] = p_config.project_id
-
-            provider = get_provider(name, api_key=p_config.api_key, model=p_config.default_model, **kwargs)
+            provider = config.build_provider(entry)
         except Exception as e:
             print(f"  [FAIL] Provider init failed: {e}")
             total_fail += 2
@@ -219,9 +217,8 @@ def run_web_search_tests():
         if name == "gemini" and not p_config.default_model.startswith("gemini-3"):
             try:
                 print(f"  (switching to {_GEMINI_JSON_SEARCH_MODEL} for JSON+search)")
-                json_search_provider = get_provider(
-                    name, api_key=p_config.api_key, model=_GEMINI_JSON_SEARCH_MODEL, **kwargs
-                )
+                json_search_provider = config.build_provider(
+                    entry, model=_GEMINI_JSON_SEARCH_MODEL)
             except Exception as e:
                 print(f"  [WARN]  Could not init {_GEMINI_JSON_SEARCH_MODEL}: {e}")
 

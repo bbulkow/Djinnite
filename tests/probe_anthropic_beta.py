@@ -24,12 +24,18 @@ def probe_beta_access():
     
     # Load API key from config
     ai_config = load_ai_config()
-    claude_config = ai_config.get_provider("claude")
-    
-    if not claude_config or not claude_config.api_key:
-        print("[FAIL] ERROR: No Claude API key configured in ai_config.json")
+    # The Claude type's direct-mode entry (named "claude", else the only one).
+    try:
+        entry = ai_config.direct_entry("claude")
+    except ValueError as e:
+        print(f"[FAIL] {e}")
         return False
-    
+    if entry is None:
+        print("[FAIL] ERROR: No direct-mode Claude entry with an API key in ai_config.json")
+        return False
+    claude_config = ai_config.providers[entry]
+    print(f"Using ai_config entry '{entry}'")
+
     client = anthropic.Anthropic(api_key=claude_config.api_key)
     
     print("Probing for web_search (GA) capability...")

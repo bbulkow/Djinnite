@@ -2,8 +2,10 @@
 Validate Structured JSON (generate_json) Across All Providers
 
 Runs a battery of short generate_json() calls against every enabled
-provider to verify that Djinnite's schema normalization pipeline
-produces valid, schema-conforming JSON for each.
+ai_config.json entry (an access path, ACCESS_PATHS_DESIGN.md: several may
+share a provider type) to verify that Djinnite's schema normalization
+pipeline produces valid, schema-conforming JSON for each. An entry whose
+``deny`` covers structured_json for its default model is skipped.
 
 Test cases use portable schemas (no additionalProperties) and exercise:
   1. Simple object schema
@@ -18,7 +20,8 @@ Requires real API keys in config/ai_config.json.
 
 Usage:
     python -m djinnite.scripts.validate_json
-    python -m djinnite.scripts.validate_json --provider gemini
+    python -m djinnite.scripts.validate_json --provider gemini        # every gemini entry
+    python -m djinnite.scripts.validate_json --provider claude-vertex # one entry
     python -m djinnite.scripts.validate_json --config path/to/ai_config.json
 """
 
@@ -32,8 +35,15 @@ _project_root = str(Path(__file__).parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from djinnite.config_loader import load_ai_config
-from djinnite.ai_providers import get_provider
+try:
+    from djinnite.config_loader import load_ai_config
+    from djinnite.scripts.validate_ai import entry_label, entry_skip_reason, select_entries
+except ImportError:
+    _pkg_root = str(Path(__file__).resolve().parent.parent)
+    if _pkg_root not in sys.path:
+        sys.path.insert(0, _pkg_root)
+    from config_loader import load_ai_config  # type: ignore
+    from scripts.validate_ai import entry_label, entry_skip_reason, select_entries  # type: ignore
 
 
 # ======================================================================
@@ -139,12 +149,13 @@ TEST_CASES = [
 
 def validate_json():
     parser = argparse.ArgumentParser(
-        description="Validate generate_json() across all enabled AI providers"
+        description="Validate generate_json() across all enabled ai_config entries"
     )
     parser.add_argument("--config", type=str, help="Path to ai_config.json")
     parser.add_argument(
         "--provider", type=str, default=None,
-        help="Test only this provider (gemini, claude, chatgpt)"
+        help="Test only this ai_config entry, or every entry of this provider "
+             "type (gemini, claude, chatgpt, grok)"
     )
     args = parser.parse_args()
 
@@ -152,61 +163,44 @@ def validate_json():
     config_path = Path(args.config) if args.config else None
     config = load_ai_config(config_path)
 
-    # Determine which providers to test
-    provider_names = ["gemini", "claude", "chatgpt"]
-    if args.provider:
-        if args.provider not in provider_names:
-            print(f"Unknown provider '{args.provider}'. Available: {provider_names}")
-            sys.exit(1)
-        provider_names = [args.provider]
+    # Determine which entries to test
+    try:
+        entry_names = select_entries(config, args.provider)
+    except ValueError as e:
+        print(f"[FAIL] {e}")
+        sys.exit(1)
 
-    print(f"\nValidating generate_json() -- Structured JSON Mode")
+    print("\nValidating generate_json() -- Structured JSON Mode")
     print("=" * 70)
 
     total_pass = 0
     total_fail = 0
     total_skip = 0
 
-    for provider_name in provider_names:
-        # Check provider config
-        if provider_name not in config.providers:
-            print(f"\n[ ] {provider_name}: Not configured (skipping)")
+    for name in entry_names:
+        label = entry_label(config, name)
+        reason = entry_skip_reason(config, name)
+        if reason:
+            print(f"\n[SKIP] {label}: {reason}")
             total_skip += 1
             continue
 
-        provider_config = config.providers[provider_name]
-
-        if not provider_config.enabled:
-            print(f"\n[ ] {provider_name}: Disabled (skipping)")
-            total_skip += 1
-            continue
-
-        if not config.is_usable(provider_name):
-            print(f"\n[ ] {provider_name}: No API key (skipping)")
-            total_skip += 1
-            continue
-
+        provider_config = config.providers[name]
         model = provider_config.default_model
-        mode = (f"platform {provider_config.platform}" if provider_config.mode == "platform"
-                else "direct")
-        print(f"\n> {provider_name} ({model}, {mode})")
+        # A deployment restriction is not a model failure: the provider would
+        # raise DjinniteCapabilityDeniedError before any request.
+        if "structured_json" in provider_config.denied_for(model or None):
+            why = f" ({provider_config.deny_reason})" if provider_config.deny_reason else ""
+            print(f"\n[SKIP] {label}: entry denies structured_json for model {model}{why}")
+            total_skip += 1
+            continue
+
+        print(f"\n> {label} -- model {model}")
         print("-" * 50)
 
         # Initialize provider
         try:
-            # Get gemini key for OpenAI web search (not needed here but get_provider expects it)
-            gemini_key = None
-            if provider_name == "chatgpt":
-                gemini_cfg = config.get_provider("gemini")
-                if gemini_cfg:
-                    gemini_key = gemini_cfg.api_key
-
-            provider = get_provider(
-                provider_name=provider_name,
-                model=model,
-                gemini_api_key=gemini_key,
-                **config.provider_kwargs(provider_name),
-            )
+            provider = config.build_provider(name)
         except Exception as e:
             print(f"  [FAIL] Init failed: {e}")
             total_fail += len(TEST_CASES)
@@ -214,8 +208,8 @@ def validate_json():
 
         # Run test cases
         for test_name, schema, prompt, validator in TEST_CASES:
-            label = f"  {test_name}:"
-            print(f"{label:<30}", end="", flush=True)
+            test_label = f"  {test_name}:"
+            print(f"{test_label:<30}", end="", flush=True)
 
             try:
                 response = provider.generate_json(
@@ -261,16 +255,16 @@ def validate_json():
     # Summary
     print("\n" + "=" * 70)
     total = total_pass + total_fail
-    print(f"Results: {total_pass}/{total} passed, {total_fail} failed, {total_skip} providers skipped")
+    print(f"Results: {total_pass}/{total} passed, {total_fail} failed, {total_skip} entries skipped")
 
     if total_fail > 0:
-        print("\n[TIP] If a provider failed, check:")
+        print("\n[TIP] If an entry failed, check:")
         print("   - API key is valid in config/ai_config.json")
         print("   - Model supports structured JSON (check model_catalog.json)")
         print("   - Network connectivity to the provider API")
         sys.exit(1)
     elif total_pass == 0:
-        print("\n[WARN]  No providers were tested. Configure at least one provider in config/ai_config.json")
+        print("\n[WARN]  No entries were tested. Configure at least one provider entry in config/ai_config.json")
         sys.exit(1)
     else:
         print("\n[OK] All structured JSON tests passed!")

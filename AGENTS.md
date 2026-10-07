@@ -276,7 +276,7 @@ from becoming a file per parameter:
 
 | file | role | edited by |
 |---|---|---|
-| `ai_config.json` | which providers, which keys | human |
+| `ai_config.json` | which access paths (named entries), which keys, deployment restrictions (`deny`) | human |
 | `known_model_defaults.json` | **inputs to** discovery: estimator choice, provider vision defaults | human |
 | `model_overrides.json` | **decisions on top of** discovery: any field, any model | human |
 | `model_catalog.json` | generated output of the three above plus the provider APIs | **nobody** |
@@ -350,6 +350,26 @@ is not an error and is not a test failure — providers retire dated preview
 snapshots constantly, and a defensive entry for one that may return is
 legitimate. `apply_overrides` reports them as `[INFO] ... match no catalog
 model` so the file can be pruned deliberately rather than automatically.
+
+### Entry name vs provider type
+
+`ai_config.json` `providers` keys are **entry names**, not provider types.
+An entry's type is its `"provider"` field, defaulting to the entry name, so
+`"claude": {...}` is still a Claude entry but `"claude-vertex"` needs
+`"provider": "claude"`. Several entries may share a type
+([ACCESS_PATHS_DESIGN.md](ACCESS_PATHS_DESIGN.md)).
+
+* The catalog, `model_overrides.json` and `known_model_defaults.json` are
+  keyed by **type**. Look models up with `cfg.provider_type(entry)` (or
+  `resolve_use_case(...).provider_type`), never with the entry name.
+* Build providers with `cfg.build_provider(entry)`. Never
+  `get_provider(entry_name, ...)`: `get_provider` takes a type, and building
+  by hand from `provider_kwargs` silently drops the entry's `deny`.
+* Maintenance code that needs one entry per type uses
+  `cfg.direct_entry(type)`; do not add another selection rule, and do not
+  make runtime code pick or fall back between entries.
+* Offline tests for this live in `tests/test_access_paths.py`; name test
+  parameters `ptype` / `entry`, not `provider` (see above).
 
 ### Risky actions still need confirmation
 

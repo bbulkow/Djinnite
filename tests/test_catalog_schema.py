@@ -226,17 +226,16 @@ def test_new_model_does_not_inherit_neighbours_context_window():
         def discover_modalities(self, model_id):
             return {"input": ["text"], "output": ["text"]}
 
-    class _NoEstimator:
-        default_provider = "none"
-
-        def get_provider(self, name):
-            return None
+    # No entries at all, so no estimator resolves (scripts/estimator.py) and
+    # merge_model_data skips AI estimation instead of making paid calls.
+    from djinnite.config_loader import AIConfig
+    no_estimator = AIConfig(default_provider="none")
 
     existing = [{"id": "known-model", "context_window": 128000,
                  "max_output_tokens": 16384}]
     listed = [{"id": "known-model"}, {"id": "brand-new-model"}]
     merged = update_models.merge_model_data(
-        listed, existing, _Stub(), None, "x", _NoEstimator(),
+        listed, existing, _Stub(), None, "x", no_estimator,
         reprobe={"no-such-model"},  # restrictive scope: no live probes
     )
     new = next(m for m in merged if m["id"] == "brand-new-model")

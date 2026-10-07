@@ -359,6 +359,28 @@ class DjinniteModalityError(AIProviderError):
         super().__init__(full_message, provider=provider)
 
 
+class DjinniteCapabilityDeniedError(AIProviderError):
+    """A request used a capability its ai_config entry denies (client-side).
+
+    A deployment restriction declared in ``ai_config.json`` (an entry's
+    ``deny``), or passed as ``get_provider(deny=...)`` -- not a model limit.
+    Raised before any network call; ``force=True`` does not bypass it.
+
+    Attributes:
+        entry: The ai_config entry name, or None when built without one.
+        model: The model the request was for.
+        capabilities: The denied capabilities the request used.
+        reason: The entry's ``deny_reason``, if any.
+    """
+    def __init__(self, message: str, provider: str, model: str,
+                 entry: Optional[str], capabilities: list[str], reason: Optional[str]):
+        self.entry = entry
+        self.model = model
+        self.capabilities = capabilities
+        self.reason = reason
+        super().__init__(message, provider=provider)
+
+
 class BaseAIProvider(ABC):
     """
     Abstract base class for AI providers.
@@ -392,11 +414,52 @@ class BaseAIProvider(ABC):
     # Set by probe_incompatible_combinations for the duration of a probe
     # pass (probe instances have no catalog entry).
     _probe_supported_states: Optional[dict] = None
+    # The ai_config entry this provider was built from (None when built
+    # with get_provider directly), and the capabilities that entry denies
+    # for this model. Set by get_provider via _set_access_entry.
+    entry: Optional[str] = None
+    _denied: frozenset = frozenset()
+    _deny_reason: Optional[str] = None
 
     @property
     def mode(self) -> str:
         """Access mode: ``"platform"`` when served through a platform, else ``"direct"``."""
         return "platform" if self.platform else "direct"
+
+    def _set_access_entry(self, entry: Optional[str], deny=(), reason: Optional[str] = None) -> None:
+        """Record the ai_config entry and the capabilities it denies for this model."""
+        self.entry = entry
+        self._denied = frozenset(deny or ())
+        self._deny_reason = reason or None
+
+    def _check_entry_restrictions(self, caller_state: Dict[str, str]) -> None:
+        """Raise if the request uses a capability the entry denies.
+
+        ``caller_state`` is the same map the providers build for
+        ``_validate_incompatible_combinations``. Enforced with or without a
+        catalog entry, and regardless of ``force``: a ``deny`` is the
+        operator's statement about the deployment, not a catalog fact.
+
+        Raises:
+            DjinniteCapabilityDeniedError: one or more denied capabilities are "on".
+        """
+        if not self._denied:
+            return
+        used = [cap for cap, state in caller_state.items()
+                if state == "on" and cap in self._denied]
+        if not used:
+            return
+        uses = ", ".join(f"{cap}=on" for cap in used)
+        where = (f"ai_config entry '{self.entry}' denies" if self.entry
+                 else f"this provider was built with deny={sorted(self._denied)}, which denies")
+        reason = f" (deny_reason: {self._deny_reason})" if self._deny_reason else ""
+        raise DjinniteCapabilityDeniedError(
+            f"Request uses {uses}, which {where} for model '{self.model}'{reason}. "
+            f"This is a deployment restriction, not a model limit. Use an entry "
+            f"that allows it, or drop it from the request.",
+            provider=self.PROVIDER_NAME, model=self.model, entry=self.entry,
+            capabilities=used, reason=self._deny_reason,
+        )
 
     def __init__(self, api_key: Optional[str], model: str, model_info=None, require_pricing: bool = True):
         """
@@ -1305,13 +1368,15 @@ class BaseAIProvider(ABC):
         on/off capabilities). Providers build this dict in their
         ``generate`` / ``generate_structured`` methods immediately after
         parameter normalization, then call this helper.
+
+        It then enforces the ai_config entry's ``deny`` restrictions
+        (``_check_entry_restrictions``), which need no catalog entry. Every
+        provider calls this on every request path, before any network call.
+        Catalog checks come first, so when the catalog and a deny both
+        reject a request, the catalog's message is raised.
         """
-        if self._model_info is None:
-            return
-        incompat = self._model_info.capabilities.incompatible
-        if not incompat:
-            return
-        for combo in incompat:
+        incompat = self._model_info.capabilities.incompatible if self._model_info else None
+        for combo in incompat or ():
             if all(caller_state.get(k) == v for k, v in combo.items()):
                 pretty = ", ".join(f"{k}={v}" for k, v in combo.items())
                 raise ValueError(
@@ -1320,6 +1385,7 @@ class BaseAIProvider(ABC):
                     f"request so at least one of these capabilities is not "
                     f"in the listed state."
                 )
+        self._check_entry_restrictions(caller_state)
 
     def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
         """
@@ -1726,6 +1792,13 @@ class BaseAIProvider(ABC):
         # Pre-flight: check catalog before burning an API call
         if not force:
             self._check_capability("structured_json")
+        # ai_config entry restrictions apply even with force. This fallback
+        # calls generate() without a schema, so check structured_json here.
+        self._check_entry_restrictions({
+            "structured_json":  "on",
+            "web_search":       "on" if web_search else "off",
+            "json_with_search": "on" if web_search else "off",
+        })
 
         # Normalize once; providers use self._normalize_schema() in their
         # overrides, but the base implementation validates eagerly.

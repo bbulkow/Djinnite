@@ -213,7 +213,7 @@ nothing is created, enabled or billed there.
 | 3. Model Garden | enable Haiku 4.5 and Sonnet 5.5 |
 | 4. Org policy | the guide's file, with the `claude-haiku-4-5` and `claude-sonnet-5-5` lines (`:structured_outputs` and `:web_search`) |
 | 5. Quota | request Haiku 4.5 quota at `global`, plus `us-east5` (regional `online_prediction_requests_per_base_model`) for the regional-premium test. **Do not** request quota for Sonnet 5.5: it is the 429 canary. New projects are often refused Claude quota; until it is granted the Claude functional tests skip by name and the plumbing tests still run. |
-| 6. Identity | the **"As a service account"** path, with `$RUNNER` as the service account (`roles/aiplatform.user`), the operator as its Token Creator, and the credentials kept in `$GCLOUD_DIR` (next section) |
+| 6. Identity | 6a, then 6c **"As a service account"**, with `$RUNNER` as the service account (`roles/aiplatform.user`), the operator as its Token Creator, and the credentials kept in `$GCLOUD_DIR` (next section) |
 
 **C. e2e-only additions:**
 

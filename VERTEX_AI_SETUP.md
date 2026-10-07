@@ -224,14 +224,27 @@ of usage history. Gemini needs no quota request.
 ## Step 6. Give your code an identity
 
 Djinnite uses Google's **Application Default Credentials (ADC)**: whatever
-identity the environment provides. No key file, no API key.
+identity the environment provides. No key file, no API key. That identity
+needs **Vertex AI User** (`roles/aiplatform.user`) on the project.
 
-First you will create a user, but then you will follow the necessary path for
-execution either in Cloud Run, or from a local machine.
+Which identity, and which parts of this step you do, depends on where your
+code runs:
 
-That identity needs **Vertex AI User** (`roles/aiplatform.user`) on the
-project. A service account is the recommended identity, in production and on
-your own machine. Create one and grant it the role:
+| Where Djinnite runs | Identity | Do |
+|---|---|---|
+| Cloud Run, GKE, Compute Engine | a service account | 6a, then 6b |
+| Your machine, as a service account (recommended) | a service account you impersonate | 6a, then 6c |
+| Your machine, as yourself | your own Google account | 6c only -- no service account |
+
+Running as yourself is the quickest start. Running as a service account is
+recommended because the code then has only the permissions you granted, the
+same as in production: a missing grant shows up on your machine rather than
+after you deploy. As yourself, an Owner account can do everything, so it
+hides one.
+
+### 6a. Create a service account (service-account paths only)
+
+Skip this if you will run as yourself on your own machine.
 
 ```powershell
 $SA_NAME = "my-app"
@@ -241,17 +254,43 @@ gcloud projects add-iam-policy-binding $PROJECT `
     --member="serviceAccount:$SA" --role="roles/aiplatform.user"
 ```
 
-`my-app` is any name you choose: 6 to 30 lowercase letters, digits and
-hyphens. (Running as yourself on your own machine needs no service account:
-skip to **As yourself** below.)
+**Choosing the name.** `my-app` is the service account's name. Pick one that
+says what runs as it, because it shows up in IAM listings and audit logs: your
+service's name in production, or something like `djinnite-test` for a trial.
+It must be 6 to 30 characters of lowercase letters, digits and hyphens,
+starting with a letter, and unique only within the project (the email
+includes the project ID, so another project can use the same name).
 
-### On Cloud Run (or GKE, Compute Engine)
+The name becomes the account's email and **cannot be changed** afterwards;
+to rename, create a new account and delete the old one. The account itself
+costs nothing and is easy to remove.
 
-Run your service as that service account. On Cloud Run, add
+**Removing it later.** Remove its role binding first, then delete the account:
+
+```powershell
+gcloud projects remove-iam-policy-binding $PROJECT `
+    --member="serviceAccount:$SA" --role="roles/aiplatform.user"
+gcloud iam service-accounts delete $SA --project=$PROJECT
+```
+
+Remove the binding first; a binding left behind stays in the project's
+policy as `deleted:serviceAccount:...`. If you used it from your machine,
+also delete the credentials file from 6c, which stops working once the
+account is gone. A deleted account can be restored for 30 days with
+`gcloud iam service-accounts undelete <its numeric unique ID>`. A new account
+created later with the same name is a different account: it gets none of
+the old one's grants, so grant the role again. Deleting the whole project
+removes its service accounts too.
+
+### 6b. On Cloud Run (or GKE, Compute Engine)
+
+Run your service as the service account from 6a. On Cloud Run, add
 `--service-account=$SA` to your `gcloud run deploy` command. Nothing else:
-ADC picks up the service account automatically.
+ADC picks up the service account automatically. (Without
+`--service-account`, Cloud Run uses the project's default compute service
+account, which usually has far broader rights than Djinnite needs.)
 
-### On your localmachine
+### 6c. On your own machine
 
 Nothing here needs a machine-wide change. Your normal `gcloud` login and any
 credentials other programs use stay as they are.
@@ -273,14 +312,14 @@ $CREDS_DIR = "<an empty directory for these credentials>"
 New-Item -ItemType Directory -Force $CREDS_DIR | Out-Null
 ```
 
-Then write the credentials there, as the service account or as yourself. In
+Then write the credentials there, by **one** of the two paths below. In
 both, `CLOUDSDK_CONFIG` points gcloud at that directory for this window only
 and is removed straight after the login. (Run without it, the login replaces
 the machine's default credentials file instead.)
 
-**As a service account** (recommended; matches production, no key file).
-This uses the service account created above. You need **Service Account
-Token Creator** on it:
+**As a service account** (recommended; needs the service account from 6a).
+You need **Service Account Token Creator** on it, so that you can act as it
+without a key file:
 
 ```powershell
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT `
@@ -294,8 +333,8 @@ Remove-Item Env:CLOUDSDK_CONFIG
 A browser opens: sign in as `<your email>`. A new grant can take a few
 minutes to take effect.
 
-**As yourself.** Your Google account needs `roles/aiplatform.user` on the
-project (Owner has it):
+**As yourself** (no service account; skip 6a). Your Google account needs
+`roles/aiplatform.user` on the project (Owner has it):
 
 ```powershell
 $env:CLOUDSDK_CONFIG = $CREDS_DIR

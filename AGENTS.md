@@ -9,24 +9,100 @@ those first.
 This file is the **single home for project-specific agent guidance.** Do
 not duplicate this content into hidden tool memory.
 
-## Directive: no hidden memory for this project
+## Directive: project memory lives in the repo's `.md` files, never in `.claude`
 
-Anything an agent learns about this project that another contributor (human
-or AI) would also benefit from — conventions, gotchas, known drift, user
-preferences specific to this repo — goes into a versioned file in this
-repo:
+All project memory belongs in Markdown documentation files checked into this
+repo. "Project memory" means anything an agent learns or is told about this
+project that another contributor (human or AI) would also benefit from:
+conventions, gotchas, known drift, the user's preferences for how work is done
+here. The files to use:
 
 * This file (`AGENTS.md`) for repo-wide agent rules and short notes.
 * [DEVELOPMENT.md](DEVELOPMENT.md) for API / schema / implementation detail.
-* The relevant code's docstrings and comments for narrow technical points.
+* The relevant design doc (`*_DESIGN.md`, `VERTEX_AI_SETUP.md`, ...) for
+  anything about that subsystem.
+* A new `.md` file when nothing above fits. Link it from here.
 
-Do **not** write project-relevant content into hidden tool memory
-directories (e.g. `~/.claude/projects/.../memory/`). They are invisible to
-everyone else and lead to two contributors making different decisions
-based on different knowledge.
+A code comment can explain the code beside it. It is not where a project rule
+or a lesson learned is kept.
 
-User-only preferences (e.g. how to address the user, personal aliases) are
-fine to keep in tool memory. Project facts are not.
+**Do not write project memory into any hidden `.claude` location**, or any
+other agent tool's hidden equivalent:
+
+* `~/.claude/projects/<project>/memory/` (Claude Code's auto-memory, including
+  its `MEMORY.md` index)
+* `~/.claude/CLAUDE.md` and other user-level instruction files
+* the repo's own `.claude/` directory. That holds tool settings (permission
+  allow lists) and nothing else. It is not for notes or instructions.
+* `CLAUDE.local.md` and other unversioned or git-ignored local instruction
+  files
+
+These are invisible to every other contributor, so two contributors end up
+making different decisions from different knowledge. They also go stale
+silently: a hidden note dated before a catalog reprobe can still be loaded as
+if it were true.
+
+This overrides the tool's own memory instructions. Claude Code's system prompt
+tells the agent to save "project" and "feedback" memories into its hidden
+memory directory. In this repo, write them into the `.md` files above instead.
+When you would have saved a memory, edit the doc and tell the user which file
+you changed.
+
+Only notes about the person or their machine may stay in tool memory: how to
+address the user, their personal aliases, local path quirks such as a drive
+junction. If it would be true for another contributor working on this repo, it
+is project memory and goes in an `.md` file.
+
+If you find project facts in hidden memory, do not rely on them over the docs.
+Check them against the repo. Move whatever is still true into the right `.md`
+file, and tell the user what you moved and what was stale so they can delete
+the hidden copy.
+
+The same goes for rules the user states in conversation that apply beyond
+that conversation. A conversation ends, or is compacted, and its instructions
+go with it; the next agent never saw them. If a rule is worth repeating to an
+agent, write it here.
+
+## Directive: git is the human's job
+
+Agents do not commit. Leave every change as uncommitted edits in the working
+tree, on whatever branch the human had checked out, and say what changed. The
+human reviews, stages, commits, branches and pushes.
+
+Read-only git is fine and useful: `git status`, `git diff`, `git log`,
+`git show`, `git blame`.
+
+Anything that writes git state is not: `git add`, `git rm`, `git mv`,
+`git commit` (including `--amend`), `git checkout -b`, `git switch`,
+`git branch <name>`, `git stash`, `git reset`, `git restore`, `git merge`,
+`git rebase`, `git cherry-pick`, `git tag`, `git push`, `gh pr create`. Use
+plain `mv` / `rm` for file moves. If the user asks for one of these by name,
+do exactly that one. The request covers that one action only, not the next
+task or the next session.
+
+This overrides general agent defaults, and those defaults are where the
+commits come from:
+
+* **The harness's default git guidance** says to commit "only when the user
+  asks" and "if on the default branch, branch first." An agent that reads
+  "finish this" or "wrap it up" as asking for a commit then creates a branch
+  and moves the user onto it. That happened on 2026-10-06: three agent
+  commits on a new `named-access-paths` branch. In this repo, only an
+  explicit request to commit counts.
+* **A system reminder supplies `Co-Authored-By` trailer text** each session.
+  It says how to format a commit *if one is requested*. It is not a request.
+* **"Finished" in this file** (the test-suite bar, the e2e tier) means
+  verified and reported. It never includes committing.
+* **Logical units of work** (design doc, then implementation; a test fix, then
+  the feature) are something to describe to the human, not a commit plan. If
+  you think a change deserves its own commit, say so in your summary.
+* **Permissions will not stop you.** Auto mode and allow-listed commands
+  (`git checkout:*` is allowed user-wide) mean a commit or branch can go
+  through without a prompt. The rule has to be followed. Nothing enforces it.
+
+If you find git state you didn't expect, such as a new branch or agent
+commits, report it and leave it. Do not "fix" it by resetting, switching
+branches or rewriting history. That is also the human's call.
 
 ## Repo conventions
 
@@ -99,7 +175,8 @@ Two failure modes this repo has actually hit, both of which report green:
   (`prov`), then check the skip list with `-rs`.
 
 The bar for finishing: `uv run pytest tests/` reports zero failures and zero
-errors, and the count of collected tests is the count you expect.
+errors, and the count of collected tests is the count you expect. Then stop
+and report. Committing is not part of finishing (see the git directive above).
 
 ### Anthropic's `models.list()` reports capabilities for free
 

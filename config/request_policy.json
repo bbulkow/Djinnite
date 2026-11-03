@@ -1,0 +1,38 @@
+{
+  "_role": "Call-time policy: what Djinnite sends when the caller leaves something out, and how Djinnite's effort levels translate into each vendor's words. Edited by hand; not generated, not an override. See THINKING_EFFORT_DESIGN.md.",
+  "_defaults": "effort is used ONLY when an explicit value is required to honor the request (for example thinking=True on a toggleable OpenAI model). Otherwise omit effort and preserve the native default. A null effort default cannot cancel thinking=True: use medium as a selection target, mapped to a compatible level. temperature null = send none; an unsupported temperature is logged and dropped. Provider defaults override these selection defaults.",
+  "_effort_vocabulary": "Djinnite level -> the vendor's word, for all six levels. At call time the word is stepped to the nearest level in the model's catalog effort_levels when the catalog has them.",
+  "defaults": {
+    "effort": "medium",
+    "temperature": null
+  },
+  "providers": {
+    "chatgpt": {
+      "effort_vocabulary": {
+        "minimal": "minimal", "low": "low", "medium": "medium",
+        "high": "high", "xhigh": "xhigh", "max": "max"
+      }
+    },
+    "claude": {
+      "_note": "Claude has no 'minimal'.",
+      "effort_vocabulary": {
+        "minimal": "low", "low": "low", "medium": "medium",
+        "high": "high", "xhigh": "xhigh", "max": "max"
+      }
+    },
+    "gemini": {
+      "_note": "Gemini's ThinkingLevel stops at HIGH. Verified per-model levels are in model_overrides.json; unknown levels are not inferred from the SDK enum.",
+      "effort_vocabulary": {
+        "minimal": "minimal", "low": "low", "medium": "medium",
+        "high": "high", "xhigh": "high", "max": "high"
+      }
+    },
+    "grok": {
+      "_note": "Unverified: no xAI credentials when this was written (2026-11-03).",
+      "effort_vocabulary": {
+        "minimal": "minimal", "low": "low", "medium": "medium",
+        "high": "high", "xhigh": "xhigh", "max": "max"
+      }
+    }
+  }
+}

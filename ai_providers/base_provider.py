@@ -20,6 +20,11 @@ from typing import Optional, Any, Union, List, Dict, Tuple, Type
 # of misreading it as an effort level.
 _KNOWN_THINKING_SENTINELS = frozenset({"between_tools"})
 
+try:
+    from ..config_loader import EFFORT_LEVEL_VALUES as _EFFORT_LADDER, load_request_policy  # type: ignore
+except ImportError:  # pragma: no cover - flat-layout import
+    from config_loader import EFFORT_LEVEL_VALUES as _EFFORT_LADDER, load_request_policy  # type: ignore
+
 
 def _get_image_dimensions(data: bytes) -> Optional[Tuple[int, int]]:
     """
@@ -381,6 +386,27 @@ class DjinniteCapabilityDeniedError(AIProviderError):
         super().__init__(message, provider=provider)
 
 
+class DjinniteEffortMappingError(AIProviderError):
+    """The vendor rejected an effort level Djinnite chose for the caller.
+
+    Mapping uses the vendor vocabulary, known model levels and request
+    constraints. This error means that knowledge is incomplete or stale,
+    not that the caller's Djinnite effort label was invalid.
+
+    Attributes:
+        model: The model the request was for.
+        requested: The Djinnite level (the caller's, or the configured default).
+        sent: The vendor level Djinnite sent.
+    """
+    def __init__(self, message: str, provider: str, model: str,
+                 requested: str, sent: str,
+                 original_error: Optional[Exception] = None):
+        self.model = model
+        self.requested = requested
+        self.sent = sent
+        super().__init__(message, provider=provider, original_error=original_error)
+
+
 class BaseAIProvider(ABC):
     """
     Abstract base class for AI providers.
@@ -610,11 +636,12 @@ class BaseAIProvider(ABC):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -624,7 +651,10 @@ class BaseAIProvider(ABC):
             prompt: The user prompt/message (str or list of multimodal parts).
                 Always the final user turn of the request.
             system_prompt: Optional system instruction
-            temperature: Sampling temperature (0.0-1.0)
+            temperature: Sampling temperature, or ``None`` (the default) to
+                send none and use the model's own. A temperature the model
+                cannot accept, alone or with the thinking state requested,
+                is logged and dropped; the request still goes ahead.
             max_output_tokens: Cap on output tokens the model may emit.
                 Auto-fills from the catalog's ``ModelInfo.max_output_tokens``
                 when ``None``. Note: per-provider semantics differ — see the
@@ -1082,9 +1112,17 @@ class BaseAIProvider(ABC):
     # Thinking & Temperature resolution helpers
     # ------------------------------------------------------------------
 
-    # Caller-facing canonical effort levels (the union of OpenAI's
-    # reasoning_effort vocabulary and Gemini's ThinkingLevel enum).
-    _EFFORT_LEVELS: frozenset[str] = frozenset({"minimal", "low", "medium", "high"})
+    # Whether this provider's request carries an effort when thinking is
+    # switched off (thinking=False), or alongside an explicit token budget
+    # (thinking=int). Claude's effort governs overall token spend and rides
+    # next to either; OpenAI's "off" is itself an effort ("none"), and
+    # Gemini's thinking_level and thinking_budget are alternatives.
+    _EFFORT_WITH_THINKING_OFF: bool = False
+    _EFFORT_WITH_BUDGET: bool = False
+    # Whether effort is the provider's on control (OpenAI, Grok). When True,
+    # an explicit thinking=True needs an effort unless the catalog already
+    # confirms that the model is always on.
+    _EFFORT_EXPRESSES_THINKING: bool = False
 
     # Share of the output cap handed to thinking when the caller passes
     # thinking=True on a budget-style model. The remainder is reserved for
@@ -1106,7 +1144,7 @@ class BaseAIProvider(ABC):
         if styles and "budget" in styles:
             opts.append("an int token budget")
         if styles and "effort" in styles:
-            opts.append(f"a string ({sorted(self._EFFORT_LEVELS)})")
+            opts.append(f"effort='<level>' (one of {list(_EFFORT_LADDER)})")
         if styles and "adaptive" in styles:
             opts.append("thinking=True (the model sizes its own reasoning)")
         for sentinel in sorted(self._THINKING_SENTINELS):
@@ -1127,15 +1165,17 @@ class BaseAIProvider(ABC):
                       provider default applies (adaptive on Claude 5.x).
         - ``False`` → explicitly disable thinking; requires ``"off"`` in
                       ``capabilities.thinking``.
-        - ``True``  → enable thinking at maximum budget; requires ``"on"``.
+        - ``True``  → enable thinking; requires ``"on"``.
         - ``int``   → validated positive token budget; requires ``"on"``.
-        - ``str``   → validated effort level; requires ``"on"``.
         - a provider setting in ``_THINKING_SENTINELS`` (Claude:
           ``"between_tools"``) → requires that name in
           ``capabilities.thinking_style``; rejected by every other provider.
+        - any other ``str`` → ``ValueError``. Effort levels travel in
+          ``effort=``; ``_resolve_effort`` reads a level passed here as a
+          deprecated alias before this method runs.
 
-        ``capabilities.thinking_style`` is enforced for int, str, and
-        sentinel values (see below); ``True`` needs only ``"on"``.
+        ``capabilities.thinking_style`` is enforced for int and sentinel
+        values (see below); ``True`` needs only ``"on"``.
 
         Raises ``AIProviderError`` when the catalog says the requested
         on/off state is not supported. The two failure modes — "model
@@ -1157,7 +1197,8 @@ class BaseAIProvider(ABC):
                     f"Model '{self.model}' does not support disabling thinking "
                     f"(capabilities.thinking={caps.thinking} in catalog — "
                     f"reasoning is always on). Pass thinking=None to leave "
-                    f"the provider default in place, or use thinking=True/int/str.",
+                    f"the provider default in place, or use thinking=True/int "
+                    f"or effort=.",
                     provider=self.PROVIDER_NAME,
                 )
             return False
@@ -1216,33 +1257,179 @@ class BaseAIProvider(ABC):
                 )
             return thinking
         if isinstance(thinking, str):
-            low = thinking.lower()
-            if low not in self._EFFORT_LEVELS:
-                raise ValueError(
-                    f"thinking effort must be one of "
-                    f"{sorted(self._EFFORT_LEVELS)} — got '{thinking}'."
-                )
-            if styles is not None and "effort" not in styles:
-                raise ValueError(
-                    f"thinking=str (effort level) is not supported by model "
-                    f"'{self.model}'. Model accepts thinking_style={styles}. "
-                    f"Pass {self._thinking_alternatives(styles)}, "
-                    f"or False/None instead."
-                )
-            # Effort levels vary per model *within* a provider (Claude Opus
-            # 4.5 stops at "high"; Opus 5 accepts "max"), so the
-            # provider-wide vocabulary checked above is not sufficient.
-            levels = caps.effort_levels if caps is not None else None
-            if levels is not None and low not in levels:
-                raise ValueError(
-                    f"thinking='{low}' is not supported by model "
-                    f"'{self.model}'. This model accepts effort levels "
-                    f"{sorted(levels)}."
-                )
-            return low
+            raise ValueError(
+                f"thinking={thinking!r} is not a thinking setting. Pass an "
+                f"effort level as effort= (one of {list(_EFFORT_LADDER)})."
+            )
         raise TypeError(
-            f"thinking must be bool, int (token budget), str (effort level), or None — "
-            f"got {type(thinking).__name__}."
+            f"thinking must be bool, int (token budget), a provider setting "
+            f"such as 'between_tools', or None — got {type(thinking).__name__}."
+        )
+
+    # ------------------------------------------------------------------
+    # Effort: Djinnite levels, mapped to what the model accepts
+    # ------------------------------------------------------------------
+
+    def _request_policy(self):
+        """``config/request_policy.json``, loaded once per provider instance."""
+        policy = getattr(self, "_policy_cache", None)
+        if policy is None:
+            policy = load_request_policy()
+            self._policy_cache = policy
+        return policy
+
+    def _resolve_effort(self, thinking, effort: Optional[str], *, web_search: bool = False):
+        """Validate ``thinking`` and ``effort``; choose the native effort to send.
+
+        A ladder level passed as ``thinking`` is read as ``effort=<level>``
+        with ``thinking=None``, plus a ``DeprecationWarning``: the request
+        then carries exactly what the string carried before (the effort,
+        and no thinking block or budget). Then
+        ``_resolve_thinking`` runs the thinking pre-flight, and
+        ``_effort_applies`` decides whether this provider's request carries
+        an effort in that thinking state. An omitted effort stays omitted
+        unless ``_effort_required`` says an explicit value is necessary to
+        honor the request. Mapping considers both the model's levels and
+        the other requested features. An inapplicable effort is logged and
+        disregarded, never turned into a token budget.
+
+        Returns:
+            ``(thinking, effort_sent)``: the validated thinking value and the
+            vendor effort word to send, or ``None`` to send none.
+        """
+        if isinstance(thinking, str) and thinking.lower() not in _KNOWN_THINKING_SENTINELS:
+            level = thinking.lower()
+            if level in _EFFORT_LADDER:
+                if effort is not None:
+                    raise ValueError(
+                        f"thinking={thinking!r} and effort={effort!r} both give an "
+                        f"effort level; pass only effort=."
+                    )
+                import warnings
+                warnings.warn(
+                    f"thinking={thinking!r} is deprecated; pass effort={level!r}.",
+                    DeprecationWarning, stacklevel=3,
+                )
+                thinking, effort = None, level
+
+        if effort is not None:
+            if not isinstance(effort, str) or effort.lower() not in _EFFORT_LADDER:
+                raise ValueError(
+                    f"effort must be one of {list(_EFFORT_LADDER)} — got {effort!r}."
+                )
+            effort = effort.lower()
+
+        thinking = self._resolve_thinking(thinking)
+
+        if not self._effort_applies(thinking, explicit=effort is not None):
+            if effort is not None:
+                self._log_effort_disregarded(effort, thinking)
+            return thinking, None
+
+        level = effort
+        if level is None:
+            if not self._effort_required(thinking):
+                return thinking, None
+            # A null policy default cannot cancel an explicit thinking=True.
+            # Medium is only a selection target here; model and request
+            # constraints still determine the value actually sent.
+            level = self._request_policy().default(self.PROVIDER_NAME, "effort") or "medium"
+        self._effort_requested = level
+        return thinking, self._map_effort(level, thinking=thinking, web_search=web_search)
+
+    def _effort_required(self, thinking) -> bool:
+        """Whether omitting effort would fail to express the requested behavior."""
+        if thinking is not True or not self._EFFORT_EXPRESSES_THINKING:
+            return False
+        caps = self._model_info.capabilities if self._model_info is not None else None
+        # Always-on models already satisfy True with their native default.
+        return caps is None or caps.thinking != ["on"]
+
+    def _thinking_active(self, thinking, effort_sent=None) -> bool:
+        """Effective on-state, including a catalog-confirmed always-on default."""
+        if thinking is False:
+            return False
+        if thinking is not None or effort_sent is not None:
+            return True
+        caps = self._model_info.capabilities if self._model_info is not None else None
+        return caps is not None and caps.thinking == ["on"]
+
+    def _effort_applies(self, thinking, explicit: bool) -> bool:
+        """Whether this request, in this thinking state, carries an effort.
+
+        With a catalog entry: the model must list ``effort`` in
+        ``thinking_style``, and thinking off or an explicit budget carry an
+        effort only where the provider says so (``_EFFORT_WITH_*``). Without
+        one: only an effort the caller asked for, or ``thinking=True`` on a
+        provider whose only reasoning control is effort.
+        """
+        if thinking is False and not self._EFFORT_WITH_THINKING_OFF:
+            return False
+        if (isinstance(thinking, int) and not isinstance(thinking, bool)
+                and not self._EFFORT_WITH_BUDGET):
+            return False
+        caps = self._model_info.capabilities if self._model_info is not None else None
+        styles = caps.thinking_style if caps is not None else None
+        if styles is None:
+            return explicit or (thinking is True and self._EFFORT_EXPRESSES_THINKING)
+        return "effort" in styles
+
+    def _effort_allowed(self, level: str, *, thinking, web_search: bool) -> bool:
+        """Provider-specific restrictions on a level in the complete request."""
+        return True
+
+    def _map_effort(self, level: str, *, thinking=None, web_search: bool = False) -> str:
+        """Djinnite level → the vendor word, stepped to the model's own levels.
+
+        The vendor word comes from ``request_policy.json``. When the catalog
+        lists the model's ``effort_levels``, the word becomes the nearest of
+        them along the ladder, a tie going to the lower level. Filter out
+        levels incompatible with the requested features before choosing.
+        Unknown model levels use the vendor vocabulary, without claiming
+        those levels have been verified for the model.
+        """
+        vocabulary = self._request_policy().vocabulary(self.PROVIDER_NAME)
+        word = vocabulary[level] if vocabulary else level
+        caps = self._model_info.capabilities if self._model_info is not None else None
+        levels = caps.effort_levels if caps is not None else None
+        if levels is None:
+            levels = list(dict.fromkeys(vocabulary.values())) if vocabulary else list(_EFFORT_LADDER)
+        levels = [lvl for lvl in levels
+                  if self._effort_allowed(lvl, thinking=thinking, web_search=web_search)]
+        if not levels:
+            raise AIProviderError(
+                f"Model '{self.model}' has no supported effort level compatible "
+                f"with thinking={thinking!r}, web_search={web_search!r}.",
+                provider=self.PROVIDER_NAME,
+            )
+        target = _EFFORT_LADDER.index(word)
+        sent = min(levels, key=lambda lvl: (abs(_EFFORT_LADDER.index(lvl) - target),
+                                          _EFFORT_LADDER.index(lvl)))
+        if sent != level:
+            import logging
+            logging.getLogger("djinnite").info(
+                "effort=%r mapped to %r: %s/%s thinking=%r web_search=%r",
+                level, sent, self.PROVIDER_NAME, self.model, thinking, web_search,
+            )
+        return sent
+
+    def _log_effort_disregarded(self, effort: str, thinking) -> None:
+        import logging
+        logging.getLogger("djinnite").info(
+            "effort=%r disregarded: %s/%s carries no effort with thinking=%r",
+            effort, self.PROVIDER_NAME, self.model, thinking,
+        )
+
+    def _effort_mapping_error(self, sent: str, exc: Exception) -> "DjinniteEffortMappingError":
+        """The error for a vendor rejecting the effort level Djinnite chose."""
+        requested = getattr(self, "_effort_requested", sent)
+        return DjinniteEffortMappingError(
+            f"Model '{self.model}' rejected effort {sent!r}, which Djinnite "
+            f"mapped from {requested!r}. The catalog's effort_levels or the "
+            f"vendor vocabulary in request_policy.json is wrong for this "
+            f"model. Vendor said: {exc}",
+            provider=self.PROVIDER_NAME, model=self.model,
+            requested=requested, sent=sent, original_error=exc,
         )
 
     def _resolve_max_output_tokens(self, max_output_tokens: Optional[int]) -> Optional[int]:
@@ -1323,34 +1510,58 @@ class BaseAIProvider(ABC):
 
     def _resolve_temperature(
         self,
-        temperature: float,
-        thinking_active: bool,
+        temperature: Optional[float],
+        state: Dict[str, str],
     ) -> Optional[float]:
         """
-        Decide the effective temperature to send to the provider.
+        Decide the temperature to send, obeying what the model accepts.
 
-        Consults ``capabilities.temperature``:
+        Runs BEFORE ``_validate_incompatible_combinations``: ``state`` is
+        the request's other capability states, and the caller then records
+        the returned temperature in it, so the pre-flight checks what is
+        actually sent.
 
-        * ``"any"`` in list → caller's value is sent as-is.
-        * ``"any"`` absent (e.g. ``["default"]``) → caller's value is stripped
-          (returns ``None``) so the model uses its own default. This avoids
-          the 400 error reasoning-only models raise when given an explicit
-          temperature.
-        * ``None`` (unknown) → passthrough.
-
-        ``thinking_active`` is informational; cross-capability constraints
-        like temperature-with-thinking are encoded in
-        ``capabilities.incompatible`` and enforced by
-        ``_validate_incompatible_combinations`` before this method is called.
+        * A float from the caller is sent where the model takes it. Where
+          the catalog says the model accepts no temperature, or records
+          temperature as incompatible with the rest of ``state`` (e.g.
+          with thinking on), it is logged and dropped and the request goes
+          ahead without it (Brian, 2026-11-03).
+        * ``None`` (the caller gave none) → the configured default from
+          ``request_policy.json``, subject to the same checks, silently.
+          The shipped default is ``null``: send none.
 
         Returns:
             The temperature to use, or ``None`` meaning "omit".
         """
-        if self._model_info is not None:
-            cap = self._model_info.capabilities.temperature
-            if cap is not None and "any" not in cap:
+        explicit = temperature is not None
+        if not explicit:
+            temperature = self._request_policy().default(self.PROVIDER_NAME, "temperature")
+            if temperature is None:
                 return None
-        return temperature
+        reason = self._temperature_blocker(state)
+        if reason is None:
+            return temperature
+        if explicit:
+            import logging
+            logging.getLogger("djinnite").info(
+                "temperature=%r dropped: %s/%s %s",
+                temperature, self.PROVIDER_NAME, self.model, reason,
+            )
+        return None
+
+    def _temperature_blocker(self, state: Dict[str, str]) -> Optional[str]:
+        """Why the catalog forbids a temperature on this request, or ``None``."""
+        caps = self._model_info.capabilities if self._model_info is not None else None
+        if caps is None:
+            return None
+        if caps.temperature is not None and "any" not in caps.temperature:
+            return f"does not accept a temperature (capabilities.temperature={caps.temperature})"
+        with_temp = dict(state, temperature="any")
+        for combo in caps.incompatible or ():
+            if all(with_temp.get(k) == v for k, v in combo.items()):
+                pretty = ", ".join(f"{k}={v}" for k, v in combo.items())
+                return f"records ({pretty}) as incompatible"
+        return None
 
     # ------------------------------------------------------------------
     # Cross-capability incompatibility: runtime check + probe orchestrator
@@ -1722,12 +1933,13 @@ class BaseAIProvider(ABC):
         prompt: Union[str, List[Dict]],
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -1752,8 +1964,8 @@ class BaseAIProvider(ABC):
                     conform to.  The output is guaranteed to validate against
                     this structure via provider-native Constraint Decoding.
             system_prompt: Optional system instruction prepended to the request.
-            temperature: Sampling temperature (default 0.3 for deterministic,
-                         schema-conforming output).
+            temperature: Sampling temperature, or ``None`` (the default) to
+                send none. See ``generate()``.
             max_output_tokens: Cap on output tokens the model may emit
                 (auto-fills from catalog when ``None``). See ``generate()``
                 for the per-provider semantic note.

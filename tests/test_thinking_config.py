@@ -106,7 +106,9 @@ def test_explicit_int_selects_budget_shape(model_id):
     p = _provider(model_id)
     styles = CATALOG.get_model("claude", model_id).capabilities.thinking_style
     if "budget" not in styles:
-        pytest.skip(f"{model_id} does not accept an int budget")
+        with pytest.raises(ValueError, match="thinking=int"):
+            p._resolve_thinking(2048)
+        return
     block = p._build_claude_thinking(2048, 8192)
     assert block == {"type": "enabled", "budget_tokens": 2048}
 
@@ -148,25 +150,27 @@ def test_rejection_message_only_offers_accepted_forms():
 
     with pytest.raises(ValueError) as int_err:
         p._resolve_thinking(2048)
-    with pytest.raises(ValueError) as str_err:
+    err = str(int_err.value)
+    assert "thinking=True" in err
+    # The old messages pointed at each other's shape.
+    assert "Pass an int token budget" not in err
+    assert "Pass a string" not in err
+    # A level string is no longer a thinking setting at all.
+    with pytest.raises(ValueError, match="effort="):
         p._resolve_thinking("high")
-
-    for err in (str(int_err.value), str(str_err.value)):
-        assert "thinking=True" in err
-        # The old messages pointed at each other's shape.
-        assert "Pass an int token budget" not in err
-        assert "Pass a string" not in err
 
 
 # ------------------------------------------------------------------
 # Effort levels (output_config.effort)
 #
 # Claude carries reasoning effort in `output_config.effort`, NOT in the
-# thinking block, and its vocabulary is low/medium/high/xhigh/max -- there
-# is no "minimal". Levels also vary per model: Opus 4.5 stops at "high"
-# while Opus 5 accepts "max", so the provider-wide set cannot pre-flight a
-# request on its own.
+# thinking block. Its own vocabulary has no "minimal"; request_policy.json
+# maps Djinnite's "minimal" to "low". Levels also vary per model: Opus 4.5
+# stops at "high" while Opus 5 accepts "max", so a Djinnite level is
+# stepped to the nearest level the catalog says the model accepts.
 # ------------------------------------------------------------------
+
+from djinnite.config_loader import EFFORT_LEVEL_VALUES, load_request_policy
 
 EFFORT_MODELS = [
     m.id for m in THINKING_MODELS
@@ -174,11 +178,11 @@ EFFORT_MODELS = [
 ]
 
 
-def test_claude_effort_vocabulary_excludes_minimal():
-    """Claude rejects 'minimal'; the shared cross-provider set includes it."""
-    p = _provider(MODEL_IDS[0])
-    assert "minimal" not in p._EFFORT_LEVELS
-    assert {"low", "medium", "high", "xhigh", "max"} == set(p._EFFORT_LEVELS)
+def test_claude_vocabulary_maps_minimal_to_low():
+    """Claude rejects 'minimal'; the configured vocabulary steps it down."""
+    assert load_request_policy().vocabulary("claude")["minimal"] == "low"
+    p = _provider(EFFORT_MODELS[0])
+    assert p._map_effort("minimal") == "low"
 
 
 @pytest.mark.parametrize("model_id", EFFORT_MODELS)
@@ -186,40 +190,44 @@ def test_effort_models_declare_their_levels(model_id):
     """A model advertising 'effort' must say which levels it takes."""
     levels = CATALOG.get_model("claude", model_id).capabilities.effort_levels
     assert levels, f"{model_id} advertises effort but declares no effort_levels"
-    assert set(levels) <= set(_provider(model_id)._EFFORT_LEVELS)
+    assert set(levels) <= set(EFFORT_LEVEL_VALUES)
 
 
 @pytest.mark.parametrize("model_id", EFFORT_MODELS)
-def test_declared_effort_levels_are_accepted(model_id):
-    """Every declared level passes pre-flight and lands in output_config."""
+def test_declared_effort_levels_are_sent_as_is(model_id):
+    """Every declared level maps to itself and never becomes a thinking block."""
     p = _provider(model_id)
     for level in CATALOG.get_model("claude", model_id).capabilities.effort_levels:
-        assert p._resolve_thinking(level) == level
-        assert p._build_claude_effort(level) == level
-        # Effort is not a thinking block -- it must not become one.
-        assert p._build_claude_thinking(level, 8192) is None
+        assert p._resolve_effort(None, level) == (None, level)
+        assert p._build_claude_thinking(None, 8192) is None
 
 
 @pytest.mark.parametrize("model_id", EFFORT_MODELS)
-def test_undeclared_effort_levels_rejected_locally(model_id):
-    """A level this model lacks must fail locally, not as an API 400."""
+def test_undeclared_effort_levels_step_to_the_nearest_declared(model_id):
+    """A level this model lacks is mapped locally, never sent as an API 400."""
     p = _provider(model_id)
-    declared = set(CATALOG.get_model("claude", model_id).capabilities.effort_levels)
-    missing = set(p._EFFORT_LEVELS) - declared
+    declared = CATALOG.get_model("claude", model_id).capabilities.effort_levels
+    missing = [lvl for lvl in EFFORT_LEVEL_VALUES if lvl not in declared]
     if not missing:
-        pytest.skip(f"{model_id} accepts every Claude effort level")
-    with pytest.raises(ValueError, match="effort level"):
-        p._resolve_thinking(sorted(missing)[0])
+        pytest.skip(f"{model_id} accepts every effort level")
+    ladder = list(EFFORT_LEVEL_VALUES)
+    for level in missing:
+        sent = p._map_effort(level)
+        assert sent in declared
+        want = ladder.index("low" if level == "minimal" else level)
+        nearest = min(abs(ladder.index(d) - want) for d in declared)
+        assert abs(ladder.index(sent) - want) == nearest
 
 
-def test_non_effort_models_reject_effort():
-    """Models without effort support reject a level with an accurate message."""
+def test_non_effort_models_disregard_effort():
+    """A budget-only model carries no effort: the level is dropped, not
+    converted into a token budget, and no error is raised."""
     no_effort = [m.id for m in THINKING_MODELS if m.id not in EFFORT_MODELS]
     if not no_effort:
         pytest.skip("every thinking-capable Claude supports effort")
     p = _provider(no_effort[0])
-    with pytest.raises(ValueError, match="not supported by model"):
-        p._resolve_thinking("high")
+    assert p._resolve_effort(None, "high") == (None, None)
+    assert p._resolve_effort(True, "high") == (True, None)
 
 
 def test_context_window_matches_declared_output_cap():

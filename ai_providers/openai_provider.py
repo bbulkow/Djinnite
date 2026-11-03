@@ -21,9 +21,10 @@ from .base_provider import (
     AIOutputTruncatedError,
     AIContextLengthError,
 )
+from .responses_effort import ResponsesEffortProbes, effort_error_kind
 
 
-class OpenAIProvider(BaseAIProvider):
+class OpenAIProvider(ResponsesEffortProbes, BaseAIProvider):
     """
     OpenAI provider implementation using the **Responses API**.
 
@@ -33,6 +34,9 @@ class OpenAIProvider(BaseAIProvider):
     """
 
     PROVIDER_NAME = "chatgpt"
+    # Effort is this provider's only reasoning control, so thinking=True
+    # without a catalog entry still sends the configured default.
+    _EFFORT_EXPRESSES_THINKING = True
 
     def __init__(self, api_key: str, model: str, gemini_api_key: Optional[str] = None, model_info=None, require_pricing: bool = True):
         """
@@ -115,47 +119,41 @@ class OpenAIProvider(BaseAIProvider):
     # Thinking translation
     # ------------------------------------------------------------------
 
+    def _effort_allowed(self, level: str, *, thinking, web_search: bool) -> bool:
+        # GPT-5, mini, nano and their dated snapshots reject search at
+        # minimal. Do not extend that observation to other model families.
+        import re
+        gpt5 = re.fullmatch(r"gpt-5(?:-(?:mini|nano))?(?:-\d{4}-\d{2}-\d{2})?", self.model)
+        return not (gpt5 and web_search and level == "minimal")
+
     def _build_openai_thinking(
         self,
         thinking: Union[bool, int, str, None],
+        effort_sent: Optional[str],
     ) -> Optional[dict]:
         """
-        Translate the unified ``thinking`` parameter into the Responses API
-        ``reasoning`` parameter.
+        Build the Responses API ``reasoning`` parameter.
 
-        OpenAI's ``reasoning.effort`` only accepts string levels
-        (``"minimal"``, ``"low"``, ``"medium"``, ``"high"``, ``"none"``).
-        There is no integer-budget field — callers passing an int are
-        rejected at the local boundary.
+        ``thinking=False`` sends ``effort: "none"``. Otherwise the effort
+        ``_resolve_effort`` chose (the caller's Djinnite level or the
+        configured default, mapped to a level the model accepts) is sent;
+        with none chosen, nothing is sent and the model's default applies.
+        There is no token-budget field, so an int is refused.
 
         Returns:
             A dict for the ``reasoning`` kwarg, or ``None``.
         """
-        if thinking is None:
-            return None  # No opinion — let model use its default
-
         if thinking is False:
-            # Explicitly disable reasoning. GPT-5.x hybrid models support
-            # "none"; older reasoning-only models (o1/o3) will reject this
-            # with an API error — which is correct (can't disable on those).
             return {"effort": "none"}
-
-        if thinking is True:
-            return {"effort": "high"}
-
-        if isinstance(thinking, str):
-            return {"effort": thinking}
-
-        # int must not reach here for OpenAI (caught upstream by
-        # _resolve_thinking against the model's thinking_style — which
-        # for OpenAI never advertises "budget"). Defense in depth.
-        raise ValueError(
-            f"thinking=int (token budget) is not supported on OpenAI "
-            f"model '{self.model}'. OpenAI's reasoning parameter accepts "
-            f"only string effort levels "
-            f"('minimal'/'low'/'medium'/'high'). Pass a string, True, "
-            f"False, or None."
-        )
+        if isinstance(thinking, int) and not isinstance(thinking, bool):
+            raise ValueError(
+                f"thinking=int (token budget) is not supported on model "
+                f"'{self.model}': this provider's reasoning control is an "
+                f"effort level. Pass effort=, True, False, or None."
+            )
+        if effort_sent is not None:
+            return {"effort": effort_sent}
+        return None
 
     # ------------------------------------------------------------------
     # Response parsing helpers
@@ -280,11 +278,12 @@ class OpenAIProvider(BaseAIProvider):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -292,6 +291,7 @@ class OpenAIProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -299,9 +299,10 @@ class OpenAIProvider(BaseAIProvider):
             "history_turns": len(history or []),
         }
         # Validate & normalize thinking
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
-        thinking_active = thinking is not None and thinking is not False
+        # An effort sent is reasoning switched on (OpenAI's off is "none").
+        thinking_active = self._thinking_active(thinking, effort_sent)
 
         try:
             parts = self._normalize_input(prompt)
@@ -309,12 +310,17 @@ class OpenAIProvider(BaseAIProvider):
             openai_content = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
                 "structured_json": "off",
                 "web_search":      "on"  if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             # Build input: either simple string or structured with role.
             # With history, always role-tagged items ending in the prompt.
@@ -337,9 +343,6 @@ class OpenAIProvider(BaseAIProvider):
                 kwargs["instructions"] = system_prompt
 
             # Temperature: catalog-aware + thinking-aware stripping
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active:
-                effective_temp = None  # Reasoning models reject temperature
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
@@ -349,7 +352,7 @@ class OpenAIProvider(BaseAIProvider):
                 kwargs["max_output_tokens"] = resolved_max
 
             # Thinking → reasoning parameter
-            reasoning = self._build_openai_thinking(thinking)
+            reasoning = self._build_openai_thinking(thinking, effort_sent)
             if reasoning is not None:
                 kwargs["reasoning"] = reasoning
 
@@ -419,6 +422,8 @@ class OpenAIProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
+            if effort_sent is not None and effort_error_kind(e) == "level":
+                raise self._effort_mapping_error(effort_sent, e)
             error_message = str(e).lower()
 
             error_code = getattr(e, "code", None) or ""
@@ -490,12 +495,13 @@ class OpenAIProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -516,6 +522,7 @@ class OpenAIProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -535,9 +542,10 @@ class OpenAIProvider(BaseAIProvider):
         json_schema = self._prepare_schema_for_provider(json_schema)
 
         # Validate & normalize thinking
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
-        thinking_active = thinking is not None and thinking is not False
+        # An effort sent is reasoning switched on (OpenAI's off is "none").
+        thinking_active = self._thinking_active(thinking, effort_sent)
 
         try:
             parts = self._normalize_input(prompt)
@@ -545,13 +553,18 @@ class OpenAIProvider(BaseAIProvider):
             openai_content = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
                 "structured_json": "on",
                 "web_search":      "on"  if web_search             else "off",
                 "json_with_search": "on" if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             if turns:
                 api_input = self._responses_input(turns, openai_content)
@@ -577,9 +590,6 @@ class OpenAIProvider(BaseAIProvider):
                 kwargs["instructions"] = system_prompt
 
             # Temperature
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active:
-                effective_temp = None
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
@@ -589,7 +599,7 @@ class OpenAIProvider(BaseAIProvider):
                 kwargs["max_output_tokens"] = resolved_max
 
             # Thinking
-            reasoning = self._build_openai_thinking(thinking)
+            reasoning = self._build_openai_thinking(thinking, effort_sent)
             if reasoning is not None:
                 kwargs["reasoning"] = reasoning
 
@@ -663,6 +673,8 @@ class OpenAIProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
+            if effort_sent is not None and effort_error_kind(e) == "level":
+                raise self._effort_mapping_error(effort_sent, e)
             error_message = str(e).lower()
             error_code = getattr(e, "code", None) or ""
             if str(error_code) == "context_length_exceeded" or "context_length_exceeded" in error_message:
@@ -733,7 +745,6 @@ class OpenAIProvider(BaseAIProvider):
                 model=self.model,
                 input="Say hi.",
                 temperature=0.5,
-                max_output_tokens=10,
             )
             return True
         except Exception as e:
@@ -750,12 +761,11 @@ class OpenAIProvider(BaseAIProvider):
         kwargs: dict = {
             "model": self.model,
             "input": "Say hi.",
-            "max_output_tokens": 2048,
         }
         if active_states.get("temperature") == "any":
             kwargs["temperature"] = 0.5
         if active_states.get("thinking") == "on":
-            kwargs["reasoning"] = {"effort": "low"}
+            kwargs["reasoning"] = {"effort": self.probed_effort_level or "low"}
         if active_states.get("structured_json") == "on":
             kwargs["text"] = {
                 "format": {
@@ -785,65 +795,6 @@ class OpenAIProvider(BaseAIProvider):
             return None
         return bool(styles)
 
-    def probe_thinking_disable(self) -> Optional[bool]:
-        """
-        Whether OpenAI accepts an explicit thinking-disabled request.
-
-        Mirrors what the runtime sends for ``thinking=False`` —
-        ``reasoning={"effort": "none"}`` (see ``_translate_thinking_param``).
-        Models that reject ``"none"`` (older reasoning-only o1/o3, and
-        gpt-5-mini as of mid-2026) cause this probe to return False;
-        that surfaces in the catalog as ``thinking=["on"]``, so the
-        runtime pre-flight rejects the call with a clear "reasoning is
-        always on" message instead of letting it 400 at the vendor.
-
-        Returns:
-            True  – ``effort: "none"`` accepted (toggleable model).
-            False – vendor rejects ``effort: "none"`` (always-on model).
-            None  – inconclusive (rate limit / timeout).
-        """
-        try:
-            self._client.responses.create(
-                model=self.model,
-                input="Say hi.",
-                reasoning={"effort": "none"},
-                max_output_tokens=20,
-            )
-            return True
-        except Exception as e:
-            err = str(e).lower()
-            status = getattr(e, "status_code", None)
-            if status == 429 or "rate" in err or "timeout" in err:
-                return None
-            return False
-
-    def probe_thinking_style(self) -> Optional[list[str]]:
-        """
-        Probe which thinking styles this OpenAI model supports.
-
-        OpenAI exposes only ``reasoning_effort`` — there is no token-budget
-        analogue — so the result is ``["effort"]`` or ``[]``.
-
-        Returns:
-            * ``["effort"]`` – reasoning effort accepted.
-            * ``[]`` – cleanly rejected → no reasoning support.
-            * ``None`` – inconclusive (rate limit / timeout).
-        """
-        try:
-            self._client.responses.create(
-                model=self.model,
-                input="Say hi.",
-                reasoning={"effort": "low"},
-                max_output_tokens=100,
-            )
-            return ["effort"]
-        except Exception as e:
-            err = str(e).lower()
-            status = getattr(e, "status_code", None)
-            if status == 429 or "rate" in err or "timeout" in err:
-                return None
-            return []
-
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this OpenAI model supports structured JSON output."""
         _PROBE_SCHEMA = {
@@ -864,7 +815,6 @@ class OpenAIProvider(BaseAIProvider):
                         "schema": _PROBE_SCHEMA,
                     }
                 },
-                max_output_tokens=50,
             )
             return True
         except Exception as e:
@@ -881,7 +831,6 @@ class OpenAIProvider(BaseAIProvider):
                 model=self.model,
                 input="Say hi.",
                 tools=[{"type": "web_search_preview"}],
-                max_output_tokens=50,
             )
             return True
         except Exception as e:
@@ -912,7 +861,6 @@ class OpenAIProvider(BaseAIProvider):
                     }
                 },
                 tools=[{"type": "web_search_preview"}],
-                max_output_tokens=50,
             )
             return True
         except Exception as e:

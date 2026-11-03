@@ -396,59 +396,52 @@ class GeminiProvider(BaseAIProvider):
     def _build_gemini_thinking(
         self,
         thinking: Union[bool, int, str, None],
+        effort_sent: Optional[str],
     ) -> Optional[dict]:
         """
-        Translate the unified ``thinking`` parameter into Gemini's native
-        ``thinking_config`` format.
+        Build Gemini's ``thinking_config``.
 
-        Gemini's ``ThinkingConfig`` exposes two alternative fields:
-        ``thinking_budget`` (int token count, with ``0`` = disabled and
-        ``-1`` = automatic) and ``thinking_level`` (the ``ThinkingLevel``
-        enum: MINIMAL/LOW/MEDIUM/HIGH). Exactly one is set per request —
-        which one depends on the caller's shape:
+        Gemini's ``ThinkingConfig`` has two alternative fields, and exactly
+        one is set per request: ``thinking_budget`` (int tokens, ``0`` =
+        off, ``-1`` = dynamic) and ``thinking_level`` (the ``ThinkingLevel``
+        enum).
 
-        * ``int`` / ``True`` / ``False`` → ``thinking_budget``
-        * ``str`` (effort level) → ``thinking_level``
+        * ``False`` → ``thinking_budget: 0``
+        * ``int`` → that ``thinking_budget``
+        * an explicit effort mapped by ``_resolve_effort`` → ``thinking_level``
+        * ``True`` on a level-based/always-on model → omit (native default on)
+        * ``True`` on other budget models → ``thinking_budget: -1``
+        * otherwise nothing; the model's default applies
 
         Returns:
-            A dict for ``thinking_config``, or ``None`` if not requested.
+            A dict for ``thinking_config``, or ``None``.
         """
         from google.genai.types import ThinkingLevel
 
-        if thinking is None:
-            return None  # No opinion — let model use its default
-
         if thinking is False:
-            # Explicitly disable thinking. Gemini requires thinking_budget=0
-            # to suppress thinking on models that default to thinking ON.
             return {"thinking_budget": 0}
-
-        if thinking is True:
-            # ``True`` is "let the model decide" — Gemini's dynamic-budget
-            # signal is ``thinking_budget=-1`` (the model chooses how much
-            # to think based on the prompt). Aligns with Claude's adaptive
-            # mode and OpenAI's high-effort default for the same intent.
-            return {"thinking_budget": -1}
-
-        if isinstance(thinking, int):
-            # bool is a subclass of int, but True/False were handled above.
+        if isinstance(thinking, int) and not isinstance(thinking, bool):
             return {"thinking_budget": thinking}
-
-        # str effort: dispatch to Gemini's native ThinkingLevel enum.
-        # _resolve_thinking has already lowercased the value and validated
-        # it against {"minimal","low","medium","high"} and the model's
-        # thinking_style list.
-        return {"thinking_level": ThinkingLevel[thinking.upper()]}
+        if effort_sent is not None:
+            return {"thinking_level": ThinkingLevel[effort_sent.upper()]}
+        if thinking is True:
+            caps = self._model_info.capabilities if self._model_info is not None else None
+            if caps is not None and (caps.thinking == ["on"]
+                                     or "effort" in (caps.thinking_style or [])):
+                return None  # Gemini level-based models think by default.
+            return {"thinking_budget": -1}
+        return None
 
     def generate(
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -459,6 +452,7 @@ class GeminiProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -466,7 +460,8 @@ class GeminiProvider(BaseAIProvider):
             "history_turns": len(history or []),
         }
         # Validate & normalize thinking
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
+        thinking_active = self._thinking_active(thinking, effort_sent)
         turns = self._normalize_history(history)
 
         try:
@@ -477,15 +472,19 @@ class GeminiProvider(BaseAIProvider):
             gemini_parts = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
-                "thinking":        "on"  if thinking is not None    else "off",
+            state = {
+                "temperature":     "default",
+                "thinking":        "on"  if thinking_active         else "off",
                 "structured_json": "off",
                 "web_search":      "on"  if web_search              else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             # Resolve temperature: strip if catalog says not supported
-            effective_temp = self._resolve_temperature(temperature, thinking is not None)
 
             # Auto-fill max_output_tokens from catalog if caller didn't provide one.
             max_output_tokens = self._resolve_max_output_tokens(max_output_tokens)
@@ -500,7 +499,7 @@ class GeminiProvider(BaseAIProvider):
                 config["system_instruction"] = system_prompt
 
             # Thinking: add thinking_config if requested
-            thinking_config = self._build_gemini_thinking(thinking)
+            thinking_config = self._build_gemini_thinking(thinking, effort_sent)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
 
@@ -664,12 +663,13 @@ class GeminiProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -695,6 +695,7 @@ class GeminiProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -716,7 +717,8 @@ class GeminiProvider(BaseAIProvider):
         json_schema = self._prepare_schema_for_provider(json_schema)
 
         # Validate & normalize thinking
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
+        thinking_active = self._thinking_active(thinking, effort_sent)
         turns = self._normalize_history(history)
 
         try:
@@ -727,16 +729,20 @@ class GeminiProvider(BaseAIProvider):
             gemini_parts = self._map_parts(parts)
 
             # Cross-capability pre-flight from catalog.
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
-                "thinking":        "on"  if thinking is not None    else "off",
+            state = {
+                "temperature":     "default",
+                "thinking":        "on"  if thinking_active         else "off",
                 "structured_json": "on",
                 "web_search":      "on"  if web_search              else "off",
                 "json_with_search": "on" if web_search              else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             # Resolve temperature: catalog-aware stripping
-            effective_temp = self._resolve_temperature(temperature, thinking is not None)
 
             # Build configuration with schema-enforced JSON output
             config = {
@@ -757,7 +763,7 @@ class GeminiProvider(BaseAIProvider):
                 config["system_instruction"] = system_prompt
 
             # Thinking config
-            thinking_config = self._build_gemini_thinking(thinking)
+            thinking_config = self._build_gemini_thinking(thinking, effort_sent)
             if thinking_config is not None:
                 config["thinking_config"] = thinking_config
             
@@ -937,7 +943,7 @@ class GeminiProvider(BaseAIProvider):
         try:
             self._client.models.generate_content(
                 model=self.model, contents="Say hi.",
-                config={"automatic_function_calling": _DISABLE_AFC, "temperature": 0.5, "max_output_tokens": 10},
+                config={"automatic_function_calling": _DISABLE_AFC, "temperature": 0.5},
             )
             return True
         except Exception as e:
@@ -954,8 +960,7 @@ class GeminiProvider(BaseAIProvider):
         """
         from google.genai import types  # local import: SDK presence checked at init
 
-        config: dict = {"max_output_tokens": 2048,
-                        "automatic_function_calling": _DISABLE_AFC}
+        config: dict = {"automatic_function_calling": _DISABLE_AFC}
         if active_states.get("temperature") == "any":
             config["temperature"] = 0.5
         if active_states.get("thinking") == "on":
@@ -1001,7 +1006,6 @@ class GeminiProvider(BaseAIProvider):
                 model=self.model, contents="Say hi.",
                 config={
                     "automatic_function_calling": _DISABLE_AFC,
-                    "max_output_tokens": 100,
                     "thinking_config": {"thinking_budget": 0},
                 },
             )
@@ -1058,7 +1062,6 @@ class GeminiProvider(BaseAIProvider):
                     model=self.model, contents="Say hi.",
                     config={
                         "automatic_function_calling": _DISABLE_AFC,
-                        "max_output_tokens": 100,
                         "thinking_config": thinking_cfg,
                     },
                 )
@@ -1086,7 +1089,6 @@ class GeminiProvider(BaseAIProvider):
                 config={
                     "automatic_function_calling": _DISABLE_AFC,
                     "temperature": 0,
-                    "max_output_tokens": 50,
                     "response_mime_type": "application/json",
                     "response_schema": _PROBE_SCHEMA,
                 },
@@ -1109,7 +1111,6 @@ class GeminiProvider(BaseAIProvider):
                 contents="Say hi.",
                 config={
                     "automatic_function_calling": _DISABLE_AFC,
-                    "max_output_tokens": 50,
                     "tools": [types.Tool(google_search=types.GoogleSearch())],
                 },
             )
@@ -1141,7 +1142,6 @@ class GeminiProvider(BaseAIProvider):
                 config={
                     "automatic_function_calling": _DISABLE_AFC,
                     "temperature": 0,
-                    "max_output_tokens": 50,
                     "response_mime_type": "application/json",
                     "response_schema": _PROBE_SCHEMA,
                     "tools": [types.Tool(google_search=types.GoogleSearch())],

@@ -106,6 +106,17 @@ branches or rewriting history. That is also the human's call.
 
 ## Repo conventions
 
+### Preserve native defaults; normalize explicit preferences
+
+Naming a provider and model must not impose Djinnite's own effort policy.
+An omitted effort stays omitted unless an explicit value is required to
+honor the request (for example, thinking=True on a toggleable OpenAI model).
+Supporting effort is not evidence that an effort value is required.
+When effort is supplied, choose the nearest supported level compatible
+with the whole request. Preserve explicit thinking settings and requested
+features such as web search; do not remove them to make an effort fit.
+Document unknown support as unknown. See THINKING_EFFORT_DESIGN.md.
+
 ### Always run Python via `uv run`
 
 This is a `uv`-managed project. The SDK dependencies (`anthropic`,
@@ -147,6 +158,13 @@ project") rather than a value. Examples and tests use neutral placeholders
 Defaults that are overridable and describe behavior rather than a deployment
 are fine: the platform registry's default locations (`global` for Gemini and
 Claude) and the e2e harness's default test locations and models.
+
+### Decide from this repo, not from other people's repos
+
+Design and API decisions rest on Djinnite's own contract, code and docs.
+Do not read other projects on the machine, or copies of Djinnite vendored
+inside them, to decide what callers need or how many would break. Those
+repos belong to other people, and what they do today is not the contract.
 
 ### Fix "pre-existing" test failures before starting new work
 
@@ -341,6 +359,35 @@ believing them:
 uv run python -c "from djinnite.config_loader import load_ai_config; from djinnite.scripts.update_models import estimate_output_limits_with_ai; print(estimate_output_limits_with_ai([{'id':'MODEL_ID'}],'chatgpt',load_ai_config()))"
 ```
 
+**A `[FAIL]` in a probe line does not prove the model lacks the
+capability.** The OpenAI and Grok structured-JSON, web-search and
+temperature probes return False for any error other than a 429 or timeout,
+so a 404 or an unrelated 400 is recorded as "unsupported". The thinking
+probes no longer do: they read OpenAI's error codes
+(`ai_providers/responses_effort.py`) and report anything else as
+inconclusive (`think=[?]`). Known cases, as of 2026-11-03:
+
+* `gpt-4.1-nano`, `gpt-5-codex`, `gpt-5.1-codex`, `-codex-max`,
+  `-codex-mini` and `gpt-5.2-codex` return 404 (their `shutdown_date` in
+  OpenAI's model list has passed) and are recorded without structured JSON
+  or web search.
+* `gpt-5-search-api` returns 400 "not supported with the Responses API";
+  it is all-`[FAIL]` on every run.
+
+Before believing a `[FAIL]`, send the probe's request once by hand and read
+the error text. OpenAI's 400 for an unsupported effort value lists the
+levels that model accepts.
+
+**Do not manufacture token caps.** Keep a probe or diagnostic call small
+with a small prompt, not with a `max_output_tokens` guess. Providers use
+more tokens than any estimate, a reasoning model spends a small cap on
+thinking and returns incomplete, and the failed call is paid for and then
+repeated. OpenAI's Responses API also rejects values below 16:
+`probe_temperature` sent 10 until 2026-11-03, which recorded every OpenAI
+model as `temperature: ["default"]` (corrected by that day's reprobe). The
+probes now send no cap. The exception is Claude, whose API requires
+`max_tokens`; its probes send `ClaudeProvider._PROBE_MAX_TOKENS`.
+
 `ctx == max_output_tokens` specifically is always wrong — no model can spend
 its entire context on output with nothing left for a prompt.
 `sanitize_estimated_limits` now drops that case, and
@@ -355,6 +402,7 @@ from becoming a file per parameter:
 |---|---|---|
 | `ai_config.json` | which access paths (named entries), which keys, deployment restrictions (`deny`) | human |
 | `known_model_defaults.json` | **inputs to** discovery: estimator choice, provider vision defaults | human |
+| `request_policy.json` | **call-time policy**: effort selection only when an explicit value is required, optional temperature defaults, and the Djinnite-to-vendor effort vocabulary per provider type | human |
 | `model_overrides.json` | **decisions on top of** discovery: any field, any model | human |
 | `model_catalog.json` | generated output of the three above plus the provider APIs | **nobody** |
 
@@ -480,6 +528,9 @@ Claude model. `tests/test_update_models_scope.py` guards it.
   `max_output_tokens`, `context_window`, and `thinking` each control a
   different budget and the per-provider semantics differ.
 * **Breaking change log:** [DEVELOPMENT.md § Breaking Changes Log](DEVELOPMENT.md).
+* **Effort levels** (implemented; platform e2e validation pending) **and the OpenAI
+  thinking-discovery fixes** (implemented 2026-11-03):
+  [THINKING_EFFORT_DESIGN.md](THINKING_EFFORT_DESIGN.md).
 * **Pricing has more than one number per model.** Vendors publish Standard,
   Flex, Batch and long-context rates on the same page; the catalog stores
   **Standard at the base context tier**, and `ModelCosting.published_figure`

@@ -64,6 +64,10 @@ except ImportError:
 # fall out of sync with the catalog schema.
 _CAPABILITY_FIELDS: tuple = tuple(f.name for f in _dc_fields(ModelCapabilities))
 
+# Thinking styles that prove a model thinks. "between_tools" is absent: it is
+# a setting on a model that already thinks, not evidence of thinking.
+_THINKING_ON_STYLES: tuple = ("adaptive", "budget", "effort")
+
 
 def _load_known_defaults() -> dict:
     """Load known_model_defaults.json (estimator config, vision defaults, etc.)."""
@@ -548,6 +552,10 @@ def _probe_all_capabilities_for_models(
             # Thinking is two-dimensional: which styles work + can disable?
             styles_raw = instance.probe_thinking_style()    # list[str] | None
             disable_raw = instance.probe_thinking_disable()  # bool | None
+            # Responses-API providers learn the accepted effort levels from
+            # the style probe's rejection (ai_providers/responses_effort.py).
+            # Anthropic lists them on the models endpoint instead.
+            effort_levels_raw = getattr(instance, "probed_effort_levels", None)
 
             # ---- Assemble list-shaped fields ---------------------------
             ssj_states = _onoff_states(ssj_raw)
@@ -569,8 +577,10 @@ def _probe_all_capabilities_for_models(
                 orchestrator_thinking = None
             else:
                 # "between_tools" is a thinking *setting*, not evidence the
-                # model thinks -- only adaptive/budget establish "on".
-                on_supported = any(s in ("adaptive", "budget") for s in styles_raw)
+                # model thinks. Every other style is: counting only
+                # adaptive/budget wrote thinking=["off"] onto every model
+                # whose only style is effort (OpenAI, Grok).
+                on_supported = any(s in _THINKING_ON_STYLES for s in styles_raw)
                 if not on_supported:
                     # No thinking: "off" is the only state.
                     thinking_states = ["off"]
@@ -580,7 +590,10 @@ def _probe_all_capabilities_for_models(
                     thinking_states = ["on"]  # always-on
                 else:
                     thinking_states = None  # disable probe inconclusive
-                thinking_style_states = list(styles_raw) if styles_raw else None
+                # [] is a confirmed answer ("no thinking"), not unknown.
+                # Storing it as None re-probed, and re-billed, every
+                # non-reasoning model on every refresh.
+                thinking_style_states = list(styles_raw)
                 # The on-state is known even when "off" is not, so thinking
                 # combinations are still probed.
                 orchestrator_thinking = ["on"] if on_supported else thinking_states
@@ -621,6 +634,7 @@ def _probe_all_capabilities_for_models(
                 "web_search": ws_states,
                 "json_with_search": jws_states,
                 "thinking_style": thinking_style_states,
+                "effort_levels": effort_levels_raw,
                 "incompatible": incompat_states,
             }
 
@@ -639,6 +653,8 @@ def _probe_all_capabilities_for_models(
             if thinking_style_states:
                 think_label += f"({'|'.join(thinking_style_states)})"
             parts.append(f"think={think_label}")
+            if effort_levels_raw:
+                parts.append(f"effort={'|'.join(effort_levels_raw)}")
             parts.append(f"web={_mark(ws_states)}")
             parts.append(f"json+search={_mark(jws_states)}")
             if incompat_states is None:
@@ -652,7 +668,7 @@ def _probe_all_capabilities_for_models(
                 "structured_json": None, "temperature": None,
                 "thinking": None, "web_search": ["on", "off"],
                 "json_with_search": None, "thinking_style": None,
-                "incompatible": None,
+                "effort_levels": None, "incompatible": None,
             }
             print(f"    [WARN] {model_id}: probe skipped ({e})")
     return results

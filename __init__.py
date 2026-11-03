@@ -4,7 +4,7 @@ Djinnite AI Abstraction Layer
 Standardized, multimodal interface for Gemini, Claude, and OpenAI.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from .ai_providers import (
     get_provider,
@@ -19,8 +19,9 @@ from .ai_providers import (
     AIModelNotFoundError,
     DjinniteModalityError,
     DjinniteCapabilityDeniedError,
+    DjinniteEffortMappingError,
 )
-from .config_loader import load_ai_config, load_model_catalog
+from .config_loader import load_ai_config, load_model_catalog, load_request_policy, RequestPolicy
 
 __all__ = [
     "get_provider",
@@ -35,6 +36,9 @@ __all__ = [
     "AIModelNotFoundError",
     "DjinniteModalityError",
     "DjinniteCapabilityDeniedError",
+    "DjinniteEffortMappingError",
     "load_ai_config",
     "load_model_catalog",
+    "load_request_policy",
+    "RequestPolicy",
 ]

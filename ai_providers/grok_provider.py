@@ -30,9 +30,10 @@ from .base_provider import (
     AIOutputTruncatedError,
     AIContextLengthError,
 )
+from .responses_effort import ResponsesEffortProbes, effort_error_kind
 
 
-class GrokProvider(BaseAIProvider):
+class GrokProvider(ResponsesEffortProbes, BaseAIProvider):
     """
     xAI Grok provider implementation using the **Responses API**.
 
@@ -44,6 +45,9 @@ class GrokProvider(BaseAIProvider):
     """
 
     PROVIDER_NAME = "grok"
+    # Effort is this provider's only reasoning control, so thinking=True
+    # without a catalog entry still sends the configured default.
+    _EFFORT_EXPRESSES_THINKING = True
     BASE_URL = "https://api.x.ai/v1"
 
     def __init__(self, api_key: str, model: str, model_info=None, require_pricing: bool = True):
@@ -131,35 +135,31 @@ class GrokProvider(BaseAIProvider):
     def _build_grok_thinking(
         self,
         thinking: Union[bool, int, str, None],
+        effort_sent: Optional[str],
     ) -> Optional[dict]:
         """
-        Translate the unified ``thinking`` parameter into the Responses API
-        ``reasoning`` parameter.
+        Build the Responses API ``reasoning`` parameter.
 
-        xAI's ``reasoning.effort`` accepts string levels only (there is no
-        integer-budget field).  Note that some Grok models (e.g. the flagship
-        reasoning models) reason unconditionally and reject an explicit effort
-        or ``"none"`` — this is discovered by ``probe_thinking_*`` and reflected
-        in the catalog, so the runtime pre-flight rejects unsupported requests
-        before they reach the vendor.
+        ``thinking=False`` sends ``effort: "none"``. Otherwise the effort
+        ``_resolve_effort`` chose (the caller's Djinnite level or the
+        configured default, mapped to a level the model accepts) is sent;
+        with none chosen, nothing is sent and the model's default applies.
+        There is no token-budget field, so an int is refused.
 
         Returns:
             A dict for the ``reasoning`` kwarg, or ``None``.
         """
-        if thinking is None:
-            return None
         if thinking is False:
             return {"effort": "none"}
-        if thinking is True:
-            return {"effort": "high"}
-        if isinstance(thinking, str):
-            return {"effort": thinking}
-        raise ValueError(
-            f"thinking=int (token budget) is not supported on xAI Grok "
-            f"model '{self.model}'. xAI's reasoning parameter accepts only "
-            f"string effort levels ('low'/'high', and 'none' to disable on "
-            f"models that allow it). Pass a string, True, False, or None."
-        )
+        if isinstance(thinking, int) and not isinstance(thinking, bool):
+            raise ValueError(
+                f"thinking=int (token budget) is not supported on model "
+                f"'{self.model}': this provider's reasoning control is an "
+                f"effort level. Pass effort=, True, False, or None."
+            )
+        if effort_sent is not None:
+            return {"effort": effort_sent}
+        return None
 
     # ------------------------------------------------------------------
     # Web search (xAI Live Search)
@@ -325,37 +325,45 @@ class GrokProvider(BaseAIProvider):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """Generate a response using xAI's Responses API."""
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
             "system_prompt": system_prompt,
             "history_turns": len(history or []),
         }
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
-        thinking_active = thinking is not None and thinking is not False
+        # An effort sent is reasoning switched on (OpenAI's off is "none").
+        thinking_active = self._thinking_active(thinking, effort_sent)
 
         try:
             parts = self._normalize_input(prompt)
             self._validate_vision_limits(self._all_parts(turns, parts))
             content = self._map_parts(parts)
 
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
                 "structured_json": "off",
                 "web_search":      "on"  if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             kwargs = {
                 "model": self.model,
@@ -365,9 +373,6 @@ class GrokProvider(BaseAIProvider):
             if system_prompt:
                 kwargs["instructions"] = system_prompt
 
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active:
-                effective_temp = None
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
@@ -375,7 +380,7 @@ class GrokProvider(BaseAIProvider):
             if resolved_max:
                 kwargs["max_output_tokens"] = resolved_max
 
-            reasoning = self._build_grok_thinking(thinking)
+            reasoning = self._build_grok_thinking(thinking, effort_sent)
             if reasoning is not None:
                 kwargs["reasoning"] = reasoning
 
@@ -441,6 +446,8 @@ class GrokProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
+            if effort_sent is not None and effort_error_kind(e) == "level":
+                raise self._effort_mapping_error(effort_sent, e)
             raise self._map_error(e)
 
     # ------------------------------------------------------------------
@@ -481,12 +488,13 @@ class GrokProvider(BaseAIProvider):
         prompt: Union[str, List[Dict]],
         schema: Union[Dict, Type],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.3,
+        temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
         web_search: bool = False,
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -495,6 +503,7 @@ class GrokProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -513,22 +522,28 @@ class GrokProvider(BaseAIProvider):
         json_schema = self._validate_caller_schema(json_schema)
         json_schema = self._prepare_schema_for_provider(json_schema)
 
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
-        thinking_active = thinking is not None and thinking is not False
+        # An effort sent is reasoning switched on (OpenAI's off is "none").
+        thinking_active = self._thinking_active(thinking, effort_sent)
 
         try:
             parts = self._normalize_input(prompt)
             self._validate_vision_limits(self._all_parts(turns, parts))
             content = self._map_parts(parts)
 
-            self._validate_incompatible_combinations({
-                "temperature":      "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":         "on"  if thinking_active        else "off",
                 "structured_json":  "on",
                 "web_search":       "on"  if web_search             else "off",
                 "json_with_search": "on"  if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             kwargs = {
                 "model": self.model,
@@ -546,9 +561,6 @@ class GrokProvider(BaseAIProvider):
             if system_prompt:
                 kwargs["instructions"] = system_prompt
 
-            effective_temp = self._resolve_temperature(temperature, thinking_active)
-            if thinking_active:
-                effective_temp = None
             if effective_temp is not None:
                 kwargs["temperature"] = effective_temp
 
@@ -556,7 +568,7 @@ class GrokProvider(BaseAIProvider):
             if resolved_max:
                 kwargs["max_output_tokens"] = resolved_max
 
-            reasoning = self._build_grok_thinking(thinking)
+            reasoning = self._build_grok_thinking(thinking, effort_sent)
             if reasoning is not None:
                 kwargs["reasoning"] = reasoning
 
@@ -628,6 +640,8 @@ class GrokProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
+            if effort_sent is not None and effort_error_kind(e) == "level":
+                raise self._effort_mapping_error(effort_sent, e)
             error_message = str(e).lower()
             error_code = getattr(e, "code", None) or ""
             if str(error_code) == "context_length_exceeded" or "context_length_exceeded" in error_message:
@@ -702,7 +716,6 @@ class GrokProvider(BaseAIProvider):
                 model=self.model,
                 input="Say hi.",
                 temperature=0.5,
-                max_output_tokens=10,
             )
             return True
         except Exception as e:
@@ -717,12 +730,11 @@ class GrokProvider(BaseAIProvider):
         kwargs: dict = {
             "model": self.model,
             "input": "Say hi.",
-            "max_output_tokens": 2048,
         }
         if active_states.get("temperature") == "any":
             kwargs["temperature"] = 0.5
         if active_states.get("thinking") == "on":
-            kwargs["reasoning"] = {"effort": "low"}
+            kwargs["reasoning"] = {"effort": self.probed_effort_level or "low"}
         if active_states.get("structured_json") == "on":
             kwargs["text"] = {
                 "format": {
@@ -752,53 +764,6 @@ class GrokProvider(BaseAIProvider):
             return None
         return bool(styles)
 
-    def probe_thinking_disable(self) -> Optional[bool]:
-        """
-        Whether xAI accepts an explicit thinking-disabled request
-        (``reasoning={"effort": "none"}``).
-
-        Returns:
-            True  – ``effort: "none"`` accepted (toggleable model).
-            False – vendor rejects it (always-on reasoning model).
-            None  – inconclusive (rate limit / timeout).
-        """
-        try:
-            self._client.responses.create(
-                model=self.model,
-                input="Say hi.",
-                reasoning={"effort": "none"},
-                max_output_tokens=20,
-            )
-            return True
-        except Exception as e:
-            err = str(e).lower()
-            status = getattr(e, "status_code", None)
-            if status == 429 or "rate" in err or "timeout" in err:
-                return None
-            return False
-
-    def probe_thinking_style(self) -> Optional[list[str]]:
-        """
-        Probe which thinking styles this Grok model supports.
-
-        xAI exposes ``reasoning_effort`` (no token-budget analogue), so the
-        result is ``["effort"]`` or ``[]``.
-        """
-        try:
-            self._client.responses.create(
-                model=self.model,
-                input="Say hi.",
-                reasoning={"effort": "low"},
-                max_output_tokens=100,
-            )
-            return ["effort"]
-        except Exception as e:
-            err = str(e).lower()
-            status = getattr(e, "status_code", None)
-            if status == 429 or "rate" in err or "timeout" in err:
-                return None
-            return []
-
     def probe_structured_json(self) -> Optional[bool]:
         """Probe whether this Grok model supports structured JSON output."""
         _PROBE_SCHEMA = {
@@ -819,7 +784,6 @@ class GrokProvider(BaseAIProvider):
                         "schema": _PROBE_SCHEMA,
                     }
                 },
-                max_output_tokens=50,
             )
             return True
         except Exception as e:
@@ -836,7 +800,6 @@ class GrokProvider(BaseAIProvider):
                 model=self.model,
                 input="Say hi.",
                 tools=self._web_search_tools(),
-                max_output_tokens=50,
             )
             return True
         except Exception as e:
@@ -867,7 +830,6 @@ class GrokProvider(BaseAIProvider):
                     }
                 },
                 tools=self._web_search_tools(),
-                max_output_tokens=50,
             )
             return True
         except Exception as e:

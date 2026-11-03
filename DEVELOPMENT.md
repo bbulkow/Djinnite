@@ -61,12 +61,14 @@ from djinnite import (
     AIModelNotFoundError,     # Model does not exist (HTTP 404)
     DjinniteModalityError,    # Unsupported modality requested (client-side)
     DjinniteCapabilityDeniedError,  # Capability denied by the ai_config entry (client-side)
+    DjinniteEffortMappingError,     # Vendor rejected the effort level Djinnite mapped to (catalog or vocabulary defect)
 )
 
 # Configuration Types
 from djinnite.config_loader import AIConfig, ProviderConfig, ModelInfo, ModelCatalog
 from djinnite.config_loader import PlatformConfig, PlatformModelInfo   # platform mode
 from djinnite.config_loader import ModelChoice   # (entry, provider_type, model)
+from djinnite import load_request_policy, RequestPolicy   # config/request_policy.json
 ```
 
 ### Public Function Signatures
@@ -91,8 +93,8 @@ AIConfig.build_provider(name, model=None, **overrides) -> BaseAIProvider
 #   raises ValueError: configure another entry instead.
 
 # Generation (two distinct methods). history is keyword-only.
-BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking, *, history=None) -> AIResponse
-BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_output_tokens, web_search, force, thinking, *, history=None) -> AIResponse
+BaseAIProvider.generate(prompt, system_prompt, temperature, max_output_tokens, web_search, thinking, *, effort=None, history=None) -> AIResponse
+BaseAIProvider.generate_json(prompt, schema, system_prompt, temperature, max_output_tokens, web_search, force, thinking, *, effort=None, history=None) -> AIResponse
 
 # Access mode of a provider instance
 provider.mode       # "direct" | "platform"
@@ -231,15 +233,59 @@ thinking: Union[bool, int, str, None] = None
 |---|---|
 | `None` (default) | **Provider default** — nothing is sent. The default varies: Gemini 3 Flash and every Claude 5.x model think (adaptive) by default; Claude Opus 4.x does not. |
 | `False` | **Explicitly disable thinking.** Sends a provider-specific "no thinking" signal (Claude: `{"type": "disabled"}`). Raises locally on models that cannot disable thinking (`"off"` absent from `capabilities.thinking`: Claude Sonnet 5.5, Opus 5.5, Fable). |
-| `True` (**recommended**) | **Enable thinking at maximum budget.** |
+| `True` | **Enable thinking using the provider's native control or default; supply effort only when necessary.** |
 | `int` (e.g. `8192`) | Specific token budget for reasoning. |
-| `str` (`"low"`, `"medium"`, `"high"`) | Effort level hint. |
-| `"between_tools"` | Claude only, on models whose `thinking_style` lists it (Sonnet 5.5): the lowest thinking setting, `{"type": "between_tools"}` — Anthropic's replacement for `disabled` on that model. No effort is sent; the model default (`high`) is the highest level it accepts. Counts as thinking `"off"` for `capabilities.incompatible`. |
+| `str` effort level | **Deprecated.** Read as `effort=<level>` with `thinking=None`, plus a `DeprecationWarning`; the request is what the string produced before. Use `effort=` (below). |
+| `"between_tools"` | Claude only, on models whose `thinking_style` lists it (Sonnet 5.5): the lowest thinking setting, `{"type": "between_tools"}` — Anthropic's replacement for `disabled` on that model. An explicit `effort=` rides beside it in `output_config.effort` and is mapped to `high` or below; omitted effort preserves the native default. Counts as thinking `"off"` for `capabilities.incompatible`. |
 
 **`None` vs `False`:** These are semantically different. `None` = "I don't care, do whatever
 the model normally does." `False` = "I explicitly do NOT want thinking." If you need
-predictable behavior, always pass `True` or `False` — never rely on `None` for production code.
+an explicit thinking requirement, pass `True` or `False`. Ordinary calls may leave both thinking and effort unspecified to preserve native defaults.
 On Claude 5.x, `None` is **not** off: omitting the block runs adaptive thinking.
+
+#### `effort` parameter
+
+```python
+effort: Optional[str] = None   # keyword-only: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+```
+
+Six ordered Djinnite levels express an effort preference, not an equal
+reasoning depth or token budget across vendors.
+
+* Omitted effort preserves the native default. A model supporting effort
+  does not make that parameter required. Even a configured default of
+  `max` does not inject effort into an ordinary call.
+* Supply `defaults.effort` (`medium` as shipped) only when an explicit value
+  is needed to honor the request. OpenAI/Grok use effort to enable thinking
+  on toggleable or unknown models; known always-on models need no value.
+  With a null configured default, `thinking=True` still selects a compatible
+  positive effort using `medium` as the mapping target.
+* An explicit effort passes through the vendor vocabulary, then maps to the
+  nearest catalog level compatible with the whole request; ties go lower.
+  GPT-5, mini, nano and dated snapshots cannot combine `minimal` with web
+  search, so that request selects `low`. Claude `between_tools` restricts
+  the choices to `low`, `medium`, `high`. Search and thinking settings are
+  preserved. If no candidate remains, raise `AIProviderError` before sending.
+* Effort where it does not apply (`thinking=False` on OpenAI/Grok, an int
+  budget on Gemini, budget-only or non-reasoning models) is logged and
+  disregarded. Effort is never converted into a token budget.
+* Claude can carry an explicit `output_config.effort` beside a thinking
+  block, including disabled thinking. Effort alone never enables Claude
+  thinking; use `thinking=True` for that.
+
+The vendor vocabulary lives in `config/request_policy.json`. Per-model
+levels live in `capabilities.effort_levels`: OpenAI discovery reads rejection
+messages, Anthropic lists them, and documented Gemini levels are pinned in
+`model_overrides.json`. See THINKING_EFFORT_DESIGN.md for sources and unknowns.
+Without a known model ladder, the vendor vocabulary is a best effort, not
+proof that every value works on that model.
+
+`effort=` together with a level string in `thinking` raises `ValueError`.
+Recognized effort rejections on OpenAI/Grok and Claude raise
+`DjinniteEffortMappingError`; other errors retain the provider's error path.
+Mapped and disregarded efforts are logged under `djinnite` at INFO.
+`DJINNITE_DEBUG_REQUESTS` shows the full native settings; `AIResponse` does
+not echo them. There is no automatic retry or runtime catalog mutation.
 
 **Error behavior:** Each capability in the catalog is a list of supported
 states drawn from a fixed Djinnite vocabulary (see `ModelCapabilities` in
@@ -256,11 +302,11 @@ the shapes its native API exposes; mismatches raise `ValueError` locally
 before any API call is made. The caller introspects
 `capabilities.thinking_style` to know which shapes a given model accepts.
 
-| Provider | `True` → "let the model decide" | `int` budget | `str` effort | `False` → disable | `None` → |
+| Provider | `True` | `int` budget | Explicit `effort=` | `False` | `None`, no effort |
 |---|---|---|---|---|---|
-| **Claude** | `thinking={"type": "adaptive"}` *(when `thinking_style` includes adaptive; else `enabled` with a budget sized to leave room for output)* | `thinking={"type": "enabled", "budget_tokens": N}` *(requires `"budget"` in `thinking_style`)* | `output_config={"effort": "low"\|"medium"\|"high"\|"xhigh"\|"max"}` *(requires `"effort"`; **not** a `thinking` block, and no `"minimal"`)*; `"between_tools"` → `thinking={"type": "between_tools"}` *(requires `"between_tools"`)* | `thinking={"type": "disabled"}` *(requires `"off"`; omission is **not** off on 5.x)* | omit (model default: off on Opus 4.x, **adaptive on every 5.x**) |
-| **Gemini** | `thinking_config={"thinking_budget": -1}` *(dynamic — model picks budget)* | `thinking_config={"thinking_budget": N}` | `thinking_config={"thinking_level": ThinkingLevel.<UPPER>}` *(native enum)* | `thinking_config={"thinking_budget": 0}` | omit (model default) |
-| **OpenAI** | `reasoning={"effort": "high"}` *(no true "model decides" mode — high is the closest)* | **`ValueError`** — OpenAI is effort-only | `reasoning={"effort": "minimal"\|"low"\|"medium"\|"high"}` | `reasoning={"effort": "none"}` *(GPT-5.x hybrid; rejected on reasoning-only models like o1/o3 — pre-flight catches this)* | omit (model default) |
+| **Claude** | Adaptive block, or enabled with a budget on budget-only models; no invented effort | Enabled block with the requested budget | Mapped `output_config.effort`, alongside the requested thinking setting | Disabled block, where supported | Omit both controls |
+| **Gemini** | Use the native on default for level-based/always-on models; otherwise dynamic budget `-1` | Requested `thinking_budget`; effort is disregarded | Mapped `thinking_level` | Budget `0`, where supported | Omit both controls |
+| **OpenAI/Grok** | Known always-on: omit; otherwise mapped required effort | `ValueError` | Mapped `reasoning.effort` | `reasoning.effort="none"`, where supported | Omit reasoning |
 
 #### Design note: why `True` means "adaptive," not "max budget"
 
@@ -269,8 +315,8 @@ semantically the same thing Djinnite already meant by `thinking=True` — *enabl
 thinking, you decide how much*. The unified API gives callers exactly two
 levers:
 
-* `True` — "I want thinking, you handle it." → adaptive / dynamic / high effort, depending on what the provider offers.
-* `int` or `str` — "I want a specific depth." → fixed budget or specific effort tier.
+* `True` — "I want thinking, you handle it." → native thinking control or native on default; an explicit effort only where required.
+* `int` (in `thinking`) or `effort=` — "I want a specific depth." → fixed budget or a specific effort level.
 
 Adaptive is therefore **not** exposed as a separate caller-facing value
 (`thinking="adaptive"` is intentionally not accepted). Doing so would force
@@ -285,8 +331,8 @@ native shapes each model accepts, drawn from
 
 * `"adaptive"` — caller passes `True`; provider has a "model decides" mode.
 * `"budget"` — caller passes `int`; provider has an integer-budget field.
-* `"effort"` — caller passes `str` (`"minimal"`/`"low"`/`"medium"`/`"high"`);
-  provider has a string-effort field (OpenAI's `reasoning.effort`,
+* `"effort"` — caller passes `effort=` (a Djinnite level, mapped to the
+  model's own); provider has a string-effort field (OpenAI's `reasoning.effort`,
   Gemini's `thinking_level`, Claude's `output_config.effort`).
   `update_models` adds it whenever the provider enumerates `effort_levels`.
 * `"between_tools"` — caller passes the string `"between_tools"`; Claude's
@@ -304,20 +350,20 @@ Discovery notes (Claude): the Models API reports
 `{"type": "disabled"}`; `probe_thinking_style` tries `between_tools`). A
 rejected probe is a 400, which Anthropic does not bill.
 
-A model can list multiple — Claude 4.7 is `["adaptive","budget"]`, Gemini
-2.5+ is `["budget","effort"]` — meaning either shape is accepted on
-different calls. The "exactly one per call" constraint is enforced by
-the type system (the `thinking` parameter is a single value of type
-`bool | int | str | None`).
+A model can list multiple shapes. Claude Opus 4.6 lists adaptive, budget
+and effort; Gemini 2.5 lists budget, while cataloged Gemini 3 models can
+list budget and effort. Gemini receives exactly one of thinking_budget
+and thinking_level per request: an explicit budget takes precedence over
+effort. Claude carries effort separately from its thinking block.
 
 Calling code introspects via the public catalog API:
 
 ```python
 from djinnite import load_model_catalog
 shapes = load_model_catalog().get_model("gemini", "gemini-2.5-flash").capabilities.thinking_style
-# → ["budget", "effort"]
+# → ["budget"]
 if "effort" in shapes:
-    resp = provider.generate(prompt, thinking="low")
+    resp = provider.generate(prompt, effort="low")
 elif "budget" in shapes:
     resp = provider.generate(prompt, thinking=2048)
 ```
@@ -331,12 +377,12 @@ recorded in `capabilities.incompatible` on each model and enforced at
 call time — see the [Catalog & validation philosophy](#catalog--validation-philosophy)
 section. Notes:
 - Caller is responsible for `max_output_tokens > thinking_budget` on Claude — Djinnite raises `ValueError` if not, rather than silently bumping the cap.
-- Models whose `capabilities.temperature` list does not include `"any"` (e.g. `["default"]`) have the caller's temperature stripped automatically. (The strip is independent of cross-capability checks.)
+- `temperature` defaults to `None` on every provider: Djinnite sends no temperature unless the caller passes one. A temperature passed to a model whose `capabilities.temperature` lacks `"any"` (e.g. `["default"]`), or that the catalog records as incompatible with the request's thinking state, is logged (`djinnite` logger, INFO) and dropped; the request goes ahead without it.
 
 **Token budget guidance:**
 Token budgets are highly unpredictable — they depend on prompt complexity, model
-version, and task type.  The recommended approach is `thinking=True` (maximum budget
-from the model catalog's `max_output_tokens`).  Only use explicit `int` budgets
+version, and task type. `thinking=True` uses the provider's native on control
+or default, with an effort supplied only when required. Only use explicit `int` budgets
 after profiling specific workloads.  Low budgets cause partial/useless reasoning
 that is still charged.
 
@@ -558,8 +604,8 @@ the catalog list. Mapping is enforced in `_resolve_thinking`,
 
 | Capability | Caller arg → state | Pre-flight rule |
 |---|---|---|
-| `thinking` | `None` → no check (provider default); `False` → `"off"`; `"between_tools"` → requires `"between_tools"` in `caps.thinking_style` (Claude only; counts as `"off"` for `incompatible`); `True`/`int`/`str` → `"on"`; additionally `int` → requires `"budget"` in `caps.thinking_style`, `str` → requires `"effort"` in `caps.thinking_style` | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
-| `temperature` | caller-passed float → `"any"`; caller-omitted → `"default"` | If `"any"` not in `caps.temperature`, the float is silently stripped (no error) |
+| `thinking` | `None` → no check (provider default); `False` → `"off"`; `"between_tools"` → requires `"between_tools"` in `caps.thinking_style` (Claude only; counts as `"off"` for `incompatible`); `True`/`int` → `"on"`; additionally `int` requires `"budget"`; effort strings are normalized to the deprecated `effort=` alias first | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
+| `temperature` | caller-passed float → `"any"`; `None` (the default) → `"default"`, nothing sent | If `"any"` not in `caps.temperature`, or the float would complete an `incompatible` combination, it is logged and dropped before the pre-flight |
 | `structured_json` | schema present → `"on"` | `"on"` must be in `caps.structured_json` |
 | `web_search` | `web_search=True` → `"on"` | `"on"` must be in `caps.web_search` |
 | `json_with_search` | schema + `web_search=True` → `"on"` | `"on"` must be in `caps.json_with_search` |
@@ -655,7 +701,7 @@ X, and what does it become at the wire?"
 | Budget | Djinnite surface | Anthropic Messages API | OpenAI Responses API | Gemini GenerationConfig |
 |---|---|---|---|---|
 | **Output budget** | request param: `max_output_tokens` (`Optional[int]`)<br>catalog: `ModelInfo.max_output_tokens`<br>internal resolver: `_resolve_max_output_tokens`<br>response: `AIResponse.output_tokens` | `max_tokens` *(required int)* — caps **visible output only**; thinking is counted under a separate budget. Anthropic enforces `max_tokens > thinking.budget_tokens`. | `max_output_tokens` *(int)* — caps **visible output + reasoning combined**; OpenAI does not expose them separately. | `GenerationConfig.max_output_tokens` *(int)* — caps **visible output only**; thinking is counted under a separate budget. |
-| **Thinking budget** | request param: `thinking: Union[bool, int, str, None]` *(int form = budget tokens; str form = effort tier; bool/None = on/off/no-opinion)*<br>internal helpers: `_resolve_thinking`, `_get_max_thinking_budget`, `_EFFORT_LEVELS`<br>catalog: shape support in `ModelCapabilities.thinking_style`; max for `True` read from `ModelInfo.max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens` (rejected by Opus 4.7+ and every 5.x). `type:"adaptive"` has no explicit budget (model decides). `str` effort rides in `output_config.effort` (requires `"effort"` in `thinking_style`); `"between_tools"` sends `thinking={"type":"between_tools"}`. Thinking tokens are reported in `usage.output_tokens_details.thinking_tokens`, a subset of `output_tokens`. | `reasoning.effort: "minimal"\|"low"\|"medium"\|"high"\|"none"` — **opaque tier label, no numeric knob**. Reasoning consumption is folded into `max_output_tokens`. Caller must pass `str` or `True`/`False`/`None`; `int` raises `ValueError` (no native budget field). | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. *Or* `thinking_config.thinking_level` *(`ThinkingLevel.MINIMAL\|LOW\|MEDIUM\|HIGH`)*. **Both fields are alternatives — Djinnite sets exactly one per request based on the caller's shape.** Both are separate from `max_output_tokens`. |
+| **Thinking budget** | request params: `thinking: Union[bool, int, None]` *(int form = budget tokens; bool/None = on/off/no-opinion; `"between_tools"` on Claude)* and `effort: Optional[str]` *(Djinnite level)*<br>config: `request_policy.json` (`defaults.effort`, per-provider `effort_vocabulary`)<br>internal helpers: `_resolve_thinking`, `_resolve_effort`, `_map_effort`, `_get_max_thinking_budget`<br>catalog: shape support in `ModelCapabilities.thinking_style`; accepted levels in `effort_levels`; max for `True` read from `ModelInfo.max_output_tokens`<br>response: `AIResponse.thinking_tokens` | `thinking={"type":"enabled","budget_tokens":N}` — **explicit numeric budget**, separate from `max_tokens` (rejected by Opus 4.7+ and every 5.x). `type:"adaptive"` has no explicit budget (model decides). The effort rides in `output_config.effort` beside any thinking state; `"between_tools"` sends `thinking={"type":"between_tools"}`. Thinking tokens are reported in `usage.output_tokens_details.thinking_tokens`, a subset of `output_tokens`. | `reasoning.effort` — **opaque tier label, no numeric knob**; each model accepts its own subset of `minimal`…`max` (catalog `effort_levels`), plus `none` for off. Reasoning consumption is folded into `max_output_tokens`. `int` raises `ValueError` (no native budget field). | `thinking_config.thinking_budget` *(int)*: `-1`=dynamic (model decides), `0`=disable, `N>0`=fixed budget. *Or* `thinking_config.thinking_level` *(`ThinkingLevel.MINIMAL\|LOW\|MEDIUM\|HIGH`)*. **Both fields are alternatives — Djinnite sets exactly one per request.** Both are separate from `max_output_tokens`. |
 | **Total token budget**<br>(input + output + thinking + tool round-trips) | request param: *not exposed — model property, server-enforced*<br>catalog: `ModelInfo.context_window`<br>response: `AIResponse.total_tokens` *(post-hoc usage, not a cap)* | not a request parameter — model property | not a request parameter — model property *(`truncation: "auto"\|"disabled"` chooses overflow handling, not a numeric cap)* | not a request parameter — model property |
 | **Input budget**<br>(max input tokens) | request param: *not exposed*<br>catalog: not stored — derivable from `context_window` minus reserved output / thinking<br>response: `AIResponse.input_tokens` *(post-hoc usage)* | not a request parameter | not a request parameter; `truncation: "auto"` lets the server drop earliest turns on overflow but does not set a cap | not a request parameter |
 | **Search budget**<br>(billing events — *not tokens*) | request param: `web_search: bool`<br>catalog: `ModelCosting.search_cost_per_unit`<br>response: `AIResponse.search_units`, `AIResponse.search_cost` | `tools=[{...web_search…}]` *(enable/disable; no per-call event cap)* | `tools=[{"type":"web_search_preview"}]` *(enable/disable; no per-call event cap)* | `tools=[Tool(google_search=...)]` *(enable/disable; no per-call event cap)* |
@@ -674,19 +720,14 @@ X, and what does it become at the wire?"
    This is an SDK-level inconsistency Djinnite is exposing transparently;
    it is **not** something Djinnite normalizes today.
 
-2. **Thinking-budget granularity differs, and Djinnite does NOT
-   cross-translate.** Anthropic accepts only a numeric token budget;
-   OpenAI accepts only a string effort tier (`"minimal"`/`"low"`/
-   `"medium"`/`"high"`/`"none"`); Gemini accepts either (numeric
-   `thinking_budget` *or* the `ThinkingLevel` enum). The caller is
-   responsible for matching the shape to the model's
-   `capabilities.thinking_style` — passing the wrong shape raises
-   `ValueError` locally before the API call. To write portable code,
-   branch on `info.capabilities.thinking_style`. Djinnite removed the
-   silent two-way translation that older versions performed: it tied
-   thinking budgets to unrelated caps (`max_output_tokens`) and obscured
-   the caller's intent. The new contract is fail-fast and never "do what
-   I mean." See the Breaking Changes Log for the migration.
+2. **A token budget and an effort level are different controls, and
+   Djinnite never converts one into the other.** An `int` budget needs
+   `"budget"` in `capabilities.thinking_style` (Claude's older models,
+   Gemini) and raises `ValueError` elsewhere. An `effort=` level is
+   portable: it is mapped to each model's own levels (see the `effort`
+   parameter), and disregarded where the model takes none. Djinnite
+   removed the silent translation that older versions performed between
+   budgets and output caps; it never invents a budget from an effort.
 
 3. **`thinking="adaptive"` is intentionally not a Djinnite caller value.**
    Adaptive is what `True` already means semantically (let the model
@@ -966,9 +1007,9 @@ The following are internal tools used for maintenance scripts. Host projects **m
 
 get_provider(provider_name: str, api_key: str, model: Optional[str], gemini_api_key: Optional[str]) -> BaseAIProvider
 
-BaseAIProvider.generate(prompt: str, system_prompt: Optional[str], temperature: float, max_output_tokens: Optional[int]) -> AIResponse
+BaseAIProvider.generate(prompt: str, system_prompt: Optional[str], temperature: Optional[float] = None, max_output_tokens: Optional[int], web_search: bool, thinking, *, effort: Optional[str] = None, history) -> AIResponse
 
-BaseAIProvider.generate_json(prompt: str, schema: Union[Dict, Type], system_prompt: Optional[str], temperature: float, max_output_tokens: Optional[int], web_search: bool, force: bool) -> AIResponse
+BaseAIProvider.generate_json(prompt: str, schema: Union[Dict, Type], system_prompt: Optional[str], temperature: Optional[float] = None, max_output_tokens: Optional[int], web_search: bool, force: bool, thinking, *, effort: Optional[str] = None, history) -> AIResponse
 
 load_ai_config(config_path: Optional[Path]) -> AIConfig
 load_model_catalog(catalog_path: Optional[Path]) -> ModelCatalog
@@ -1211,6 +1252,61 @@ When running validation scripts (like `validate_models.py`), it is critical to *
 
 ## Breaking Changes Log
 
+### November 2026: Djinnite effort levels, no invented temperature (0.6.0)
+
+**Added:** `effort=` (keyword-only) on `generate()` / `generate_json()`: a
+Djinnite level (`minimal`, `low`, `medium`, `high`, `xhigh`, `max`), mapped
+per provider by `config/request_policy.json` and stepped to the model's
+catalog `effort_levels` (see the `effort` parameter under THE CONTRACT);
+`config/request_policy.json` (`defaults.effort`, `defaults.temperature`,
+per-provider `effort_vocabulary`) with `load_request_policy` and
+`RequestPolicy`; `DjinniteEffortMappingError`; catalog `effort_levels` on
+OpenAI models, discovered from the vendor's rejection message.
+
+**Deprecated:** a level string in `thinking="..."`. Still accepted: read as
+`effort=<level>` with `thinking=None` -- the same request as before -- plus
+a `DeprecationWarning`. `thinking="between_tools"` is unchanged.
+
+**Behavior changes (approved by Brian, 2026-11-03):**
+
+* Omitted effort preserves native defaults. A configured effort is used
+  only when an explicit value is necessary to honor `thinking=True`, not
+  simply because the model supports effort. OpenAI/Grok toggleable models
+  use `medium` as shipped (previously `True` sent `high`); always-on models
+  use their native default. Claude's ordinary calls and Gemini's native
+  on defaults receive no invented effort. This supersedes the earlier
+  uncommitted implementation that injected `medium` into ordinary calls.
+* Effort mapping considers the requested features: GPT-5 `minimal` with
+  search becomes `low`; Sonnet 5.5 `between_tools` with `max` becomes `high`.
+  Verified Gemini per-model ladders are applied through model overrides.
+* A level the model lacks is mapped to the nearest accepted level instead
+  of failing locally; `effort=` on a model that takes none is logged and
+  disregarded instead of raising.
+* `temperature` defaults to `None` on every provider. Gemini, OpenAI and
+  Grok sent 0.7 (`generate`) / 0.3 (`generate_json`) when the caller
+  omitted it. A temperature the model cannot take, alone or with the
+  request's thinking state, is logged and dropped and the request goes
+  ahead. Before: dropped silently where the model took none; raised at
+  pre-flight where the combination was recorded as incompatible.
+* OpenAI catalog corrections (reprobe 2026-11-03): `thinking=True` works
+  on the effort-only and `-pro` models; `temperature` reaches the 14
+  OpenAI models that accept it (every OpenAI model was recorded as
+  refusing it, because the probe's own request was invalid).
+* A confirmed-empty `thinking_style` (`[]`) loads as `[]`, not `None`:
+  such a model is known not to reason, rather than unknown.
+
+**Migration:** replace `thinking="<level>"` with `effort="<level>"`. A
+workload relying on OpenAI `thinking=True` meaning `high` passes
+`effort="high"` or configures the required-effort selection default.
+Calls omitting both thinking and effort retain the vendor default. A caller that passed a temperature to a thinking model
+no longer gets an error; the `djinnite` log line `temperature=... dropped`
+says what happened.
+
+**Why:** whether a vendor label was valid depended on the model, so one
+request could not work across models; defaults lived in code instead of
+configuration; and discovery mis-recorded OpenAI reasoning and
+temperature (THINKING_EFFORT_DESIGN.md).
+
 ### October 2026: platform access mode, multi-turn `history`, thinking accounting (0.5.0)
 
 **Added (no change for existing callers):** platform access mode
@@ -1355,7 +1451,7 @@ before picking a shape:
 from djinnite import load_model_catalog
 shapes = load_model_catalog().get_model("gemini", "gemini-2.5-flash").capabilities.thinking_style
 if "effort" in shapes:
-    resp = provider.generate(prompt, thinking="low")
+    resp = provider.generate(prompt, effort="low")
 elif "budget" in shapes:
     resp = provider.generate(prompt, thinking=2048)
 elif "adaptive" in shapes:

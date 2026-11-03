@@ -47,7 +47,8 @@ def _claude(caps, n=1):
 
 # ----------------------------------------------------------- None / False
 
-def test_none_sends_no_thinking_block():
+def test_none_preserves_native_thinking_and_effort_defaults():
+    """Supporting effort is not a reason to inject it into ordinary calls."""
     p, stub = _claude(SONNET_55)
     p.generate("q")
     assert "thinking" not in stub.calls[0]
@@ -82,8 +83,7 @@ def test_between_tools_request_shape(json_mode):
     else:
         p.generate("q", thinking="between_tools")
     req = stub.calls[0]
-    # No other field inside thinking, and no effort: the model default
-    # (high on Sonnet 5.5) is the highest level between_tools accepts.
+    # The model's native default effort is compatible with between_tools.
     assert req["thinking"] == {"type": "between_tools"}
     assert "effort" not in req.get("output_config", {})
 
@@ -94,7 +94,7 @@ def test_between_tools_counts_as_thinking_off_for_incompatibilities():
     p.generate_json("q", schema=SCHEMA, thinking="between_tools")  # allowed
     # The pre-flight ValueError surfaces wrapped, as it always has.
     with pytest.raises(AIProviderError, match="incompatible"):
-        p.generate_json("q", schema=SCHEMA, thinking="high")
+        p.generate_json("q", schema=SCHEMA, thinking=True)
 
 
 def test_between_tools_resolution_and_builders():
@@ -102,9 +102,8 @@ def test_between_tools_resolution_and_builders():
     assert p._resolve_thinking("between_tools") == "between_tools"
     assert p._resolve_thinking("BETWEEN_TOOLS") == "between_tools"
     assert p._build_claude_thinking("between_tools", 8192) == {"type": "between_tools"}
-    assert p._build_claude_effort("between_tools") is None
     assert p._thinking_active("between_tools") is False
-    assert p._thinking_active("high") is True
+    assert p._thinking_active(True) is True
 
 
 @pytest.mark.parametrize("caps", [OPUS_55, SONNET_5])
@@ -138,10 +137,15 @@ def test_between_tools_is_claude_only(cls, client):
 
 
 def test_effort_levels_still_work_on_55():
-    p, stub = _claude(SONNET_55)
-    p.generate_json("q", schema=SCHEMA, thinking="low")
+    p, stub = _claude(SONNET_55, n=2)
+    p.generate_json("q", schema=SCHEMA, effort="low")
     assert stub.calls[0]["output_config"]["effort"] == "low"
     assert "thinking" not in stub.calls[0]
+    # The deprecated spelling sends the same request and warns.
+    with pytest.warns(DeprecationWarning, match="effort='low'"):
+        p.generate_json("q", schema=SCHEMA, thinking="low")
+    assert stub.calls[1]["output_config"]["effort"] == "low"
+    assert "thinking" not in stub.calls[1]
 
 
 # ----------------------------------------------------------------- probes

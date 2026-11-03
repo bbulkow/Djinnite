@@ -83,6 +83,30 @@ def test_effort_capability_is_internally_consistent(prov):
     assert not bad, f"{prov}: malformed effort_levels: {bad}"
 
 
+@pytest.mark.parametrize("prov", ["gemini", "claude", "chatgpt"])
+def test_thinking_state_agrees_with_thinking_style(prov):
+    """Any thinking style except ``between_tools`` proves the model thinks.
+
+    update_models once counted only adaptive/budget, so an effort-only model
+    was written ``thinking: ["off"]`` beside ``thinking_style: ["effort"]``
+    and ``thinking=True`` failed pre-flight on it (gpt-6.1-terra,
+    2026-11-03). The converse also contradicts: a confirmed-empty style list
+    on a model said to think.
+    """
+    catalog = load_model_catalog()
+    bad = []
+    for info in catalog.list_models(prov):
+        caps = info.capabilities
+        styles = caps.thinking_style
+        thinks = caps.thinking is not None and "on" in caps.thinking
+        if caps.thinking is not None and not thinks and \
+                set(styles or ()) & set(update_models._THINKING_ON_STYLES):
+            bad.append((info.id, caps.thinking, styles))
+        if styles == [] and thinks:
+            bad.append((info.id, caps.thinking, styles))
+    assert not bad, f"{prov}: thinking state contradicts thinking_style: {bad}"
+
+
 def test_claude_effort_levels_are_populated():
     """Anthropic's models endpoint enumerates effort levels, so on Claude a
     missing list means the writer dropped the field again.

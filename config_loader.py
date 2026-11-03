@@ -124,8 +124,11 @@ def _coerce_states(raw: Any, vocab: tuple[str, ...]) -> Optional[list[str]]:
                       for ``TEMPERATURE_STATES``; ``None`` otherwise.
     * ``str``       → ``[<value>]`` if the value is in the vocabulary, else
                       ``None``.
-    * ``list[str]`` → kept; unknown tokens are filtered out. An empty result
-                      after filtering becomes ``None``.
+    * ``list[str]`` → kept; unknown tokens are filtered out. An empty list
+                      stays ``[]`` -- it is a confirmed answer, not an
+                      unknown (``thinking_style: []`` is "this model does
+                      not reason"). A non-empty list left empty by the
+                      filter becomes ``None``.
     """
     if raw is None:
         return None
@@ -145,7 +148,7 @@ def _coerce_states(raw: Any, vocab: tuple[str, ...]) -> Optional[list[str]]:
         return [raw] if raw in vocab else None
     if isinstance(raw, list):
         kept = [v for v in raw if isinstance(v, str) and v in vocab]
-        return kept or None
+        return kept if (kept or not raw) else None
     return None
 
 
@@ -1006,6 +1009,90 @@ def load_json_file(path: Path, default: Any = None, *, reject_duplicate_keys: bo
         if reject_duplicate_keys:
             return json.load(f, object_pairs_hook=_no_duplicate_keys(path))
         return json.load(f)
+
+
+@dataclass(frozen=True)
+class RequestPolicy:
+    """``config/request_policy.json``: call-time defaults and effort vocabulary.
+
+    ``defaults.effort`` is a selection target ONLY when an explicit effort
+    is required to honor the request; ordinary calls preserve native defaults.
+    A null effort target cannot cancel thinking=True (medium is then used
+    as the mapping target). ``defaults.temperature`` is optional; None omits
+    it. A provider block's defaults win for that provider type. ``vocabularies``
+    map each Djinnite effort level to the vendor's word, per provider type.
+    """
+    defaults: dict = field(default_factory=dict)
+    provider_defaults: dict = field(default_factory=dict)
+    vocabularies: dict = field(default_factory=dict)
+
+    def default(self, ptype: str, name: str) -> Any:
+        """Configured selection target/optional default; see RequestPolicy."""
+        per_provider = self.provider_defaults.get(ptype, {})
+        if name in per_provider:
+            return per_provider[name]
+        return self.defaults.get(name)
+
+    def vocabulary(self, ptype: str) -> Optional[dict]:
+        """Djinnite level -> vendor word for ``ptype``, or ``None`` if unset."""
+        return self.vocabularies.get(ptype)
+
+
+def _check_effort_level(value: Any, where: str) -> None:
+    if value is not None and value not in EFFORT_LEVEL_VALUES:
+        raise ValueError(f"{where}: {value!r} is not one of {list(EFFORT_LEVEL_VALUES)}")
+
+
+def _check_defaults(raw: Any, where: str) -> dict:
+    if not isinstance(raw, dict):
+        raise ValueError(f"{where} must be an object")
+    out = {k: v for k, v in raw.items() if not k.startswith("_")}
+    unknown = set(out) - {"effort", "temperature"}
+    if unknown:
+        raise ValueError(f"{where}: unknown defaults {sorted(unknown)}")
+    _check_effort_level(out.get("effort"), f"{where}.effort")
+    temp = out.get("temperature")
+    if temp is not None and (isinstance(temp, bool) or not isinstance(temp, (int, float))):
+        raise ValueError(f"{where}.temperature must be a number or null")
+    return out
+
+
+def load_request_policy(policy_path: Optional[Path] = None) -> RequestPolicy:
+    """Load and validate ``request_policy.json`` (project config first).
+
+    Raises ``ValueError`` on a malformed file: a vocabulary that does not
+    map all six levels, maps one to ``none`` or a value off the ladder, or
+    runs backwards along it; an unknown provider type; a bad default.
+    """
+    path = policy_path or _resolve_config_file("request_policy.json")
+    data = load_json_file(path, reject_duplicate_keys=True)
+    defaults = _check_defaults(data.get("defaults", {}), "defaults")
+
+    provider_defaults: dict = {}
+    vocabularies: dict = {}
+    for ptype, block in (data.get("providers") or {}).items():
+        if ptype.startswith("_"):
+            continue
+        if ptype not in PROVIDER_TYPES:
+            raise ValueError(f"providers.{ptype}: not a provider type {list(PROVIDER_TYPES)}")
+        if "defaults" in block:
+            provider_defaults[ptype] = _check_defaults(block["defaults"], f"providers.{ptype}.defaults")
+        vocab = block.get("effort_vocabulary")
+        if vocab is None:
+            continue
+        vocab = {k: v for k, v in vocab.items() if not k.startswith("_")}
+        where = f"providers.{ptype}.effort_vocabulary"
+        if set(vocab) != set(EFFORT_LEVEL_VALUES):
+            raise ValueError(f"{where} must map exactly {list(EFFORT_LEVEL_VALUES)}")
+        for level in EFFORT_LEVEL_VALUES:
+            _check_effort_level(vocab[level], f"{where}.{level}")
+        ranks = [EFFORT_LEVEL_VALUES.index(vocab[level]) for level in EFFORT_LEVEL_VALUES]
+        if ranks != sorted(ranks):
+            raise ValueError(f"{where} runs backwards along the ladder: {vocab}")
+        vocabularies[ptype] = vocab
+
+    return RequestPolicy(defaults=defaults, provider_defaults=provider_defaults,
+                         vocabularies=vocabularies)
 
 
 def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:

@@ -22,6 +22,7 @@ from .base_provider import (
     AIPricingError,
     DjinniteModalityError,
     DjinniteCapabilityDeniedError,
+    DjinniteEffortMappingError,
 )
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
@@ -227,6 +228,7 @@ __all__ = [
     "AIPricingError",
     "DjinniteModalityError",
     "DjinniteCapabilityDeniedError",
+    "DjinniteEffortMappingError",
     "GeminiProvider",
     "ClaudeProvider",
     "OpenAIProvider",

@@ -89,14 +89,20 @@ class ClaudeProvider(BaseAIProvider):
 
     PROVIDER_NAME = "claude"
 
-    # Claude's effort vocabulary is not the cross-provider default: it has no
-    # "minimal", and adds "xhigh" and "max". The API rejects anything else
-    # with "should be 'low', 'medium', 'high', 'xhigh' or 'max'".
-    _EFFORT_LEVELS: frozenset = frozenset({"low", "medium", "high", "xhigh", "max"})
-
     # thinking="between_tools" -> {"type": "between_tools"}: the lowest
     # thinking setting on models whose thinking_style lists it (Sonnet 5.5).
     _THINKING_SENTINELS: frozenset = frozenset({"between_tools"})
+
+    # Claude's output_config.effort governs overall token spend, so it
+    # rides beside a disabled thinking block and beside a token budget.
+    _EFFORT_WITH_THINKING_OFF = True
+    _EFFORT_WITH_BUDGET = True
+
+    # max_tokens for every capability probe. The Messages API requires a
+    # value, so this stands in for "no cap": high enough that a model which
+    # thinks by default is never cut short, and above the 1024-token budget
+    # probe_thinking_style sends. Valid on every Claude model.
+    _PROBE_MAX_TOKENS: int = 2048
 
     # Class-level defaults: direct mode (also read by tests' _bare() helper).
     backend: Optional[str] = None
@@ -402,15 +408,15 @@ class ClaudeProvider(BaseAIProvider):
 
         Args:
             thinking: The caller's thinking parameter, already validated by
-                      ``_resolve_thinking``. A ``str`` is either an effort
-                      level (no block; see ``_build_claude_effort``) or a
-                      sentinel such as ``"between_tools"``.
+                      ``_resolve_thinking``. A ``str`` is a sentinel such as
+                      ``"between_tools"``; effort rides separately in
+                      ``output_config.effort``.
             max_output_tokens: The effective output cap for the request.
 
         Returns:
             The ``thinking`` block dict, or ``None`` when nothing is sent
             (``thinking=None`` -- the provider default, which is adaptive
-            thinking on the 5.x models -- or an effort level).
+            thinking on the 5.x models).
         """
         if thinking is None:
             return None
@@ -428,13 +434,6 @@ class ClaudeProvider(BaseAIProvider):
         # other field alongside it.
         if isinstance(thinking, str) and thinking in self._THINKING_SENTINELS:
             return {"type": thinking}
-
-        # An effort level is not a thinking block at all on Claude: it rides
-        # in ``output_config.effort``. Return None here and let
-        # _build_claude_effort() carry it. _resolve_thinking has already
-        # rejected str on models whose thinking_style lacks "effort".
-        if isinstance(thinking, str):
-            return None
 
         # Pick the block shape. The two Claude thinking shapes take
         # different fields and are not interchangeable:
@@ -496,31 +495,27 @@ class ClaudeProvider(BaseAIProvider):
 
         return {"type": "enabled", "budget_tokens": budget}
 
-    def _build_claude_effort(self, thinking) -> Optional[str]:
-        """Extract the ``output_config.effort`` level, if the caller asked for one.
+    def _effort_allowed(self, level: str, *, thinking, web_search: bool) -> bool:
+        return thinking != "between_tools" or level in {"low", "medium", "high"}
 
-        Claude carries reasoning effort in ``output_config``, alongside the
-        structured-output ``format`` key -- not in the ``thinking`` block.
-        The two compose: a request may set both an effort level and an
-        adaptive thinking block.
+    def _is_effort_rejection(self, exc: Exception, thinking) -> bool:
+        """Whether a 400 is Anthropic refusing the effort level sent.
 
-        Returns the level string, or ``None`` when the caller did not pass
-        an effort level. A sentinel such as ``"between_tools"`` is not an
-        effort level: no effort is sent and the model's default applies
-        (``high`` on Sonnet 5.5, the highest level between_tools accepts).
+        The resolver has already restricted between_tools to high or below.
         """
-        if isinstance(thinking, str) and thinking not in self._THINKING_SENTINELS:
-            return thinking
-        return None
+        status = getattr(exc, "status_code", None)
+        return status == 400 and "effort" in str(exc).lower()
 
     def _thinking_active(self, thinking) -> bool:
         """Whether the request selects the catalog's thinking ``"on"`` state.
 
-        ``None`` (provider default), ``False`` and ``"between_tools"`` --
-        Anthropic's documented way to turn thinking off on Sonnet 5.5 --
-        are ``"off"``.
+        False and between_tools are off. An omitted setting is on when
+        the catalog confirms an always-on model. Effort alone does not
+        enable Claude thinking.
         """
-        if thinking is None or thinking is False:
+        if thinking is None:
+            return super()._thinking_active(None)
+        if thinking is False:
             return False
         return not (isinstance(thinking, str) and thinking in self._THINKING_SENTINELS)
 
@@ -657,23 +652,25 @@ class ClaudeProvider(BaseAIProvider):
         web_search: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
         Generate a response using Claude.
 
         ``temperature`` is opt-in. When omitted (default), Claude uses its own
-        default (1.0) and the request ships with no ``temperature`` field.
-        This avoids 400 errors on models that reject sampling parameters
-        (e.g. Opus 4.7). Callers who need determinism on older models may
-        pass an explicit value; catalog-strip handles models where the
-        parameter is unsupported.
+        default and the request ships with no ``temperature`` field, unless
+        ``request_policy.json`` configures a default the model accepts. A
+        temperature passed to a model that rejects sampling parameters
+        (e.g. Opus 4.7), or that cannot combine it with the thinking state
+        requested, is logged and dropped.
 
         ``history`` (earlier turns) is sent as the leading ``messages``;
         ``prompt`` is the final user turn. See ``BaseAIProvider.generate``.
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -681,7 +678,7 @@ class ClaudeProvider(BaseAIProvider):
             "history_turns": len(history or []),
         }
         # Validate & normalize the thinking parameter
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
 
         try:
@@ -706,12 +703,17 @@ class ClaudeProvider(BaseAIProvider):
 
             # Cross-capability pre-flight from catalog (e.g. temp + thinking
             # is rejected on every current Claude thinking model).
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
                 "structured_json": "off",
                 "web_search":      "on"  if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             # Build request kwargs. The SDK keyword is literally `max_tokens`
             # (Anthropic's terminology); we pass our `max_output_tokens` value
@@ -722,18 +724,13 @@ class ClaudeProvider(BaseAIProvider):
                 "messages": self._claude_messages(turns, claude_content),
             }
 
-            # Temperature: only send if caller opted in. Catalog-strip is a
-            # backstop for callers who pass an explicit value on a model that
-            # rejects sampling params.
-            if temperature is not None:
-                effective_temp = self._resolve_temperature(temperature, thinking_active)
-                if effective_temp is not None:
-                    # anthropic>=1.0 dropped temperature/top_p/top_k from the
-                    # messages.create()/stream() signatures -- passing them is
-                    # a TypeError. The API still honors the parameter, so it
-                    # goes through extra_body, which the SDK merges into the
-                    # request JSON verbatim. See the SDK's MIGRATION.md.
-                    kwargs["extra_body"] = {"temperature": effective_temp}
+            if effective_temp is not None:
+                # anthropic>=1.0 dropped temperature/top_p/top_k from the
+                # messages.create()/stream() signatures -- passing them is
+                # a TypeError. The API still honors the parameter, so it
+                # goes through extra_body, which the SDK merges into the
+                # request JSON verbatim. See the SDK's MIGRATION.md.
+                kwargs["extra_body"] = {"temperature": effective_temp}
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -745,9 +742,8 @@ class ClaudeProvider(BaseAIProvider):
             # Effort rides in output_config, not the thinking block. Merge
             # rather than assign -- output_config also carries `format` for
             # constraint decoding.
-            effort = self._build_claude_effort(thinking)
-            if effort is not None:
-                kwargs.setdefault("output_config", {})["effort"] = effort
+            if effort_sent is not None:
+                kwargs.setdefault("output_config", {})["effort"] = effort_sent
 
             # Web search: catalog decides support (checked above); the access
             # path decides the tool version.
@@ -824,6 +820,8 @@ class ClaudeProvider(BaseAIProvider):
         except AIProviderError:
             raise  # Never swallow our own semantic errors (incl. fast-fail pricing)
         except Exception as e:
+            if effort_sent is not None and self._is_effort_rejection(e, thinking):
+                raise self._effort_mapping_error(effort_sent, e)
             raise self._map_claude_exception(e, json_mode=False)
     
     # ------------------------------------------------------------------
@@ -860,6 +858,7 @@ class ClaudeProvider(BaseAIProvider):
         force: bool = False,
         thinking: Union[bool, int, str, None] = None,
         *,
+        effort: Optional[str] = None,
         history: Optional[List[Dict]] = None,
     ) -> AIResponse:
         """
@@ -891,6 +890,7 @@ class ClaudeProvider(BaseAIProvider):
         """
         _orig_caller = {
             "thinking": thinking,
+            "effort": effort,
             "max_output_tokens": max_output_tokens,
             "temperature": temperature,
             "web_search": web_search,
@@ -919,7 +919,7 @@ class ClaudeProvider(BaseAIProvider):
                 self._check_capability("json_with_search")
 
         # Validate & normalize thinking
-        thinking = self._resolve_thinking(thinking)
+        thinking, effort_sent = self._resolve_effort(thinking, effort, web_search=web_search)
         turns = self._normalize_history(history)
 
         try:
@@ -932,13 +932,18 @@ class ClaudeProvider(BaseAIProvider):
             thinking_block = self._build_claude_thinking(thinking, max_output_tokens)
 
             # Cross-capability pre-flight from catalog.
-            self._validate_incompatible_combinations({
-                "temperature":     "any" if temperature is not None else "default",
+            state = {
+                "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
                 "structured_json": "on",
                 "web_search":      "on"  if web_search             else "off",
                 "json_with_search": "on" if web_search             else "off",
-            })
+            }
+            # Temperature first: a value the model cannot take is logged and
+            # dropped, so the pre-flight below checks what is really sent.
+            effective_temp = self._resolve_temperature(temperature, state)
+            state["temperature"] = "any" if effective_temp is not None else "default"
+            self._validate_incompatible_combinations(state)
 
             kwargs = {
                 "model": self._wire_model(),
@@ -953,18 +958,13 @@ class ClaudeProvider(BaseAIProvider):
                 },
             }
 
-            # Temperature: only send if caller opted in. Catalog-strip is a
-            # backstop for callers who pass an explicit value on a model that
-            # rejects sampling params.
-            if temperature is not None:
-                effective_temp = self._resolve_temperature(temperature, thinking_active)
-                if effective_temp is not None:
-                    # anthropic>=1.0 dropped temperature/top_p/top_k from the
-                    # messages.create()/stream() signatures -- passing them is
-                    # a TypeError. The API still honors the parameter, so it
-                    # goes through extra_body, which the SDK merges into the
-                    # request JSON verbatim. See the SDK's MIGRATION.md.
-                    kwargs["extra_body"] = {"temperature": effective_temp}
+            if effective_temp is not None:
+                # anthropic>=1.0 dropped temperature/top_p/top_k from the
+                # messages.create()/stream() signatures -- passing them is
+                # a TypeError. The API still honors the parameter, so it
+                # goes through extra_body, which the SDK merges into the
+                # request JSON verbatim. See the SDK's MIGRATION.md.
+                kwargs["extra_body"] = {"temperature": effective_temp}
             
             if system_prompt:
                 kwargs["system"] = system_prompt
@@ -975,9 +975,8 @@ class ClaudeProvider(BaseAIProvider):
 
             # Effort shares output_config with the constraint-decoding
             # `format` key set above, so merge into it.
-            effort = self._build_claude_effort(thinking)
-            if effort is not None:
-                kwargs.setdefault("output_config", {})["effort"] = effort
+            if effort_sent is not None:
+                kwargs.setdefault("output_config", {})["effort"] = effort_sent
 
             # Web search: combine output_config (constraint decoding) with
             # web_search tool in the same request — native JSON + search.
@@ -1072,6 +1071,8 @@ class ClaudeProvider(BaseAIProvider):
         except AIProviderError:
             raise
         except Exception as e:
+            if effort_sent is not None and self._is_effort_rejection(e, thinking):
+                raise self._effort_mapping_error(effort_sent, e)
             raise self._map_claude_exception(e, json_mode=True)
 
     def is_available(self) -> bool:
@@ -1217,7 +1218,7 @@ class ClaudeProvider(BaseAIProvider):
         """
         try:
             self._client.messages.create(
-                model=self._wire_model(), max_tokens=10,
+                model=self._wire_model(), max_tokens=self._PROBE_MAX_TOKENS,
                 extra_body={"temperature": 0.5},
                 messages=[{"role": "user", "content": "Say hi."}],
             )
@@ -1236,7 +1237,7 @@ class ClaudeProvider(BaseAIProvider):
         """
         kwargs: dict = {
             "model": self._wire_model(),
-            "max_tokens": 2048,
+            "max_tokens": self._PROBE_MAX_TOKENS,
             "messages": [{"role": "user", "content": "Say hi."}],
         }
         if active_states.get("temperature") == "any":
@@ -1302,7 +1303,7 @@ class ClaudeProvider(BaseAIProvider):
         try:
             self._client.messages.create(
                 model=self._wire_model(),
-                max_tokens=16,
+                max_tokens=self._PROBE_MAX_TOKENS,
                 messages=[{"role": "user", "content": "Say hi."}],
                 thinking={"type": "disabled"},
             )
@@ -1341,7 +1342,6 @@ class ClaudeProvider(BaseAIProvider):
         toward the thinking "on" state.
         """
         _PROBE_BUDGET = 1024
-        _PROBE_MAX_TOKENS = 2048  # Must exceed _PROBE_BUDGET
 
         tiers = [
             # Tier 1: adaptive (4.6/4.7+ preferred). Bare shape — 4.7 rejects
@@ -1362,7 +1362,7 @@ class ClaudeProvider(BaseAIProvider):
             try:
                 self._client.messages.create(
                     model=self._wire_model(),
-                    max_tokens=_PROBE_MAX_TOKENS,
+                    max_tokens=self._PROBE_MAX_TOKENS,
                     messages=[{"role": "user", "content": "Say hi."}],
                     thinking=thinking_cfg,
                 )
@@ -1390,7 +1390,7 @@ class ClaudeProvider(BaseAIProvider):
         try:
             self._client.messages.create(
                 model=self._wire_model(),
-                max_tokens=50,
+                max_tokens=self._PROBE_MAX_TOKENS,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
                     "format": {
@@ -1421,7 +1421,7 @@ class ClaudeProvider(BaseAIProvider):
         try:
             self._client.messages.create(
                 model=self._wire_model(),
-                max_tokens=50,
+                max_tokens=self._PROBE_MAX_TOKENS,
                 messages=[{"role": "user", "content": "Say hi."}],
                 tools=[self._web_search_tool()],
             )
@@ -1451,7 +1451,7 @@ class ClaudeProvider(BaseAIProvider):
         try:
             self._client.messages.create(
                 model=self._wire_model(),
-                max_tokens=50,
+                max_tokens=self._PROBE_MAX_TOKENS,
                 messages=[{"role": "user", "content": "Return the number 1."}],
                 output_config={
                     "format": {

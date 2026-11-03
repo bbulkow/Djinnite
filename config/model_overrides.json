@@ -3,6 +3,50 @@
   "_key_format": "provider/model-id (e.g. chatgpt/gpt-4o). A bare model-id is accepted for backwards compatibility but provider-qualified is preferred: model ids are unique across the hosted providers today, but local backends will not be.",
   "_fields": "Any catalog field. Nested fields may be given as a nested object -- {\"costing\": {\"input_per_1m\": 2.5}} overrides only that number and leaves the discovered source_url and updated date alone. Keys starting with _ are notes and are ignored.",
   "models": {
+    "gemini/gemini-3-flash-preview": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.1-pro-preview": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["low", "medium", "high"]}
+    },
+    "gemini/gemini-3.1-pro-preview-customtools": {
+      "_source": "Same model's custom-tools endpoint: https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview.md ; levels from Google's thinking-level table, checked 2026-11-03.",
+      "capabilities": {"effort_levels": ["low", "medium", "high"]}
+    },
+    "gemini/gemini-3.1-flash-lite-preview": {
+      "_source": "Gemini 3.1 Flash-Lite thinking levels: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model (2026-11-03).",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.1-flash-lite": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.5-flash": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.5-flash-lite": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.6-flash": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["minimal", "low", "medium", "high"]}
+    },
+    "gemini/gemini-3.7-flash": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["low", "medium", "high"]}
+    },
+    "gemini/gemini-3.8-flash": {
+      "_source": "MINIMAL is rejected: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-8-flash#mandatory_api_rules_and_behavioral_conventions (2026-11-03).",
+      "capabilities": {"effort_levels": ["low", "medium", "high"]}
+    },
+    "gemini/gemini-4-argon": {
+      "_source": "Google thinking-level table, checked 2026-11-03: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#supported-thinking-levels-by-model",
+      "capabilities": {"effort_levels": ["low", "medium", "high"]}
+    },
     "chatgpt/gpt-3.5-turbo": {
       "disabled": true,
       "disabled_reason": "legacy model - deprecated"

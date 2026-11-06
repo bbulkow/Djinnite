@@ -1,9 +1,18 @@
-# Platform Mode End-to-End Tests -- Design
+# Live Platform Tests (Google Vertex AI) -- Design
 
-> **Status:** Accepted 2026-10-04; harness implemented, GCP project pending
-> **Date:** 2026-10-04
+> **Status:** Accepted 2026-10-04; reworked 2026-11-06 to be driven by
+> `ai_config.json` (see "Configuration" and "Decisions"). Until the rework
+> it was named the "e2e platform tier", read `DJINNITE_E2E_*` environment
+> variables, and required a GCP project provisioned just for it; it never
+> ran. It now runs in the Vertex project the operator already configured.
+> **Date:** 2026-10-04 (rework 2026-11-06)
 > **Scope:** verify platform mode (Google Vertex AI) inside Djinnite, against
 > the real service, as part of Djinnite's own test suite.
+
+**What this tier is, in one line:** the `--live` contract, delivered
+through Vertex AI instead of the providers' own APIs, plus the plumbing
+only a platform has (ADC, quota project, location routing, Model Garden).
+It is **not** a test of any other project.
 
 ## Problem
 
@@ -35,7 +44,7 @@ are written once (`tests/_contract.py`) and run in every access mode:
 |---|---|---|---|
 | Offline | *(none)* | none -- SDK clients stubbed | what Djinnite hands each SDK; error mapping on synthetic errors |
 | Direct live | `--live` | provider APIs with ai_config keys | the contract (JSON, history, truncation, cost arithmetic) per provider; Claude 5.x thinking semantics |
-| Platform e2e | `--e2e-platform` | Vertex AI, dedicated project | the same contract through the platform, plus auth, quota project, routing, real error bodies, `probe_platform` |
+| Platform live | `--live-platform` | Vertex AI, the project `ai_config.json` names | the same contract through the platform, plus auth, quota project, routing, real error bodies, `probe_platform` |
 
 A contract failure in both live layers is a Djinnite bug; in only one, it
 is an access-path bug (or a provider/platform difference worth recording).
@@ -44,10 +53,17 @@ is an access-path bug (or a provider/platform difference worth recording).
 
 1. **Pytest, not a script.** Live tests are collected, asserted, counted, and
    reported like every other test. Opt-in flag, same pattern as `--live`.
-2. **Own project, least privilege.** A dedicated GCP project and service
-   account. Nothing runs against a consumer's project (Munin) by default.
-3. **No keys anywhere.** Service-account impersonation locally; Workload
-   Identity Federation in CI. No downloaded SA key files.
+2. **Configuration is `ai_config.json`.** The tier runs in the Vertex
+   project the `platforms.vertexai` block names, exactly as a consumer
+   would, and takes its test-only knobs from that block's optional
+   `testing` sub-block. Nothing is read from the environment, and nothing
+   project-specific is committed (`ai_config.json` is git-ignored). A
+   dedicated project and a least-privilege runner identity are still the
+   recommended setup; they are no longer prerequisites.
+3. **No keys anywhere.** Application Default Credentials, whatever they
+   resolve to on the machine (a user login, an impersonated service
+   account, a workload identity). The preflight prints the principal and
+   project so a mismatch with `ai_config.json` is visible before any call.
 4. **Error paths are evidence, and they are free.** A request Vertex rejects
    is not billed. A 429 `RESOURCE_EXHAUSTED` naming the right base model
    proves authentication, routing, location, model ID and Model Garden
@@ -162,24 +178,85 @@ sends. Extended test X3 settles it.
    still token-counts Gemini at `us`.
 5. **Step 8/9 below** use the metric names and policy values above.
 
-## GCP setup (one time)
+## Configuration
+
+Everything comes from `config/ai_config.json`:
+
+```json
+{
+  "platforms": {
+    "vertexai": {
+      "project_id": "<the operator's Vertex project>",
+      "quota_project": "<the project to bill, or null>",
+      "locations": ["global", "us"],
+      "testing": {
+        "gemini_model": "gemini-3.5-flash",
+        "claude_model": "claude-haiku-4-5-20251001",
+        "claude_canary": "claude-sonnet-5-5",
+        "claude_5x_model": null,
+        "decoy_project": null,
+        "max_cost": 0.50
+      }
+    }
+  }
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `project_id` | **required** | the Vertex project; opting in without it is a `UsageError` |
+| `quota_project` | unset | project billed for the calls (test G7 uses it, else `project_id`) |
+| `locations` | **must include `global`** | locations the availability discovery checks |
+| `testing.gemini_model` | `gemini-3.5-flash` | |
+| `testing.claude_model` | `claude-haiku-4-5-20251001` | |
+| `testing.claude_canary` | `claude-sonnet-5-5` | an enabled Claude model with **no** quota (must answer 429) |
+| `testing.claude_5x_model` | unset -> X4 skips | a 5.x Claude with quota (extended tier) |
+| `testing.decoy_project` | unset -> G8 and C3 skip | an existing project the credentials have **no** rights on |
+| `testing.max_cost` | `0.50` | session hard cap, dollars |
+
+A missing optional key skips the tests that need it, **by name**, in the
+summary (`-rA`). A missing required key fails the session at startup. The
+`testing` block is read only by the test harness (`tests/_platform_live.py`);
+runtime ignores it. `PlatformConfig.testing` carries it through the loader.
+
+## Credentials
+
+Application Default Credentials, resolved by google-auth as for any consumer:
+
+```powershell
+gcloud auth application-default login            # a user login, or
+gcloud auth application-default login --impersonate-service-account=<runner SA>
+```
+
+The preflight prints what they resolve to
+(`[INFO] platform credentials: <type> principal=<who> adc_project=<p> adc_quota_project=<q>`).
+If `adc_project` is not the project `ai_config.json` names, the calls still
+go to the configured project (Djinnite passes `project_id` explicitly), but
+the quota project on the credentials is whatever ADC carries unless
+`quota_project` is set -- which is why G7 exists. To keep a test identity
+separate from a consumer's, point `GOOGLE_APPLICATION_CREDENTIALS` at the
+impersonated ADC file for the shell that runs pytest; Djinnite adds no
+mechanism of its own.
+
+## GCP setup (recommended, not required)
 
 The base setup is the user guide, **[VERTEX_AI_SETUP.md](VERTEX_AI_SETUP.md)**.
-Follow it for the e2e project with the choices below, then add the e2e-only
-pieces. Setting up the e2e project this way also tests the guide: a step the
+A dedicated project with a least-privilege runner service account is the
+recommended way to run this tier; the choices below are what the matrix
+assumes. Setting a project up this way also tests the guide: a step the
 guide gets wrong shows up here first.
 
 Every account, project and billing value is **configuration you supply** --
 nothing below names a real one:
 
-| Variable | What to supply | Harness variable it becomes |
+| Variable | What to supply | Where it goes |
 |---|---|---|
-| `$PROJECT` | a new, globally unique project ID for the e2e tier | `DJINNITE_E2E_PROJECT` |
-| `$DECOY` | an **existing** project ID the runner has no rights on | `DJINNITE_E2E_DECOY_PROJECT` |
+| `$PROJECT` | the Vertex project ID | `platforms.vertexai.project_id` |
+| `$DECOY` | an **existing** project ID the runner has no rights on | `platforms.vertexai.testing.decoy_project` |
 | `$BILLING` | the billing account ID to charge | -- |
 | `$OPERATOR` | the operator's Google account, as `user:<email>` | -- |
 | `$RUNNER` | a name for the runner service account | -- |
-| `$GCLOUD_DIR` | a separate gcloud config directory for the runner's credentials | `DJINNITE_E2E_CREDENTIALS` = `$GCLOUD_DIR\application_default_credentials.json` |
+| `$GCLOUD_DIR` | a separate gcloud config directory for the runner's credentials | `GOOGLE_APPLICATION_CREDENTIALS` in the shell that runs pytest |
 
 ```powershell
 $PROJECT    = "<e2e project id>"
@@ -191,7 +268,7 @@ $GCLOUD_DIR = "<directory for the runner's gcloud config>"
 $SA         = "$RUNNER@$PROJECT.iam.gserviceaccount.com"
 ```
 
-**A. Create the e2e project** (the guide assumes one exists):
+**A. Create the project** (the guide assumes one exists):
 
 ```powershell
 gcloud projects create $PROJECT
@@ -204,7 +281,8 @@ on. The decoy tests only name it as the quota project and expect a 403;
 nothing is created, enabled or billed there.
 
 **B. Follow VERTEX_AI_SETUP.md steps 1-6 for `$PROJECT`**, with these choices
-(the models and locations are those in "Model choice" above):
+(the models and locations are those in "Model choice" above and in
+`testing`):
 
 | Guide step | e2e choice |
 |---|---|
@@ -215,10 +293,10 @@ nothing is created, enabled or billed there.
 | 5. Quota | request Haiku 4.5 quota at `global`, plus `us-east5` (regional `online_prediction_requests_per_base_model`) for the regional-premium test. **Do not** request quota for Sonnet 5.5: it is the 429 canary. New projects are often refused Claude quota; until it is granted the Claude functional tests skip by name and the plumbing tests still run. |
 | 6. Identity | 6a, then 6c **"As a service account"**, with `$RUNNER` as the service account (`roles/aiplatform.user`), the operator as its Token Creator, and the credentials kept in `$GCLOUD_DIR` (next section) |
 
-**C. e2e-only additions:**
+**C. Test-tier additions:**
 
 ```powershell
-# The runner names the e2e project as its quota project (test G7).
+# The runner names the project as its quota project (test G7).
 gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" `
     --role="roles/serviceusage.serviceUsageConsumer"
 
@@ -232,21 +310,18 @@ Resulting grants:
 
 | Grant | To | Why |
 |---|---|---|
-| `roles/aiplatform.user` | runner SA, e2e project | generate, count tokens, model listing |
-| `roles/serviceusage.serviceUsageConsumer` | runner SA, e2e project | lets the runner name the e2e project as its quota project (`x-goog-user-project`) |
+| `roles/aiplatform.user` | runner SA, project | generate, count tokens, model listing |
+| `roles/serviceusage.serviceUsageConsumer` | runner SA, project | lets the runner name the project as its quota project (`x-goog-user-project`) |
 | *(nothing)* | runner SA, decoy project | deliberately absent: naming the decoy as quota project must fail with 403 |
 | `roles/iam.serviceAccountTokenCreator` | the operator, on the runner SA | local runs impersonate the runner -- no key files |
-| `roles/consumerprocurement.entitlementManager` | the operator, e2e project | enable Anthropic models in Model Garden |
+| `roles/consumerprocurement.entitlementManager` | the operator, project | enable Anthropic models in Model Garden |
 | `roles/orgpolicy.policyAdmin` | the operator (usually at the org) | set the structured-outputs org policy |
 
-**No CI.** The e2e tier is run manually, by a maintainer or an agent
-(see "Who runs it"). Nothing runs it on push or on a schedule.
+**No CI.** The tier is run manually, by a maintainer or an agent (see
+"Who runs it"). Nothing runs it on push or on a schedule.
 
-## Credentials on a developer machine
-
-Keep the e2e identity separate from any other ADC on the machine (a
-consumer's usually lives in the default gcloud config) by giving it its own
-gcloud config directory:
+To keep a dedicated test identity separate from any other ADC on the
+machine, give it its own gcloud config directory:
 
 ```powershell
 $env:CLOUDSDK_CONFIG = $GCLOUD_DIR
@@ -256,57 +331,35 @@ Remove-Item Env:CLOUDSDK_CONFIG
 #    (type "impersonated_service_account"; google-auth reads it natively)
 ```
 
-The harness points `GOOGLE_APPLICATION_CREDENTIALS` at that file for the
-test session only (from `DJINNITE_E2E_CREDENTIALS`), so the default ADC is
-never touched.
-
-**Nothing on the machine changes globally.** `CLOUDSDK_CONFIG` lasts for the
-one PowerShell window and is removed after the login; the operator's own
-`gcloud` login (used for the setup commands) and the default
-`%APPDATA%\gcloud` credentials stay as they were, and other shells and
-processes keep working throughout. To run the tier, set the
-`DJINNITE_E2E_*` variables in the window that runs pytest.
+and point `GOOGLE_APPLICATION_CREDENTIALS` at that file in the shell that
+runs pytest. The default `%APPDATA%\gcloud` credentials are not touched.
 
 ## Harness
 
 ### Invocation
 
 ```powershell
-uv run pytest tests/ --e2e-platform -rA -s 2>&1 | tee $env:TEMP\e2e.log           # default tier
-uv run pytest tests/ --e2e-platform --e2e-extended -rA -s 2>&1 | tee $env:TEMP\e2e.log  # + extended
+uv run pytest tests/ --live-platform -rA -s 2>&1 | tee $env:TEMP\platform.log                          # default tier
+uv run pytest tests/ --live-platform --live-platform-extended -rA -s 2>&1 | tee $env:TEMP\platform.log  # + extended
 ```
 
-Without `--e2e-platform` the e2e tests are skipped ("rerun with
---e2e-platform"), exactly like `--live`, so a plain `uv run pytest tests/`
-stays offline and free.
+Without `--live-platform` the platform tests are skipped ("rerun with
+--live-platform"), exactly like `--live`, so a plain `uv run pytest tests/`
+stays offline and free. Opted in with no `platforms.vertexai` block, no
+`project_id`, or no ADC resolvable: the session **fails** at startup with
+the exact missing piece named. Never a skip.
 
-### Configuration (environment; CI-friendly)
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `DJINNITE_E2E_PROJECT` | **required** | test project |
-| `DJINNITE_E2E_CREDENTIALS` | ADC default | path to the impersonated ADC file |
-| `DJINNITE_E2E_DECOY_PROJECT` | unset -> decoy tests fail | project the runner has no rights on |
-| `DJINNITE_E2E_LOCATIONS` | `global,us` | locations to discover |
-| `DJINNITE_E2E_GEMINI_MODEL` | `gemini-3.5-flash` | |
-| `DJINNITE_E2E_CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | |
-| `DJINNITE_E2E_CLAUDE_CANARY` | `claude-sonnet-5-5` | must have zero quota |
-| `DJINNITE_E2E_MAX_COST` | `0.50` | session hard cap, dollars |
-
-Opted in with `DJINNITE_E2E_PROJECT` unset, or no ADC resolvable: the session
-**fails** at the first e2e test with the exact missing piece named. Never a skip.
-
-### Session fixtures (`tests/_e2e.py`)
+### Session fixtures (`tests/_platform_live.py`, `tests/conftest.py`)
 
 1. **Preflight.** Resolve ADC; print credential type, principal (SA email when
-   impersonating), project, quota project, locations. ASCII only.
+   impersonating), the configured project and quota project, locations. ASCII only.
 2. **Location discovery.** `probe_availability()` for every (provider, model,
    location) -- token counts, unbilled. Printed as a table; tests take their
    locations from it. Required: Gemini primary `available` at `global`, else
    the session fails (misconfiguration, not environment).
 3. **Cost ledger.** Every billed test records its `AIResponse`. At session end
    the ledger prints per-test tokens and `total_cost`, and the session fails
-   if the total exceeds `DJINNITE_E2E_MAX_COST`. This also cross-checks
+   if the total exceeds `testing.max_cost`. This also cross-checks
    Djinnite's own cost math against the token counts Vertex returned.
 4. **One retry on 429 for Gemini only** (shared dynamic quota can 429 under
    global load). Never for Claude: a Claude 429 is a result, not noise.
@@ -326,8 +379,8 @@ count, which Google does not bill.
 | G4 | `thinking=False`, then `thinking="low"` | thinking_tokens 0/None, then > 0; `token_cost` == input + (output + thinking) x rate | yes (2) |
 | G5 | `max_output_tokens=5` | `AIOutputTruncatedError` with partial usage | yes (tiny) |
 | G6 | *(removed 2026-10-05: tested the old region-specific default location)* | | |
-| G7 | `quota_project` = test project | succeeds (credentials carry the quota project) | yes (tiny) |
-| G8 | `quota_project` = decoy | `AIAuthenticationError` whose message names the decoy -- proves the quota project actually travels | no |
+| G7 | `quota_project` = the configured quota project (else the project) | succeeds (credentials carry the quota project) | yes (tiny) |
+| G8 | `quota_project` = decoy | `AIAuthenticationError` whose message names the decoy -- proves the quota project actually travels. Skips by name without `testing.decoy_project` | no |
 | G9 | unknown model ID | `AIModelNotFoundError` | no |
 | G10 | missing ADC (`GOOGLE_APPLICATION_CREDENTIALS` -> nonexistent file, in a subprocess) | `AIAuthenticationError` | no (no network) |
 | G11 | `is_available()`, `list_models()` with no key | True; list contains the primary model | no |
@@ -338,7 +391,7 @@ count, which Google does not bill.
 |---|---|---|---|
 | C1 | keyless construct + `generate_json` with Haiku @ global | **either** success **or** `AIRateLimitError` naming `anthropic-claude-haiku-4-5` -- **never** auth / not-found. Either outcome proves ADC, routing, location, the `@` model ID and Model Garden enablement. | only if quota |
 | C2 | canary (Sonnet 5.5, zero quota) | `AIRateLimitError`, `RESOURCE_EXHAUSTED` in message | no |
-| C3 | `quota_project` = decoy (`default_headers` path) | `AIAuthenticationError` naming the decoy | no |
+| C3 | `quota_project` = decoy (`default_headers` path) | `AIAuthenticationError` naming the decoy. Skips by name without `testing.decoy_project` | no |
 | C4 | unknown model ID | `AIModelNotFoundError` mentioning Model Garden | no |
 | C5 | missing ADC (subprocess) | `AIAuthenticationError` | no |
 | C6 | `probe_availability()` / `is_available()` | status in vocabulary; records whether `count_tokens` is quota-gated (an observation the docs need) | no |
@@ -355,8 +408,8 @@ count, which Google does not bill.
 | C12 | truncation | `AIOutputTruncatedError` | yes (tiny) |
 
 If Haiku is `no_quota` everywhere, C7-C12 skip with
-`"no Claude quota in project <e2e project> (haiku: no_quota @ global,us)"`,
-listed in the summary. C1-C6 still run.
+`"no Claude quota in project <project> ..."`, listed in the summary. C1-C6
+still run.
 
 ### Scripts (default tier)
 
@@ -367,18 +420,17 @@ listed in the summary. C1-C6 still run.
 ### Access paths (default tier)
 
 Named entries and `deny` (ACCESS_PATHS_DESIGN.md) through a real build. A
-temporary `ai_config.json` (pytest `tmp_path`) on the e2e project declares
-two platform entries: `claude-vertex` (`"provider": "claude"`, default model
-`DJINNITE_E2E_CLAUDE_MODEL`, `deny` `{"*": ["web_search"], <Haiku>:
+temporary `ai_config.json` (pytest `tmp_path`) on the configured project
+declares two platform entries: `claude-vertex` (`"provider": "claude"`,
+default model `testing.claude_model`, `deny` `{"*": ["web_search"], <Haiku>:
 ["structured_json"]}`, a `deny_reason`) and `gemini-vertex`
-(`"provider": "gemini"`, default model `DJINNITE_E2E_GEMINI_MODEL`, no
-`deny`).
+(`"provider": "gemini"`, default model `testing.gemini_model`, no `deny`).
 
 | # | Test | Asserts | Billed |
 |---|---|---|---|
 | A1 | `build_provider` for both entries; `deny` per model | each builds with `entry` set, platform mode, no key; `probe_availability()` (token count) returns a known status. `claude-vertex` `generate(web_search=True)` raises `DjinniteCapabilityDeniedError` for Haiku **and** the canary (`"*"`); `generate_json` on Haiku raises it (`structured_json`). Denied calls run with the SDK client replaced by a tripwire, so they provably never leave the process; the error names the entry, model and `deny_reason`. `generate_json` on the canary is **not** denied: it reaches Vertex and gets the canary's 429 (`AIRateLimitError`). Nothing is recorded in the cost ledger unless the canary unexpectedly answers. | no |
 
-### Extended tier (`--e2e-extended`, needs a go-ahead per run)
+### Extended tier (`--live-platform-extended`, needs a go-ahead per run)
 
 | # | Test | Billed |
 |---|---|---|
@@ -440,35 +492,43 @@ prove the Claude platform plumbing.
 ## Who runs it
 
 AGENTS.md rule (adopted): **a change to platform-mode code is not finished
-until `uv run pytest tests/ --e2e-platform` passes**, run by the agent doing
+until `uv run pytest tests/ --live-platform` passes**, run by the agent doing
 the work, not handed to the user. The default tier needs no go-ahead: it is
-capped at $0.50 and runs only in the dedicated project. The extended tier,
-and any run against another project, needs the user's go-ahead.
+capped at `testing.max_cost` ($0.50 by default) and runs only in the project
+`ai_config.json` names. The extended tier, and any run with a different
+`ai_config.json`, needs the user's go-ahead.
 
 ## Implementation
 
 | File | Contents |
 |---|---|
-| `tests/conftest.py` | `--e2e-platform` / `--e2e-extended`; gating; opt-in without config is a `UsageError`; session fixtures `e2e_session` (credentials + preflight), `e2e_availability`, `e2e_ledger` (cap); the `--live` `provider` fixture builds each type's direct-mode entry (`AIConfig.direct_entry`) |
-| `tests/_e2e.py` | `E2EConfig` (DJINNITE_E2E_*), credential description, `CostLedger`, Gemini 429 retry, missing-ADC subprocess probe |
-| `tests/_contract.py` | the call-shape contract, shared by direct live and platform e2e |
-| `tests/test_e2e_vertexai_gemini.py` | G1-G11, X2 |
-| `tests/test_e2e_vertexai_claude.py` | C1-C12, X3, X4 |
-| `tests/test_e2e_probe_platform.py` | S1, X1 |
-| `tests/test_e2e_access_paths.py` | A1 (temporary ai_config with named platform entries and `deny`) |
+| `tests/conftest.py` | `--live-platform` / `--live-platform-extended`; gating; opt-in without config is a `UsageError`; session fixtures `platform_session` (preflight), `platform_availability`, `platform_ledger` (cap); the `--live` `provider` fixture builds each type's direct-mode entry (`AIConfig.direct_entry`) |
+| `tests/_platform_live.py` | `PlatformLiveConfig` (from `ai_config.platforms.vertexai` and its `testing` block), `missing_config`, credential description, `CostLedger`, Gemini 429 retry, missing-ADC subprocess probe |
+| `tests/_contract.py` | the call-shape contract, shared by direct live and platform live |
+| `tests/test_live_vertexai_gemini.py` | G1-G11, X2 |
+| `tests/test_live_vertexai_claude.py` | C1-C12, X3, X4 |
+| `tests/test_live_probe_platform.py` | S1, X1 |
+| `tests/test_live_platform_access_paths.py` | A1 (temporary ai_config with named platform entries and `deny`) |
 | `tests/test_live_contract.py` | the contract in direct mode (`--live`) |
 | `tests/test_live_claude_thinking.py` | 5.x thinking semantics in direct mode (`--live`) |
 | `scripts/smoke_platform.py` | removed |
 
-`DJINNITE_E2E_CLAUDE_5X_MODEL` (extended X4) should be `claude-sonnet-5-5`
-once it has quota -- and then the canary must move to another enabled,
+`testing.claude_5x_model` (extended X4) should be `claude-sonnet-5-5` once
+it has quota -- and then the canary must move to another enabled,
 zero-quota model, since one model cannot be both.
 
-## Decisions (2026-10-04)
+## Decisions (2026-10-04, amended 2026-11-06)
 
-1. **Dedicated project** -- adopted; its ID is configuration
-   (`DJINNITE_E2E_PROJECT`). It keeps tests off
-   Munin's quota and budget; it starts with no Claude quota or usage history.
+1. **Dedicated project** -- adopted 2026-10-04 as a prerequisite, with its
+   own `DJINNITE_E2E_*` environment; **amended 2026-11-06 (Brian):** the
+   tier is driven by `ai_config.json` like every other part of Djinnite,
+   runs in whatever Vertex project the `platforms` block names, and a
+   dedicated project is a recommendation. Why: the environment-variable
+   harness and its provisioning were a second configuration surface that
+   nobody set up, so the tier never ran and the AGENTS.md rule that depends
+   on it was unsatisfiable for a month. The name changed from "e2e" to
+   "live platform" at the same time, because "e2e" did not say what was
+   being tested (Vertex).
 2. **Agents run the default tier** as part of finishing platform work, under
    the $0.50 cap -- adopted.
 3. **`smoke_platform.py` retired** -- adopted, with the direct-live layer so

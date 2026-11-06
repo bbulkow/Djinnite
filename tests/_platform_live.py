@@ -1,17 +1,36 @@
 """
-Harness for the platform-mode end-to-end tier (``--e2e-platform``).
+Harness for the live platform tier (``--live-platform``): Djinnite through
+Google Vertex AI, against the real service.
 
-Real calls to Google Vertex AI in a dedicated test project, made with
-platform credentials (an impersonated service account -- never a key file).
-See PLATFORM_E2E_TEST_DESIGN.md for the GCP setup and the test matrix.
+Everything the tier needs comes from ``config/ai_config.json``, the same
+file every other part of Djinnite is configured from: the ``platforms``
+block names the project, quota project and locations, and its optional
+``testing`` sub-block holds the test-only knobs (which models to use, a
+decoy project, the cost cap). Credentials are Application Default
+Credentials, resolved by google-auth exactly as they are for a consumer.
+Nothing is read from the environment.
 
-Configuration is environment variables (DJINNITE_E2E_*), so a run is one
-command and nothing project-specific is committed:
+    {
+      "platforms": {
+        "vertexai": {
+          "project_id": "<the operator's Vertex project>",
+          "quota_project": "<the project to bill, or null>",
+          "locations": ["global", "us"],
+          "testing": {
+            "gemini_model": "gemini-3.5-flash",
+            "claude_model": "claude-haiku-4-5-20251001",
+            "claude_canary": "claude-sonnet-5-5",
+            "claude_5x_model": null,
+            "decoy_project": null,
+            "max_cost": 0.50
+          }
+        }
+      }
+    }
 
-    $env:DJINNITE_E2E_PROJECT       = "<e2e project id>"
-    $env:DJINNITE_E2E_DECOY_PROJECT = "<decoy project id>"
-    $env:DJINNITE_E2E_CREDENTIALS   = "<runner gcloud dir>\\application_default_credentials.json"
-    uv run pytest tests/ --e2e-platform -rA -s
+Every ``testing`` key is optional. A missing piece disables the tests that
+need it, by name, in the summary; it never fails the run and it never
+silently passes. See PLATFORM_LIVE_TEST_DESIGN.md for the test matrix.
 
 All output is ASCII (Windows consoles are cp1252).
 """
@@ -25,12 +44,22 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 from djinnite.ai_providers.base_provider import AIRateLimitError
+from djinnite.config_loader import AIConfig
+
+PLATFORM = "vertexai"
+
+DEFAULTS = {
+    "gemini_model": "gemini-3.5-flash",
+    "claude_model": "claude-haiku-4-5-20251001",
+    "claude_canary": "claude-sonnet-5-5",
+    "max_cost": 0.50,
+}
 
 
 @dataclass(frozen=True)
-class E2EConfig:
+class PlatformLiveConfig:
     project: str
-    credentials: Optional[str]
+    quota_project: Optional[str]
     decoy_project: Optional[str]
     locations: tuple
     gemini_model: str
@@ -40,35 +69,36 @@ class E2EConfig:
     max_cost: float
 
     @classmethod
-    def from_env(cls) -> "E2EConfig":
-        env = os.environ.get
+    def from_ai_config(cls, cfg: AIConfig) -> "PlatformLiveConfig":
+        """Read ``platforms.vertexai`` (and its ``testing`` block). Call ``missing_config`` first."""
+        block = cfg.platforms[PLATFORM]
+        t = block.testing or {}
         return cls(
-            project=env("DJINNITE_E2E_PROJECT", ""),
-            credentials=env("DJINNITE_E2E_CREDENTIALS") or None,
-            decoy_project=env("DJINNITE_E2E_DECOY_PROJECT") or None,
-            locations=tuple(
-                loc.strip().lower()
-                for loc in env("DJINNITE_E2E_LOCATIONS", "global,us").split(",")
-                if loc.strip()
-            ),
-            gemini_model=env("DJINNITE_E2E_GEMINI_MODEL", "gemini-3.5-flash"),
-            claude_model=env("DJINNITE_E2E_CLAUDE_MODEL", "claude-haiku-4-5-20251001"),
-            claude_canary=env("DJINNITE_E2E_CLAUDE_CANARY", "claude-sonnet-5-5"),
-            claude_5x_model=env("DJINNITE_E2E_CLAUDE_5X_MODEL") or None,
-            max_cost=float(env("DJINNITE_E2E_MAX_COST", "0.50")),
+            project=block.project_id or "",
+            quota_project=block.quota_project or None,
+            decoy_project=t.get("decoy_project") or None,
+            locations=tuple(loc.strip().lower() for loc in block.locations if loc.strip()),
+            gemini_model=t.get("gemini_model") or DEFAULTS["gemini_model"],
+            claude_model=t.get("claude_model") or DEFAULTS["claude_model"],
+            claude_canary=t.get("claude_canary") or DEFAULTS["claude_canary"],
+            claude_5x_model=t.get("claude_5x_model") or None,
+            max_cost=float(t.get("max_cost") or DEFAULTS["max_cost"]),
         )
 
 
-def missing_config() -> Optional[str]:
-    """What an opted-in run lacks, or None. Checked at pytest_configure."""
-    cfg = E2EConfig.from_env()
-    if not cfg.project:
-        return ("DJINNITE_E2E_PROJECT is not set. Set it to the e2e test project "
-                "(see PLATFORM_E2E_TEST_DESIGN.md, 'GCP setup').")
-    if cfg.credentials and not os.path.exists(cfg.credentials):
-        return f"DJINNITE_E2E_CREDENTIALS points to a missing file: {cfg.credentials}"
-    if "global" not in cfg.locations:
-        return "DJINNITE_E2E_LOCATIONS must include 'global'."
+def missing_config(cfg: AIConfig) -> Optional[str]:
+    """What an opted-in run lacks in ai_config.json, or None. Checked at pytest_configure."""
+    block = cfg.platforms.get(PLATFORM)
+    if block is None:
+        return ("ai_config.json has no platforms.vertexai block. Add one with project_id "
+                "and locations (see PLATFORM_LIVE_TEST_DESIGN.md, 'Configuration').")
+    if not block.enabled:
+        return "ai_config.json platforms.vertexai is disabled (enabled: false)."
+    if not block.project_id:
+        return "ai_config.json platforms.vertexai.project_id is not set."
+    locations = [loc.strip().lower() for loc in block.locations if loc.strip()]
+    if "global" not in locations:
+        return "ai_config.json platforms.vertexai.locations must include 'global'."
     return None
 
 
@@ -114,7 +144,7 @@ class CostLedger:
         return sum(r[4] for r in self.rows)
 
     def report(self) -> str:
-        lines = ["", "[INFO] e2e cost ledger",
+        lines = ["", "[INFO] platform cost ledger",
                  f"  {'call':<48} {'in':>7} {'out':>7} {'think':>7} {'cost':>11} mult"]
         for label, i, o, t, c, m in self.rows:
             lines.append(f"  {label[:48]:<48} {i:>7} {o:>7} {str(t):>7} ${c:>10.6f} "

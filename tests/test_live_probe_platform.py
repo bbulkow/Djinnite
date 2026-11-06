@@ -1,10 +1,10 @@
 """
-scripts/probe_platform.py against the real platform (opt-in: ``--e2e-platform``).
+scripts/probe_platform.py against the real platform (opt-in: ``--live-platform``).
 
 Runs the script as a subprocess, exactly as a maintainer would, against a
 TEMPORARY copy of the catalog -- the real catalog is never written.
 
-    uv run pytest tests/test_e2e_probe_platform.py --e2e-platform -rA -s
+    uv run pytest tests/test_live_probe_platform.py --live-platform -rA -s
 """
 
 import hashlib
@@ -16,9 +16,9 @@ import sys
 import pytest
 
 from djinnite.config_loader import CONFIG_DIR, LOCATION_STATUS_VALUES
-from djinnite.tests._e2e import say
+from djinnite.tests._platform_live import say
 
-pytestmark = pytest.mark.e2e_platform
+pytestmark = pytest.mark.live_platform
 
 REAL_CATALOG = CONFIG_DIR / "model_catalog.json"
 
@@ -54,8 +54,8 @@ def _block(catalog, provider, model_id):
     raise AssertionError(f"{model_id} missing from the catalog copy")
 
 
-def test_s1_availability_written_to_a_catalog_copy(e2e_session, e2e_availability, tmp_path):
-    cfg = e2e_session
+def test_s1_availability_written_to_a_catalog_copy(platform_session, platform_availability, tmp_path):
+    cfg = platform_session
     before = _digest(REAL_CATALOG)
     written = _probe(cfg, tmp_path)
     for provider, model in (("gemini", cfg.gemini_model), ("claude", cfg.claude_model)):
@@ -65,14 +65,14 @@ def test_s1_availability_written_to_a_catalog_copy(e2e_session, e2e_availability
             status = block["locations"][loc]
             assert status in LOCATION_STATUS_VALUES
             # Same calls as the session's discovery: same answer.
-            assert status == e2e_availability[(provider, model, loc)][0], (provider, model, loc)
+            assert status == platform_availability[(provider, model, loc)][0], (provider, model, loc)
     assert _digest(REAL_CATALOG) == before, "probe_platform touched the real catalog"
 
 
-@pytest.mark.e2e_extended
-def test_x1_capabilities_probe(e2e_session, tmp_path):
+@pytest.mark.live_platform_extended
+def test_x1_capabilities_probe(platform_session, tmp_path):
     """The full capability suite through Vertex (billed: ~10 small calls per model)."""
-    cfg = e2e_session
+    cfg = platform_session
     written = _probe(cfg, tmp_path, "--provider", "gemini", "--capabilities")
     caps = _block(written, "gemini", cfg.gemini_model).get("capabilities")
     assert caps, "no platform capabilities recorded"

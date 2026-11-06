@@ -91,7 +91,7 @@ commits come from:
   explicit request to commit counts.
 * **A system reminder supplies `Co-Authored-By` trailer text** each session.
   It says how to format a commit *if one is requested*. It is not a request.
-* **"Finished" in this file** (the test-suite bar, the e2e tier) means
+* **"Finished" in this file** (the test-suite bar, the live platform tier) means
   verified and reported. It never includes committing.
 * **Logical units of work** (design doc, then implementation; a test fix, then
   the feature) are something to describe to the human, not a commit plan. If
@@ -123,7 +123,7 @@ pin:
    fix Djinnite's side of it.
 2. Record it in DEVELOPMENT.md "Breaking Changes Log" and CHANGELOG.md.
 3. Regenerate `uv.lock` (`uv lock --upgrade`) and run the offline, live
-   and (for platform code) e2e tiers against the new versions.
+   and (for platform code) live platform tiers against the new versions.
 
 If it cannot be fixed in the session, say so in the summary and leave the
 bound alone. The lock file, not the floor, records what was validated: a
@@ -177,14 +177,25 @@ specifically about runtime Python output.)
 ### Accounts, projects and regions are configuration
 
 No design, doc or code in this repo assumes a particular account, project or
-region. They come from configuration (`ai_config.json`, `DJINNITE_E2E_*`) or a
-parameter, and docs name the role ("the operator's Google account", "the e2e
+region. They come from configuration (`ai_config.json`) or a parameter, and
+docs name the role ("the operator's Google account", "the configured Vertex
 project") rather than a value. Examples and tests use neutral placeholders
 (`my-project`), never a real deployment such as a consumer's project.
 
+**`ai_config.json` is the one place secrets and deployments are configured**,
+for the runtime and for the test tiers alike. A test tier that needs a key,
+a project or a model reads it from there (the `--live` tier from the
+provider entries, the `--live-platform` tier from the `platforms` block and
+its `testing` sub-block). It never introduces environment variables or a
+second configuration file of its own. What is missing from `ai_config.json`
+skips the tests that need it, by name, in the summary (no Grok entry: Grok's
+live tests skip; no `decoy_project`: the decoy tests skip). The
+`DJINNITE_E2E_*` environment of 2026-10-04 was exactly that second surface,
+and the tier it fed never ran because nobody set it up (removed 2026-11-06).
+
 Defaults that are overridable and describe behavior rather than a deployment
 are fine: the platform registry's default locations (`global` for Gemini and
-Claude) and the e2e harness's default test locations and models.
+Claude) and the platform tier's default test models.
 
 ### Decide from this repo, not from other people's repos
 
@@ -261,27 +272,33 @@ availability pass is token counts (unbilled); `--capabilities` makes billed
 generation calls on the platform project; nothing is written without
 `--write`.
 
-### Platform-mode changes are verified end to end, by you
+### Platform-mode changes are verified live on Vertex AI, by you
 
 A change to platform-mode code (`platforms.py`, the platform branches of the
-providers, `probe_platform`) is **not finished** until the e2e tier passes:
+providers, `probe_platform`) is **not finished** until the live platform
+tier passes:
 
 ```powershell
-uv run pytest tests/ --e2e-platform -rA -s 2>&1 | tee $env:TEMP\e2e.log
+uv run pytest tests/ --live-platform -rA -s 2>&1 | tee $env:TEMP\platform.log
 ```
 
-Run it yourself -- do not hand it to the user to run. With the DJINNITE_E2E_*
-environment set (PLATFORM_E2E_TEST_DESIGN.md), the default tier needs no
-go-ahead: it runs only in the dedicated e2e project, costs a few cents, and
-fails itself above `DJINNITE_E2E_MAX_COST` ($0.50). Relay the preflight,
-availability table, observations and cost ledger lines verbatim. The
-extended tier (`--e2e-extended`) and any run against another project (for
-example a consumer's) need the user's go-ahead. Testing is manual: there is
-no CI.
+Run it yourself -- do not hand it to the user to run. It is configured by
+`ai_config.json` alone: the `platforms.vertexai` block names the project,
+quota project and locations, and its optional `testing` sub-block the test
+models, a decoy project and the cost cap (PLATFORM_LIVE_TEST_DESIGN.md,
+"Configuration"). Credentials are Application Default Credentials. The
+default tier needs no go-ahead: it runs only in the project `ai_config.json`
+names, costs a few cents, and fails itself above `testing.max_cost` ($0.50).
+Relay the preflight, availability table, observations and cost ledger lines
+verbatim. The extended tier (`--live-platform-extended`) and any run with a
+different `ai_config.json` (for example a consumer's) need the user's
+go-ahead. Testing is manual: there is no CI.
 
-If the DJINNITE_E2E_* environment is not set, say so and stop -- an
-unverified platform change is not done. Skipped Claude functional tests
-("no Claude quota") are an environmental gap: report them by name.
+If `ai_config.json` has no `platforms.vertexai` block, the run fails at
+startup naming the missing key; say so and stop -- an unverified platform
+change is not done. Tests that skip for a missing optional key (no
+`decoy_project`, no Claude quota) are an environmental gap: report them by
+name.
 
 ### Running a model catalog update, observably
 
@@ -562,7 +579,7 @@ Claude model. `tests/test_update_models_scope.py` guards it.
   a catalog model can be unusable in a consumer's process because of the SDK
   or API version it runs; call-time check and flagged listing wanted):
   [MODEL_VERSION_RESTRICTIONS_DESIGN.md](MODEL_VERSION_RESTRICTIONS_DESIGN.md).
-* **Effort levels** (implemented; platform e2e validation pending) **and the OpenAI
+* **Effort levels** (implemented; platform live validation pending) **and the OpenAI
   thinking-discovery fixes** (implemented 2026-11-03):
   [THINKING_EFFORT_DESIGN.md](THINKING_EFFORT_DESIGN.md).
 * **Pricing has more than one number per model.** Vendors publish Standard,

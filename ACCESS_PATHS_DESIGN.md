@@ -1,6 +1,6 @@
 # Access Paths -- Requirements and Design
 
-> **Status:** Accepted 2026-10-06; implemented (offline-verified), e2e tier pending
+> **Status:** Accepted 2026-10-06; implemented (offline-verified), live platform tier run 2026-11-06
 > **Scope:** configuring one provider type through more than one access path
 > at the same time (for example Claude direct *and* Claude on Vertex AI), and
 > declaring what a given path may not do.
@@ -350,7 +350,7 @@ No existing config needs editing. Behavior changes:
 6. `update_models` and the estimator choose the direct entry by the rule
    above.
 7. The `--live` test fixtures use each type's direct entry. Platform entries
-   are the e2e tier's job.
+   are the live platform tier's job.
 
 Platform mode has not been released (0.5.0 is untagged, under
 "Unreleased"), so this lands as part of 0.5.0, with one Breaking Changes Log
@@ -392,9 +392,9 @@ entry.
 * **Unchanged:** `tests/test_platform_mode.py` must pass without changes; it
   guards the old behavior.
 
-**E2E** (default tier, unbilled; new row A1 in PLATFORM_E2E_TEST_DESIGN.md):
+**Live platform** (default tier, unbilled; row A1 in PLATFORM_LIVE_TEST_DESIGN.md):
 
-* A temporary config on the e2e project has two entries:
+* A temporary config on the configured Vertex project has two entries:
   * `claude-vertex`, denying `web_search` for every model and
     `structured_json` for Haiku;
   * `gemini-vertex`.

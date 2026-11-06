@@ -4,7 +4,7 @@ The live call-shape contract, written once and run in every access mode.
 Each check makes one real call through a provider and asserts what Djinnite
 promises: the content, the usage, the cost arithmetic, history, truncation.
 They run in direct mode (``tests/test_live_contract.py``, ``--live``) and in
-platform mode (``tests/test_e2e_vertexai_*.py``, ``--e2e-platform``), so
+platform mode (``tests/test_live_vertexai_*.py``, ``--live-platform``), so
 platform verification never depends on Vertex alone.
 
 Every check returns the AIResponse (or the partial response of an expected

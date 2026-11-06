@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### 0.8.0 -- Live platform tier driven by `ai_config.json`
+
+Test infrastructure and one additive config field; no public API change.
+`generate` / `generate_json`, `get_provider`, `build_provider`, the error
+classes and the catalog schema are unchanged from 0.7.0.
+
+- **The platform test tier is configured by `ai_config.json`** and renamed
+  from `--e2e-platform` to `--live-platform` (`--live-platform-extended`
+  for the costlier tier). The project, quota project and locations come
+  from the `platforms.vertexai` block; test-only knobs (models, decoy
+  project, cost cap) from its new optional `testing` sub-block
+  (`PlatformConfig.testing`). The `DJINNITE_E2E_*` environment variables
+  are gone; a missing optional key skips the tests that need it, by name.
+- **`PlatformConfig.testing`** (new, optional, default empty) carries that
+  sub-block through `load_ai_config`; runtime never reads it. The example
+  config documents the keys.
+- **Why:** the tier's `DJINNITE_E2E_*` environment and the GCP project it
+  required were a second configuration surface nobody set up, so the tier
+  never ran and the AGENTS.md rule that depends on it could not be met. It
+  ran for the first time on 2026-11-06 in the operator's configured Vertex
+  project. AGENTS.md now states the principle: `ai_config.json` is the one
+  place secrets and deployments are configured, for runtime and test tiers
+  alike, and whatever is missing there skips its tests by name.
+- The design doc is `PLATFORM_LIVE_TEST_DESIGN.md` (was
+  `PLATFORM_E2E_TEST_DESIGN.md`).
+
 ### 0.7.0 -- SDK majors: anthropic 2.x, google-genai 3.x; Python 3.11+
 
 Djinnite is validated on the current SDK majors and declares **floors

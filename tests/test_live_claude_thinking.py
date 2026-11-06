@@ -3,7 +3,7 @@ Claude 5.x thinking semantics against the Anthropic API (opt-in: ``--live``).
 
 These are properties of the *model*, so they are verified in direct mode,
 cheaply, with the Anthropic key -- no Vertex quota needed. The platform tier
-(``test_e2e_vertexai_claude.py``) verifies Djinnite delivers them through
+(``test_live_vertexai_claude.py``) verifies Djinnite delivers them through
 Vertex. Rejected requests (the ``disabled`` 400s) are not billed.
 
 Providers here are built WITHOUT a catalog entry, so each request reaches the

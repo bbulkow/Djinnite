@@ -1,18 +1,18 @@
 """
-Named access paths and ``deny`` through a real Vertex AI build (opt-in: ``--e2e-platform``).
+Named access paths and ``deny`` through a real Vertex AI build (opt-in: ``--live-platform``).
 
-Row A1 of PLATFORM_E2E_TEST_DESIGN.md ("Access paths"), default tier,
+Row A1 of PLATFORM_LIVE_TEST_DESIGN.md ("Access paths"), default tier,
 **unbilled**: availability is a token count, a denied request never leaves
 the process, and the canary's 429 is a rejected request.
 
-A temporary ai_config.json on the e2e project declares two platform entries
+A temporary ai_config.json on the configured Vertex project declares two platform entries
 with user-chosen names (ACCESS_PATHS_DESIGN.md):
 
 * ``claude-vertex`` -- type ``claude``; denies ``web_search`` for every model
-  and ``structured_json`` for the e2e Claude model (Haiku);
+  and ``structured_json`` for the configured Claude test model (Haiku);
 * ``gemini-vertex`` -- type ``gemini``; no restrictions.
 
-    uv run pytest tests/test_e2e_access_paths.py --e2e-platform -rA -s
+    uv run pytest tests/test_live_platform_access_paths.py --live-platform -rA -s
 """
 
 import json
@@ -24,19 +24,19 @@ from djinnite.ai_providers.base_provider import (
 )
 from djinnite.config_loader import LOCATION_STATUS_VALUES, load_ai_config
 from djinnite.tests import _contract as contract
-from djinnite.tests._e2e import say
+from djinnite.tests._platform_live import say
 
-pytestmark = pytest.mark.e2e_platform
+pytestmark = pytest.mark.live_platform
 
 CLAUDE_ENTRY = "claude-vertex"
 GEMINI_ENTRY = "gemini-vertex"
-DENY_REASON = "e2e: declared restriction"
+DENY_REASON = "live platform tier: declared restriction"
 
 
 @pytest.fixture(scope="module")
-def access_cfg(e2e_session, tmp_path_factory):
+def access_cfg(platform_session, tmp_path_factory):
     """An AIConfig loaded from a temporary ai_config.json with two named platform entries."""
-    cfg = e2e_session
+    cfg = platform_session
     data = {
         "platforms": {"vertexai": {"project_id": cfg.project, "locations": ["global"]}},
         "providers": {
@@ -106,9 +106,9 @@ def test_a1_build_provider_and_availability(access_cfg, entry):
     assert status != "unknown", f"{entry} @global: {detail}"
 
 
-def test_a1_web_search_denied_for_every_model(access_cfg, e2e_session):
+def test_a1_web_search_denied_for_every_model(access_cfg, platform_session):
     """``"*": ["web_search"]`` applies to the entry's default model and to the canary."""
-    cfg = e2e_session
+    cfg = platform_session
     for model in (cfg.claude_model, cfg.claude_canary):
         p = _cut_off(access_cfg.build_provider(CLAUDE_ENTRY, model=model))
         with pytest.raises(DjinniteCapabilityDeniedError) as ei:
@@ -117,21 +117,21 @@ def test_a1_web_search_denied_for_every_model(access_cfg, e2e_session):
         _assert_denied(ei, model, "web_search")
 
 
-def test_a1_structured_json_denied_for_haiku(access_cfg, e2e_session):
+def test_a1_structured_json_denied_for_haiku(access_cfg, platform_session):
     """The per-model list: generate_json on Haiku is refused before any request."""
-    cfg = e2e_session
+    cfg = platform_session
     p = _cut_off(access_cfg.build_provider(CLAUDE_ENTRY, model=cfg.claude_model))
     with pytest.raises(DjinniteCapabilityDeniedError) as ei:
         p.generate_json(contract.PROMPT, contract.SCHEMA, max_output_tokens=contract.MAX_OUT)
     _assert_denied(ei, cfg.claude_model, "structured_json")
 
 
-def test_a1_structured_json_not_denied_for_canary(access_cfg, e2e_session, e2e_ledger):
+def test_a1_structured_json_not_denied_for_canary(access_cfg, platform_session, platform_ledger):
     """A model the map does not name gets only ``"*"``: the request reaches Vertex.
 
     The canary has no quota, so Vertex answers 429 (not billed).
     """
-    cfg = e2e_session
+    cfg = platform_session
     p = access_cfg.build_provider(CLAUDE_ENTRY, model=cfg.claude_canary)
     try:
         r = p.generate_json(contract.PROMPT, contract.SCHEMA, max_output_tokens=contract.MAX_OUT)
@@ -144,6 +144,6 @@ def test_a1_structured_json_not_denied_for_canary(access_cfg, e2e_session, e2e_l
         return
     except AIModelNotFoundError as e:
         pytest.fail(f"canary {cfg.claude_canary} is not enabled in Model Garden: {e}")
-    e2e_ledger.record(f"claude A1 canary generate_json {cfg.claude_canary}", r)
-    pytest.fail(f"canary {cfg.claude_canary} has quota; set DJINNITE_E2E_CLAUDE_CANARY "
+    platform_ledger.record(f"claude A1 canary generate_json {cfg.claude_canary}", r)
+    pytest.fail(f"canary {cfg.claude_canary} has quota; set platforms.vertexai.testing.claude_canary in ai_config.json "
                 f"to an enabled Claude model with no quota")

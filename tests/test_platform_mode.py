@@ -37,7 +37,7 @@ def test_vertexai_rules():
     for loc in ("us", "eu", "us-east5", "europe-west1"):
         assert spec.price_multiplier("claude", loc) == pytest.approx(1.10)
     # Not yet applied: Gemini's premium is per model (GA Gemini 3+ only), so it
-    # cannot be a provider-wide rule (PLATFORM_E2E_TEST_DESIGN.md, Consequences 1).
+    # cannot be a provider-wide rule (PLATFORM_LIVE_TEST_DESIGN.md, Consequences 1).
     assert spec.price_multiplier("gemini", "us") == 1.0
 
 

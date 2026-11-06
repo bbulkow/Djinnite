@@ -994,11 +994,13 @@ Three layers, so verification never rests on one platform:
 |---|---|---|---|
 | Offline | `uv run pytest tests/` | none (SDK clients stubbed) | what Djinnite hands each SDK |
 | Direct live | `uv run pytest tests/ --live` | provider APIs, your keys | the call-shape contract (`tests/_contract.py`) per provider; Claude 5.x thinking semantics |
-| Platform e2e | `uv run pytest tests/ --e2e-platform -rA -s` | Vertex AI, dedicated e2e project | the same contract through the platform, plus auth, quota project, routing, error mapping, `probe_platform` |
+| Platform live | `uv run pytest tests/ --live-platform -rA -s` | Vertex AI, the project `ai_config.json`'s `platforms` block names | the same contract through the platform, plus auth, quota project, routing, error mapping, `probe_platform` |
 
-The e2e tier is manual (no CI) and needs the GCP setup in
-[PLATFORM_E2E_TEST_DESIGN.md](PLATFORM_E2E_TEST_DESIGN.md). A change to
-platform-mode code is finished only when it passes (AGENTS.md).
+The platform tier is manual (no CI). It is configured by `ai_config.json`
+alone (`platforms.vertexai`, plus its optional `testing` sub-block for the
+test models, a decoy project and the cost cap) and uses Application Default
+Credentials; see [PLATFORM_LIVE_TEST_DESIGN.md](PLATFORM_LIVE_TEST_DESIGN.md).
+A change to platform-mode code is finished only when it passes (AGENTS.md).
 
 ---
 
@@ -1268,6 +1270,36 @@ When running validation scripts (like `validate_models.py`), it is critical to *
 
 ## Breaking Changes Log
 
+### November 2026: live platform tier driven by `ai_config.json` (0.8.0)
+
+**Added:** `PlatformConfig.testing` (optional, default empty): the
+`platforms.<name>.testing` sub-block of `ai_config.json`, read only by the
+live platform test tier. `tests/_platform_live.py`.
+
+**Behavior changes (approved by Brian, 2026-11-06):** none at runtime. For
+the test suite:
+
+* **The platform test tier is driven by `ai_config.json`** and renamed:
+  `--e2e-platform` is now `--live-platform` (marker `live_platform`,
+  extended `--live-platform-extended`), `tests/_e2e.py` is
+  `tests/_platform_live.py`, and the `DJINNITE_E2E_*` environment variables
+  are gone. The project, quota project and locations come from the
+  `platforms.vertexai` block; the test-only knobs (models, decoy project,
+  cost cap) from its optional `testing` sub-block, carried by the new
+  `PlatformConfig.testing` field. A missing optional key skips the tests
+  that need it by name. Why: the environment-variable harness and the
+  dedicated project it required were a second configuration surface that
+  was never set up, so the tier never ran; and "e2e" did not say what it
+  tested. Brian, 2026-11-06.
+
+**Migration:** none for callers. A maintainer who ran the old tier replaces
+the `DJINNITE_E2E_*` variables with the `platforms.vertexai` block (and
+optionally its `testing` sub-block) in `ai_config.json`, and `--e2e-platform`
+with `--live-platform`.
+
+**Why:** one configuration surface. See PLATFORM_LIVE_TEST_DESIGN.md
+"Decisions" and AGENTS.md "Accounts, projects and regions are configuration".
+
 ### November 2026: SDK majors -- anthropic 2.x, google-genai 3.x, Python 3.11 (0.7.0)
 
 **Added:** `tests/test_package_metadata.py` (one version string, SDK floors
@@ -1424,7 +1456,7 @@ temperature (THINKING_EFFORT_DESIGN.md).
 (`platform="vertexai"`, `location`, `quota_project`; `api_key` optional on
 `get_provider`), Claude on Vertex AI, the `ai_config.json` `platforms` block,
 the catalog's per-model `platforms` block, `scripts/probe_platform.py`,
-the `--e2e-platform` test tier, keyword-only `history=` on `generate()` /
+the `--e2e-platform` test tier (renamed `--live-platform` in 0.7.0), keyword-only `history=` on `generate()` /
 `generate_json()`, and the Claude sentinel `thinking="between_tools"`.
 
 Also added: **several access paths per provider type**
@@ -1451,7 +1483,7 @@ unchanged (`get_model_for_use_case` still returns `(entry_name, model)`).
 6. `update_models` and the estimator choose the direct entry by the rule
    in `AIConfig.direct_entry` (named after the type, else the only one).
 7. The `--live` test fixtures use each type's direct entry. Platform entries
-   are the e2e tier's job.
+   are the live platform tier's job.
 
 **Behavior changes (approved):**
 

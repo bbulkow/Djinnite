@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djinnite"
-version = "0.7.0"
+version = "0.8.0"
 description = "Lightweight AI abstraction layer for multiple providers (Gemini, Claude, OpenAI)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -44,8 +44,8 @@ dev = [
 testpaths = ["tests"]
 markers = [
     "live: calls real provider APIs (needs keys and network; opt in with --live)",
-    "e2e_platform: calls Google Vertex AI in the e2e test project (opt in with --e2e-platform)",
-    "e2e_extended: costlier e2e tier (opt in with --e2e-platform --e2e-extended)",
+    "live_platform: calls Google Vertex AI in the project ai_config.json names (opt in with --live-platform)",
+    "live_platform_extended: costlier platform tier (opt in with --live-platform --live-platform-extended)",
 ]
 # A test function that `return`s its result instead of asserting silently
 # PASSES under pytest -- every check inside it is ignored. Make that an error.

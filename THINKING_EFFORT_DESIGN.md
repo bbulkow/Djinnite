@@ -142,6 +142,9 @@ not a missing provider API key. PLATFORM_E2E_TEST_DESIGN.md still labels
 its project setup pending; Brian said this requirement was unknown to him.
 Per AGENTS.md, the platform changes are not finished until the e2e tier
 passes. No GCP project was created or configured in this session.
+*(2026-11-06: that requirement was removed. The tier is now
+`--live-platform`, configured by `ai_config.json`'s `platforms` block; see
+PLATFORM_LIVE_TEST_DESIGN.md.)*
 
 ## Appendix A — live evidence, 2026-11-03
 

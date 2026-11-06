@@ -58,7 +58,16 @@
     "vertexai": {
       "project_id": "your-google-cloud-project-id",
       "quota_project": null,
-      "locations": ["global", "us"]
+      "locations": ["global", "us"],
+      "_testing_comment": "Optional. Read only by the live platform test tier (uv run pytest tests/ --live-platform). Every key is optional; a missing one skips the tests that need it, by name. decoy_project: an existing project the credentials have NO rights on (proves the quota project travels). claude_canary: an enabled Claude model with no quota (must answer 429). claude_5x_model: a 5.x Claude with quota (extended tier). max_cost: session cap in dollars.",
+      "testing": {
+        "gemini_model": "gemini-3.5-flash",
+        "claude_model": "claude-haiku-4-5-20251001",
+        "claude_canary": "claude-sonnet-5-5",
+        "claude_5x_model": null,
+        "decoy_project": null,
+        "max_cost": 0.50
+      }
     }
   }
 }

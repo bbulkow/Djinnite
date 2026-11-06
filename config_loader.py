@@ -402,6 +402,10 @@ class PlatformConfig:
     # Default location for entries on this platform that set none (else the
     # platform registry's default, e.g. "global" on Vertex AI).
     location: Optional[str] = None
+    # Test-only knobs for the live platform tier (``--live-platform``): which
+    # models to exercise, a decoy project, the cost cap. Read by
+    # tests/_platform_live.py; runtime never looks at it.
+    testing: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1123,6 +1127,7 @@ def load_ai_config(config_path: Optional[Path] = None) -> AIConfig:
             locations=list(pdata.get("locations") or []),
             enabled=pdata.get("enabled", True),
             location=pdata.get("location"),
+            testing=dict(pdata.get("testing") or {}),
         )
 
     providers = {}

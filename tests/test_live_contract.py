@@ -1,7 +1,7 @@
 """
 The call-shape contract in DIRECT mode (opt-in: ``--live``).
 
-The same checks the platform e2e tier runs through Vertex AI
+The same checks the live platform tier runs through Vertex AI
 (``tests/_contract.py``), run here through each configured provider's own
 API with its own key -- so verification does not rest on one platform.
 Runs once per provider in PROVIDER_NAMES that ai_config.json configures.

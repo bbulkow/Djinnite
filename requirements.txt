@@ -1,7 +1,8 @@
 # Djinnite - AI Abstraction Layer Dependencies
-# Requires Python 3.10+
+# Requires Python 3.11+ (google-genai 3.x needs 3.11; Python 3.10 is end-of-life)
 
-# AI Provider SDKs
+# AI Provider SDKs -- floors only, never ceilings (AGENTS.md). pyproject.toml is
+# authoritative; tests/test_package_metadata.py checks these lines match it.
 google-genai>=2.0
-anthropic>=1.0
+anthropic[vertex]>=1.0
 openai>=3.0

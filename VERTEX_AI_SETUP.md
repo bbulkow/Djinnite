@@ -493,7 +493,11 @@ not allow, pass it yourself: `get_provider("claude", ..., deny=["web_search"],
 deny_reason="org policy in my-project")`.
 
 Everything after construction -- `generate()`, `generate_json()`,
-`history=`, `thinking=`, costs, errors -- works as in direct mode.
+`history=`, `thinking=`, costs, errors -- works as in direct mode. That
+includes temperature: Claude on Vertex receives none either (the Claude API
+version, `2026-10-21` on anthropic 2.x, travels in the request body and
+rejects sampling parameters on every model), so an explicit `temperature=`
+is logged and dropped.
 
 ## Step 8. Verify
 

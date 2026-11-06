@@ -290,7 +290,6 @@ def estimate_modalities_with_ai(
         resp = instance.generate_json(
             prompt=prompt,
             schema=MODALITY_SCHEMA,
-            temperature=0.3,
         )
         print(f"    Response received, parsing...")
         parsed = json.loads(resp.content)
@@ -402,7 +401,6 @@ def estimate_output_limits_with_ai(
         return instance.generate_json(
             prompt=prompt,
             schema=OUTPUT_LIMIT_SCHEMA,
-            temperature=0.3,
             web_search=use_web_search,
         )
 

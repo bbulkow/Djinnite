@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djinnite"
-version = "0.5.0"
+version = "0.7.0"
 description = "Lightweight AI abstraction layer for multiple providers (Gemini, Claude, OpenAI)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "Brian Bulkowski"},
@@ -17,13 +17,17 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# Floors only, never ceilings. An SDK major that breaks Djinnite is fixed in
+# Djinnite (AGENTS.md "Dependencies have floors, never ceilings"); it is never
+# capped with "<N", because a library's ceiling becomes every consumer's
+# ceiling. tests/test_package_metadata.py enforces this and keeps
+# requirements.txt identical. uv.lock records the versions that were validated.
 dependencies = [
     "google-genai>=2.0",
     "anthropic[vertex]>=1.0",

@@ -190,9 +190,14 @@ simultaneously selects every state in the dict, the request is invalid
 and Djinnite raises before any HTTP call.
 
 ```python
-# Example for every current Claude thinking model:
+# Example (gpt-5.1 to gpt-5.4): a temperature is refused with thinking on.
 caps.incompatible == [{"temperature": "any", "thinking": "on"}]
 ```
+
+Claude records no `temperature` entries at all: since 0.7.0 Djinnite never
+sends a sampling parameter to Claude (API version 2026-10-21 rejects it on
+every model), so the catalog's Claude models are all `temperature:
+["default"]`.
 
 Allowed capability names are listed in `ACTIVATABLE_CAPABILITIES`
 (`config_loader.py`):
@@ -605,7 +610,7 @@ the catalog list. Mapping is enforced in `_resolve_thinking`,
 | Capability | Caller arg → state | Pre-flight rule |
 |---|---|---|
 | `thinking` | `None` → no check (provider default); `False` → `"off"`; `"between_tools"` → requires `"between_tools"` in `caps.thinking_style` (Claude only; counts as `"off"` for `incompatible`); `True`/`int` → `"on"`; additionally `int` requires `"budget"`; effort strings are normalized to the deprecated `effort=` alias first | Required token must be in `caps.thinking`; required shape must be in `caps.thinking_style` |
-| `temperature` | caller-passed float → `"any"`; `None` (the default) → `"default"`, nothing sent | If `"any"` not in `caps.temperature`, or the float would complete an `incompatible` combination, it is logged and dropped before the pre-flight |
+| `temperature` | caller-passed float → `"any"`; `None` (the default) → `"default"`, nothing sent | If `"any"` not in `caps.temperature`, or the float would complete an `incompatible` combination, it is logged and dropped before the pre-flight. Claude: always dropped (provider-level; the API has no sampling parameters since version 2026-10-21) |
 | `structured_json` | schema present → `"on"` | `"on"` must be in `caps.structured_json` |
 | `web_search` | `web_search=True` → `"on"` | `"on"` must be in `caps.web_search` |
 | `json_with_search` | schema + `web_search=True` → `"on"` | `"on"` must be in `caps.json_with_search` |
@@ -685,7 +690,9 @@ a `deny` both reject a request, the catalog's message is raised.
   Opus 4.7+ / 5.x model; a reprobe clears them.
 * `probe_structured_json()`, `probe_temperature()`, `probe_web_search()`,
   `probe_json_with_search()` each return tri-state `True/False/None`, which
-  the orchestrator translates to the on/off list shape.
+  the orchestrator translates to the on/off list shape. Claude's
+  `probe_temperature()` is the constant `False` and sends no request: the
+  API rejects the parameter on every model.
 
 Run `uv run python -m djinnite.scripts.update_models --reprobe all` to refresh
 the catalog with current provider capabilities.
@@ -922,13 +929,14 @@ returns the combined view for inspection. Full design:
 
 | | Gemini | Claude |
 |---|---|---|
-| Client | `genai.Client(vertexai=True, project, location)` | `anthropic.AnthropicVertex(project_id, region=location)` |
+| Client | `genai.Client(vertexai=True, project, location)`; no `http_options`, so the SDK's Vertex default API version (`v1beta1`) applies (direct access pins `v1beta`, where the preview models live) | `anthropic.AnthropicVertex(project_id, region=location)`; the Claude API version travels as the `anthropic_version` **body field** (`2026-10-21` on anthropic 2.x), not as a header |
 | Credentials | ADC; `api_key` passed only if given (legacy keyed Vertex) | ADC; `api_key` never sent |
 | Default location | `global` (was `us-central1` before 0.5.0; `gemini-3.5-flash` is not served there) | `global` (premium-free; 5.x is not served at single-region endpoints) |
 | `quota_project` | applied to the ADC credentials (`google.auth.default(quota_project_id=...)`), because google-genai **overwrites** an `x-goog-user-project` header with the credentials' quota project when they carry one; rejected with `api_key` | sent as `default_headers={"x-goog-user-project": ...}`: AnthropicVertex never derives that header from the credentials, so the explicit header always wins |
 | Price | catalog price; Google charges GA Gemini 3+ **10% more** off `global`, which Djinnite does not apply yet (the premium is per model, so it cannot be a provider-wide rule) | catalog price at `global`; **×1.10** at `us`, `eu` and regional endpoints (`usage["price_multiplier"]`) |
 | Model IDs | as catalog | as catalog; dated snapshots rewritten `-YYYYMMDD` → `@YYYYMMDD` |
 | Web search | `google_search` (as direct) | `web_search_20250305` (the only version Vertex serves); search price is the catalog's first-party $10/1k, **unverified for Vertex** |
+| Temperature | as direct (catalog-driven) | never sent, as direct: API version 2026-10-21 rejects it on every model |
 | `list_models()` | the platform's model list | Vertex has no Models API: catalog models recorded `available` at this location by `probe_platform` (`[]` if never probed) |
 | `is_available()` | live call | live call (token count); any failure, including a zero quota, is False |
 
@@ -937,6 +945,9 @@ Errors (platform mode only; the direct mappings are unchanged): 429 /
 `AIAuthenticationError` with Google's message; 404 → `AIModelNotFoundError`
 (not served at that location, or not enabled for the project); missing ADC
 (`DefaultCredentialsError` / `RefreshError`) → `AIAuthenticationError`.
+For Claude the mapping checks the SDK's named exception classes first and
+then the HTTP status, so the error-code subclasses anthropic 2.5+ raises map
+the same way.
 
 #### Catalog: the `platforms` block
 
@@ -1204,7 +1215,10 @@ This means consuming projects only need `ai_config.json` in their `config/` dire
    and add the type to `PROVIDER_TYPES` in `djinnite/config_loader.py`
    (a test pins the two together; `ai_config.json` is read without importing
    any provider SDK, so the loader keeps its own copy)
-4. Add SDK dependency to `pyproject.toml` and `requirements.txt`
+4. Add the SDK dependency to `pyproject.toml` and `requirements.txt` with
+   a floor only (`>=`), never an upper bound (AGENTS.md "Dependencies have
+   floors, never ceilings"; `tests/test_package_metadata.py` lists the SDKs
+   it checks -- add the new one there)
 5. Test with `uv run python -m djinnite.scripts.validate_ai`
 
 ## Running Python Commands
@@ -1243,7 +1257,9 @@ When running validation scripts (like `validate_models.py`), it is critical to *
 
 ## Version Policy
 
-- Version is in `djinnite/__init__.py` (`__version__`)
+- Version is in `djinnite/__init__.py` (`__version__`) **and**
+  `pyproject.toml` (`[project].version`); `tests/test_package_metadata.py`
+  fails when they differ
 - Bump version when making notable changes
 - Use semantic versioning: `MAJOR.MINOR.PATCH`
   - PATCH: bug fixes, safe additions
@@ -1251,6 +1267,101 @@ When running validation scripts (like `validate_models.py`), it is critical to *
   - MAJOR: breaking changes (should be rare and coordinated)
 
 ## Breaking Changes Log
+
+### November 2026: SDK majors -- anthropic 2.x, google-genai 3.x, Python 3.11 (0.7.0)
+
+**Added:** `tests/test_package_metadata.py` (one version string, SDK floors
+without ceilings, `requirements.txt` in sync with `pyproject.toml`); the
+AGENTS.md rule "Dependencies have floors, never ceilings"; a status-code
+fallback in Claude's Vertex error mapping for the error-code exception
+classes anthropic 2.5+ raises.
+
+**Validated on:** anthropic 2.6.0, google-genai 3.0.0, openai 3.46.0
+(`uv.lock`, 2026-11-06). Floors unchanged: `anthropic[vertex]>=1.0`,
+`google-genai>=2.0`, `openai>=3.0`. The code behaves the same on either
+major of each SDK; the lock, not the floor, records what was tested.
+
+**Behavior changes (approved by Brian, 2026-11-06):**
+
+* **Python 3.11 or newer.** google-genai 3.0.0 requires 3.11 (2.34.0
+  already dropped 3.10), and Python 3.10 reached end of life on
+  2026-10-01. With `>=3.10` the resolver could not install google-genai 3
+  at all.
+* **Claude never carries a temperature.** Claude API version `2026-10-21`
+  is the default on anthropic 2.x: the direct client sends it as the
+  `anthropic-version` header, and `AnthropicVertex` sends it as the
+  `anthropic_version` **body field** (1.x sent `vertex-2023-10-16`), so a
+  header override cannot keep Vertex on the old version. Under it, a
+  Messages or count_tokens request that carries `temperature`, `top_p` or
+  `top_k` returns 400 even at the parameter's default value, and nothing
+  replaces them. `ClaudeProvider._temperature_blocker` now returns a reason
+  for every request, so an explicit temperature is logged
+  (`temperature=... dropped: claude/<model> does not accept a temperature
+  (Claude API 2026-10-21 removed sampling parameters ...)`) and dropped on
+  every model, including the 4.5/4.6 family that took one before. The
+  block is provider-level so a stale catalog cannot put a 400 on the wire.
+  `probe_temperature` returns `False` without a request; the catalog
+  records every Claude model as `temperature: ["default"]`, and the
+  `{"temperature": "any", "thinking": "on"}` incompatibility entries go
+  away on reprobe. The alternative -- keeping just those requests on
+  `2023-06-01`, which the migration guide allows -- was rejected: it ties
+  the request shape to a legacy API version whose sunset is unannounced,
+  needs an undocumented body field on Vertex, and makes the API version a
+  call used depend on whether the caller passed a float.
+* **Gemini direct access is pinned to API version `v1beta`.** google-genai
+  3.x moved the Gemini Developer API default from `v1beta` to `v1`; Vertex
+  stays `v1beta1`. The plan was to follow the SDK default: Google's feature
+  table lists everything Djinnite sends (structured output, `thinking_config`,
+  Google Search grounding, Models API) as available in `v1`, and says "All
+  models are supported in both v1 and v1beta". Live on 2026-11-06 that was
+  false: on `v1`, `models.list` returned 18 models against 47 on `v1beta`,
+  and every preview and `-latest` model -- 28 of the 46 catalog models,
+  `gemini-3.1-pro-preview` and `gemini-3-flash-preview` among them --
+  answered `404 NOT_FOUND: models/<id> is not found for API version v1` to
+  `count_tokens`; and on the models `v1` does serve, structured output and
+  grounding are refused outright (`400 INVALID_ARGUMENT: JSON mode is not
+  enabled for api version v1` and `Search as tool is not enabled for api
+  version v1. Use api version v1beta instead.`), both of which the feature
+  table lists under `v1`. `GeminiProvider` therefore builds the direct client with
+  `http_options=HttpOptions(api_version="v1beta")`
+  (`GeminiProvider.DIRECT_API_VERSION`), which is what google-genai 2.x
+  sent, so the wire contract is unchanged across SDK majors. The SDK's own
+  `GOOGLE_GENAI_API_VERSION` environment variable, when set, replaces the
+  pin, so an operator can move to `v1` without a code change. Drop the pin
+  when `v1` serves the catalog; `tests/test_platform_vertexai_gemini.py`
+  pins the kwargs.
+* **`httpx` is no longer installed transitively**; all three SDKs use
+  `httpx2`. google-genai 3.x verifies TLS against the OS trust store
+  (`truststore`) unless `SSL_CERT_FILE` / `SSL_CERT_DIR` is set.
+* **anthropic 2.x sends the API key as `Authorization: Bearer`** instead of
+  `X-Api-Key`, and a client holds one credential. Only a proxy or gateway
+  that reads `X-Api-Key` notices.
+* **Gemini `finish_reason` is the bare enum name** (`"STOP"`,
+  `"MAX_TOKENS"`), as USE.md documents. It was `str(enum)`, i.e.
+  `"FinishReason.STOP"`.
+* **`MALFORMED_RESPONSE`** (new `FinishReason` in google-genai 3.0) raises
+  `AIEmptyResponseError`, like every other non-STOP finish; so does any
+  finish reason the installed SDK does not know.
+* The other `2026-10-21` changes do not touch Djinnite: `MessageParam` is a
+  union by role (Djinnite builds plain dicts); `betas` left the non-beta
+  Models methods (never passed); `document` blocks in assistant messages
+  and `citations` in user messages are rejected (never sent); Text
+  Completions and client-side compaction are gone (never used). The direct
+  web search tool is `web_search_20260209` and Vertex's is
+  `web_search_20250305`; both are accepted under the new version.
+
+**Migration:** install Python 3.11+. A caller that passed a temperature
+to a Claude 4.5/4.6 model gets Claude's default sampling (1.0) and a
+`djinnite` log line instead of the lowered temperature; there is no
+replacement setting. A project that imported `httpx` because it came with
+google-genai 2.x adds `httpx` to its own dependencies. A proxy that reads
+`X-Api-Key` reads `Authorization` instead (the Claude API accepts either).
+Nothing else changes for callers: `generate` / `generate_json` signatures,
+`get_provider`, the error classes and the catalog schema are unchanged.
+
+**Why:** a library's SDK ceiling becomes every consumer's ceiling, and the
+alternative to validating a new major is a `<N` that holds every dependent
+project on the old one for their own direct use of the SDK as well.
 
 ### November 2026: Djinnite effort levels, no invented temperature (0.6.0)
 

@@ -5,6 +5,7 @@ Wraps the Google Gen AI SDK (google-genai) for Gemini models.
 """
 
 import copy
+import os
 
 from typing import Optional, Union, List, Dict, Type
 
@@ -32,7 +33,10 @@ _DISABLE_AFC = {"disable": True}
 
 # Candidate finish reasons that mean the model finished on its own (or hit
 # the cap). Anything else (SAFETY, RECITATION, PROHIBITED_CONTENT, BLOCKLIST,
-# SPII, ...) means the provider filtered the output.
+# SPII, MALFORMED_RESPONSE, ...) means the provider produced no usable
+# output. A finish reason this SDK version does not know is treated the same
+# way: the SDK maps it to a pseudo-member whose name is the raw string, and
+# an unknown reason is not evidence of a usable answer.
 _MODEL_FINISHES = ("STOP", "MAX_TOKENS", "FINISH_REASON_UNSPECIFIED")
 
 
@@ -111,6 +115,17 @@ class GeminiProvider(BaseAIProvider):
             self._price_multiplier = spec.price_multiplier(self.PROVIDER_NAME, self.location)
         super().__init__(api_key, model, model_info=model_info, require_pricing=require_pricing)
 
+    # Gemini Developer API version for direct access; see _initialize_client.
+    DIRECT_API_VERSION = "v1beta"
+
+    @classmethod
+    def _direct_http_options(cls):
+        """``HttpOptions`` for the direct client: pin v1beta unless the operator set the SDK's env var."""
+        if os.environ.get("GOOGLE_GENAI_API_VERSION"):
+            return None
+        from google.genai import types
+        return types.HttpOptions(api_version=cls.DIRECT_API_VERSION)
+
     def _initialize_client(self) -> None:
         """Initialize the Gemini client for this access mode."""
         try:
@@ -154,8 +169,24 @@ class GeminiProvider(BaseAIProvider):
                     provider=self.PROVIDER_NAME,
                 )
             else:
-                # Default to Google AI Studio
-                self._client = genai.Client(api_key=self.api_key)
+                # Google AI Studio (the Gemini Developer API), pinned to
+                # API version v1beta. google-genai 3.x moved the SDK default
+                # to v1, and on v1 every preview and "-latest" model is
+                # unlisted AND uncallable (404 "not found for API version
+                # v1"): 28 of the 46 catalog models on 2026-11-06, including
+                # gemini-3.1-pro-preview and gemini-3-flash-preview; and v1
+                # refuses JSON mode and Search-as-tool outright ("not enabled
+                # for api version v1. Use api version v1beta instead"). v1beta
+                # is what google-genai 2.x used, so this preserves the
+                # contract across SDK majors. The SDK's own
+                # GOOGLE_GENAI_API_VERSION env var still wins when set, so an
+                # operator can move to v1 (or anything else) without a code
+                # change. Vertex is unaffected (SDK default v1beta1). See
+                # DEVELOPMENT.md "Breaking Changes Log" (0.7.0).
+                self._client = genai.Client(
+                    api_key=self.api_key,
+                    http_options=self._direct_http_options(),
+                )
 
         except ImportError:
             raise AIProviderError(
@@ -538,9 +569,9 @@ class GeminiProvider(BaseAIProvider):
                 # Gemini returns finish_reason as an enum or string.
                 # The value "MAX_TOKENS" indicates output truncation.
                 raw_finish = getattr(candidate, 'finish_reason', None)
-                # Normalize: the SDK may return an enum (e.g. FinishReason.MAX_TOKENS)
-                # or a string. Convert to string for consistent comparison.
-                finish_reason = str(raw_finish) if raw_finish is not None else None
+                # Normalize: the SDK returns an enum (FinishReason.MAX_TOKENS)
+                # or a string; callers see the bare name ("MAX_TOKENS").
+                finish_reason = _enum_name(raw_finish)
                 
                 if candidate.content and candidate.content.parts:
                     for part in candidate.content.parts:
@@ -789,7 +820,7 @@ class GeminiProvider(BaseAIProvider):
             if response.candidates:
                 candidate = response.candidates[0]
                 raw_finish = getattr(candidate, 'finish_reason', None)
-                finish_reason = str(raw_finish) if raw_finish is not None else None
+                finish_reason = _enum_name(raw_finish)
                 
                 if candidate.content and candidate.content.parts:
                     for part in candidate.content.parts:

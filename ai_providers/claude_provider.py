@@ -266,6 +266,26 @@ class ClaudeProvider(BaseAIProvider):
                 f"not served at this location, or not enabled in Model Garden: {text}",
                 provider=self.PROVIDER_NAME, original_error=e,
             )
+        # anthropic>=2.5 adds error-code exception classes. They subclass the
+        # status classes above today; the HTTP status is the contract we
+        # actually rely on, so fall back to it for any APIStatusError that
+        # is not one of the named classes.
+        status = getattr(e, "status_code", None)
+        if status == 429:
+            return AIRateLimitError(
+                f"Vertex AI quota or rate limit for '{self._wire_model()}' ({where}): {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if status in (401, 403):
+            return AIAuthenticationError(
+                f"Vertex AI refused the request ({where}): {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
+        if status == 404:
+            return AIModelNotFoundError(
+                f"Model '{self._wire_model()}' not found on Vertex AI ({where}): {text}",
+                provider=self.PROVIDER_NAME, original_error=e,
+            )
         type_name = type(e).__name__
         if type_name in ("DefaultCredentialsError", "RefreshError"):
             return AIAuthenticationError(
@@ -701,8 +721,8 @@ class ClaudeProvider(BaseAIProvider):
             if web_search:
                 self._check_capability("web_search")
 
-            # Cross-capability pre-flight from catalog (e.g. temp + thinking
-            # is rejected on every current Claude thinking model).
+            # Cross-capability pre-flight from catalog (e.g. thinking +
+            # structured_json on a model that rejects the pair).
             state = {
                 "temperature":     "default",
                 "thinking":        "on"  if thinking_active        else "off",
@@ -724,14 +744,9 @@ class ClaudeProvider(BaseAIProvider):
                 "messages": self._claude_messages(turns, claude_content),
             }
 
-            if effective_temp is not None:
-                # anthropic>=1.0 dropped temperature/top_p/top_k from the
-                # messages.create()/stream() signatures -- passing them is
-                # a TypeError. The API still honors the parameter, so it
-                # goes through extra_body, which the SDK merges into the
-                # request JSON verbatim. See the SDK's MIGRATION.md.
-                kwargs["extra_body"] = {"temperature": effective_temp}
-            
+            # No sampling parameter is ever sent: effective_temp is always
+            # None on Claude (see _temperature_blocker).
+
             if system_prompt:
                 kwargs["system"] = system_prompt
 
@@ -958,14 +973,9 @@ class ClaudeProvider(BaseAIProvider):
                 },
             }
 
-            if effective_temp is not None:
-                # anthropic>=1.0 dropped temperature/top_p/top_k from the
-                # messages.create()/stream() signatures -- passing them is
-                # a TypeError. The API still honors the parameter, so it
-                # goes through extra_body, which the SDK merges into the
-                # request JSON verbatim. See the SDK's MIGRATION.md.
-                kwargs["extra_body"] = {"temperature": effective_temp}
-            
+            # No sampling parameter is ever sent: effective_temp is always
+            # None on Claude (see _temperature_blocker).
+
             if system_prompt:
                 kwargs["system"] = system_prompt
 
@@ -1206,28 +1216,36 @@ class ClaudeProvider(BaseAIProvider):
             models_list.append(entry)
         return models_list
 
-    def probe_temperature(self) -> Optional[bool]:
-        """Probe whether this Claude model accepts temperature. (All Claude models do.)
+    # Claude API version 2026-10-21 (the default on anthropic>=2.0, direct and
+    # Vertex alike) removed ``temperature``, ``top_p`` and ``top_k``: a request
+    # that carries one returns 400 even at the parameter's default value, and
+    # nothing replaces it. Djinnite therefore never sends a sampling parameter
+    # to Claude on any SDK version. An explicit temperature is logged and
+    # dropped by ``_resolve_temperature``; the catalog records every Claude
+    # model as ``temperature: ["default"]``. See DEVELOPMENT.md "Breaking
+    # Changes Log" (0.7.0) and
+    # https://platform.claude.com/docs/en/api/migration-2026-10-21.
+    _NO_TEMPERATURE_REASON = (
+        "does not accept a temperature (Claude API 2026-10-21 removed "
+        "sampling parameters; Djinnite never sends one to Claude)"
+    )
 
-        Cross-capability constraints (e.g. ``temperature`` + ``thinking``
-        rejected together on every current thinking Claude) are NOT
-        captured here — this probe deliberately isolates the temperature
-        signal by sending no other features. The interaction is
-        discovered by ``probe_incompatible_combinations`` and stored in
-        ``capabilities.incompatible``.
+    def _temperature_blocker(self, state: Dict[str, str]) -> Optional[str]:
+        """Every Claude request is blocked from carrying a temperature.
+
+        Provider-level rather than catalog-level, so a stale catalog that
+        still says ``["any", "default"]`` cannot put a 400 on the wire.
         """
-        try:
-            self._client.messages.create(
-                model=self._wire_model(), max_tokens=self._PROBE_MAX_TOKENS,
-                extra_body={"temperature": 0.5},
-                messages=[{"role": "user", "content": "Say hi."}],
-            )
-            return True
-        except Exception as e:
-            err = str(e).lower()
-            if "rate" in err or "timeout" in err:
-                return None
-            return False
+        return self._NO_TEMPERATURE_REASON
+
+    def probe_temperature(self) -> Optional[bool]:
+        """Claude accepts no temperature; recorded without a request.
+
+        API version 2026-10-21 rejects the parameter on every model, so
+        there is nothing to discover and no request is sent. The catalog
+        value this yields is ``temperature: ["default"]``.
+        """
+        return False
 
     def _build_combination_probe_request(self, active_states: Dict[str, str]) -> dict:
         """
@@ -1240,8 +1258,8 @@ class ClaudeProvider(BaseAIProvider):
             "max_tokens": self._PROBE_MAX_TOKENS,
             "messages": [{"role": "user", "content": "Say hi."}],
         }
-        if active_states.get("temperature") == "any":
-            kwargs["extra_body"] = {"temperature": 0.5}
+        # "temperature" is never activated: probe_temperature records
+        # ["default"], so the orchestrator has no "any" state to combine.
         if active_states.get("thinking") == "on":
             # Use a shape the model accepts, or the rejection of the SHAPE
             # is recorded as an incompatibility. Sending "enabled" (budget)
@@ -1319,10 +1337,9 @@ class ClaudeProvider(BaseAIProvider):
 
         Invariant: ``max_tokens > budget_tokens`` (room for output after thinking).
 
-        Temperature is omitted entirely. It's never *required* on Claude, and
-        sending it poisons probes against Opus 4.7 (which 400s on any
-        temperature value). Claude's own default (1.0) satisfies the legacy
-        "thinking needs temp=1" constraint naturally.
+        Temperature is omitted entirely: API version 2026-10-21 rejects it on
+        every model (see ``probe_temperature``), and Claude's own default
+        (1.0) satisfies the legacy "thinking needs temp=1" constraint.
 
         **Partial-success policy:** if any tier is inconclusive (rate
         limit, timeout, 5xx, unknown error class) the entire result is

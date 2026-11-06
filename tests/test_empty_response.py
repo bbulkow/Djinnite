@@ -130,6 +130,35 @@ def test_gemini_success_unchanged(json_mode):
     assert isinstance(r.content, str) and r.content == text
 
 
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_gemini_malformed_response_raises(json_mode):
+    """google-genai 3.0 added MALFORMED_RESPONSE: not a usable answer, so it raises."""
+    p = _gemini(_g_response([_g_candidate("MALFORMED_RESPONSE", None)]))
+    with pytest.raises(AIEmptyResponseError) as ei:
+        _g_call(p, json_mode)
+    assert ei.value.reason == "MALFORMED_RESPONSE"
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_gemini_unknown_finish_reason_is_not_a_usable_answer(json_mode):
+    """A finish reason newer than this SDK knows is treated like a block, not like STOP."""
+    p = _gemini(_g_response([_g_candidate("SOME_FUTURE_REASON", [NS(text="x", inline_data=None)])]))
+    with pytest.raises(AIEmptyResponseError) as ei:
+        _g_call(p, json_mode)
+    assert ei.value.reason == "SOME_FUTURE_REASON"
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_gemini_finish_reason_is_the_bare_enum_name(json_mode):
+    """The SDK hands back an enum; callers see "STOP", not "FinishReason.STOP"."""
+    from google.genai.types import FinishReason
+    assert str(FinishReason.STOP) != "STOP"  # the SDK enum does not stringify bare
+    text = '{"v": 1}' if json_mode else "hello"
+    p = _gemini(_g_response([_g_candidate(FinishReason.STOP, [NS(text=text, inline_data=None)])]))
+    r = _g_call(p, json_mode)
+    assert r.finish_reason == "STOP"
+
+
 def test_gemini_max_tokens_still_truncation():
     p = _gemini(_g_response([_g_candidate("MAX_TOKENS", [NS(text='{"v"', inline_data=None)])]))
     with pytest.raises(AIOutputTruncatedError):

@@ -11,7 +11,7 @@
 
 **Lightweight AI abstraction layer for multiple providers (Gemini, Claude, OpenAI)**
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Djinnite is a purpose-built AI abstraction layer that wraps provider SDKs directly—no heavy frameworks, no vendor lock-in, maximum control. Built for developers who need reliable, switchable AI capabilities across multiple projects.
@@ -617,7 +617,7 @@ djinnite/
 
 - [ ] **Agentic Codex / Artifact Interface**: Support OpenAI Codex and similar agentic models that use artifact-based output systems rather than pure streaming. These models (gpt-5-codex, gpt-5.1-codex, etc.) require a different interaction paradigm than chat completions.
 - [ ] **Thinking Abstraction**: Unified `thinking` parameter across providers (Claude `budget`, OpenAI `reasoning_effort`, Gemini `thinking_mode`). The model catalog already records `capabilities.thinking` and `capabilities.thinking_style` — the provider abstraction layer needs to map the unified parameter to provider-native APIs.
-- [ ] **Temperature-Aware Generation**: Use `capabilities.temperature` from the catalog (list shape; `"any"` means caller-specified values are accepted, `"default"` means strip them) to automatically omit temperature for reasoning models that reject it, instead of forcing callers to handle the error.
+- [x] **Temperature-Aware Generation**: `capabilities.temperature` from the catalog (list shape; `"any"` means caller-specified values are accepted, `"default"` means strip them) decides whether a caller's temperature is sent; one the model cannot take is logged and dropped. Claude never receives one (API version 2026-10-21 has no sampling parameters).
 - [ ] **Modality-Aware Web Search Discovery**: Refine `discover_modalities` to identify models with native "tools" for web search.
 - [ ] **Training Horizon Probe**: Implement a script to automatically verify training data cutoffs for all models in the catalog.
 
@@ -628,12 +628,13 @@ All providers implement the same abstract interface:
 ```python
 class BaseAIProvider(ABC):
     def generate(self, prompt: Union[str, List[Dict]], system_prompt: Optional[str] = None,
-                 temperature: float = 0.7, max_output_tokens: Optional[int] = None) -> AIResponse
+                 temperature: Optional[float] = None, max_output_tokens: Optional[int] = None,
+                 ...) -> AIResponse
 
     def generate_json(self, prompt: Union[str, List[Dict]], schema: Union[Dict, Type],
-                      system_prompt: Optional[str] = None, temperature: float = 0.3,
+                      system_prompt: Optional[str] = None, temperature: Optional[float] = None,
                       max_output_tokens: Optional[int] = None,
-                      web_search: bool = False) -> AIResponse
+                      web_search: bool = False, ...) -> AIResponse
     
     def is_available(self) -> bool
     def list_models(self) -> list[dict]
@@ -703,14 +704,15 @@ When used as a git submodule:
    }
    ```
 
-3. **Add dependencies**:
+3. **Add dependencies** (floors only, never an upper bound -- see AGENTS.md;
+   `tests/test_package_metadata.py` checks it, add the new SDK to its list):
    ```toml
-   # pyproject.toml
+   # pyproject.toml (and the same line in requirements.txt)
    dependencies = [
-       "google-genai>=1.0.0",
-       "anthropic>=0.8.0", 
-       "openai>=1.6.0",
-       "new-provider-sdk>=1.0.0",  # Add here
+       "google-genai>=2.0",
+       "anthropic[vertex]>=1.0",
+       "openai>=3.0",
+       "new-provider-sdk>=1.0",  # Add here
    ]
    ```
 

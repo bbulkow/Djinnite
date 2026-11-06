@@ -188,6 +188,31 @@ def test_vertex_errors_are_mapped(json_mode, err, expected, text):
     assert ei.value.original_error is err
 
 
+class _UnnamedStatusError(anthropic.APIStatusError):
+    """An APIStatusError that is none of the four named classes.
+
+    anthropic>=2.5 raises error-code specific subclasses; today they all
+    subclass the status classes, but the HTTP status is the contract.
+    """
+
+
+@pytest.mark.parametrize("status, expected", [
+    (429, AIRateLimitError),
+    (401, AIAuthenticationError),
+    (403, AIAuthenticationError),
+    (404, AIModelNotFoundError),
+])
+def test_vertex_errors_fall_back_to_the_http_status(status, expected):
+    err = anthropic_error(_UnnamedStatusError, status, "some new error code")
+    assert not isinstance(err, (anthropic.RateLimitError, anthropic.PermissionDeniedError,
+                                anthropic.AuthenticationError, anthropic.NotFoundError))
+    p, _ = _vertex(responses=[err])
+    with pytest.raises(expected) as ei:
+        p.generate("q")
+    assert ei.value.original_error is err
+    assert "some new error code" in str(ei.value)
+
+
 def test_missing_adc_maps_to_authentication_error():
     from google.auth.exceptions import DefaultCredentialsError
     p, _ = _vertex(responses=[DefaultCredentialsError("Could not automatically determine credentials")])

@@ -107,7 +107,11 @@ def check_history(p):
 def check_truncation(p, **kwargs):
     """A tiny output cap raises AIOutputTruncatedError carrying billed usage."""
     with pytest.raises(AIOutputTruncatedError) as ei:
-        p.generate("Count from 1 to 200, one number per line.", max_output_tokens=16, **kwargs)
+        # 64, not the API minimum of 16: gpt-5 bills zero output and zero
+        # reasoning tokens when cut off at 16 or 32 (observed 2026-11-06,
+        # raw Responses usage), so a smaller cap cannot show billed usage.
+        # 64 still truncates a 200-line answer on every provider.
+        p.generate("Count from 1 to 200, one number per line.", max_output_tokens=64, **kwargs)
     partial = ei.value.partial_response
     assert partial.truncated is True
     assert partial.output_tokens + (partial.thinking_tokens or 0) > 0, partial.usage

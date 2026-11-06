@@ -11,6 +11,12 @@ pre-flight on the gpt-5.1 to gpt-5.4 family whenever the caller asked for
 thinking. Now both cases are logged and dropped, and the request goes
 ahead (Brian, 2026-11-03).
 
+Claude never carries a temperature at all (0.7.0): API version 2026-10-21,
+the default on anthropic>=2.0 for the direct and Vertex clients, returns
+400 for any request that sends temperature/top_p/top_k, and nothing
+replaces them. The drop is provider-level, so even a catalog that still
+says ``["any", "default"]`` cannot put a 400 on the wire.
+
     uv run pytest tests/test_temperature.py -v
 """
 
@@ -68,12 +74,42 @@ def test_no_temperature_is_sent_unless_the_caller_gives_one(ptype, json_mode):
     assert _temperature_in(stub.calls[-1]) is None
 
 
-@pytest.mark.parametrize("ptype", PTYPES)
+@pytest.mark.parametrize("ptype", [t for t in PTYPES if t != "claude"])
 @pytest.mark.parametrize("json_mode", [False, True])
 def test_a_requested_temperature_is_sent(ptype, json_mode):
     p, stub = _make(ptype, info(temperature=["any", "default"]))
     _call(p, json_mode, temperature=0.4)
     assert _temperature_in(stub.calls[-1]) == 0.4
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_claude_never_sends_a_temperature_even_when_the_catalog_says_any(json_mode, caplog):
+    """A stale catalog entry must not put a 400-rejected parameter on the wire."""
+    p, stub = _make("claude", info(temperature=["any", "default"]))
+    with caplog.at_level("INFO", logger="djinnite"):
+        _call(p, json_mode, temperature=0.4)
+    request = stub.calls[-1]
+    assert _temperature_in(request) is None
+    assert "extra_body" not in request
+    assert "temperature=0.4 dropped" in caplog.text
+    assert "does not accept a temperature" in caplog.text
+
+
+def test_claude_temperature_probe_sends_no_request():
+    """There is nothing to discover: every model rejects it under 2026-10-21."""
+    p, stub = _make("claude", info(temperature=["any", "default"]))
+    assert p.probe_temperature() is False
+    assert stub.create_calls == []
+    assert stub.calls == []
+
+
+def test_claude_combination_probe_never_adds_a_temperature():
+    p, _ = _make("claude", info(temperature=["any", "default"], thinking=["on", "off"],
+                                thinking_style=["adaptive"]))
+    request = p._build_combination_probe_request({"temperature": "any", "thinking": "on"})
+    assert "extra_body" not in request
+    assert _temperature_in(request) is None
+    assert request["thinking"] == {"type": "adaptive"}
 
 
 @pytest.mark.parametrize("ptype", PTYPES)

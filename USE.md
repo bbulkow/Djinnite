@@ -99,6 +99,18 @@ Djinnite supports both **Google AI Studio** and **Vertex AI** (Google Cloud).
 }
 ```
 
+Direct access uses Gemini API version `v1beta`, whatever google-genai
+version is installed: the preview and `-latest` models exist only there,
+and structured output and Google Search grounding are only enabled there
+(on `v1`, google-genai 3.x's default, the models return 404 and the two
+features return 400). To use another
+version, set the SDK's `GOOGLE_GENAI_API_VERSION` environment variable; it
+overrides Djinnite's pin. google-genai 3.x verifies TLS against the
+operating system's trust store; behind a corporate CA, set `SSL_CERT_FILE`
+(or `SSL_CERT_DIR`) before creating the provider.
+
+
+
 **For Vertex AI (Google Cloud) -- platform mode, no API key:**
 
 > **Setting up Vertex AI for the first time?** Follow
@@ -170,6 +182,8 @@ uv run python -u -m djinnite.scripts.probe_platform --platform vertexai --write 
 
 #### Validating Your Configuration
 Immediately after creating your `ai_config.json`, run the validation script. This ensures your file is correctly formatted, your API keys are valid, and connectivity is established.
+
+Djinnite needs **Python 3.11 or newer** (google-genai 3.x requires it).
 
 **If using the standalone repository:**
 ```bash

@@ -66,10 +66,30 @@ def test_keyed_vertex_kwargs(client_cls):
     }
 
 
-def test_ai_studio_kwargs_are_todays(client_cls):
+def test_ai_studio_kwargs_are_todays(client_cls, monkeypatch):
+    """Direct access pins API version v1beta: on v1 (google-genai 3.x's default)
+    every preview and -latest model is unlisted and uncallable (28 of 46 catalog
+    models on 2026-11-06)."""
+    from google.genai import types
+    monkeypatch.delenv("GOOGLE_GENAI_API_VERSION", raising=False)
     p = GeminiProvider(api_key="AIza-key", model="gemini-3.5-flash")
-    client_cls.assert_called_once_with(api_key="AIza-key")
+    client_cls.assert_called_once_with(
+        api_key="AIza-key", http_options=types.HttpOptions(api_version="v1beta"))
     assert p.mode == "direct" and p.backend == "gemini"
+
+
+def test_ai_studio_env_api_version_wins_over_the_pin(client_cls, monkeypatch):
+    """The SDK's own GOOGLE_GENAI_API_VERSION is the operator's escape hatch."""
+    monkeypatch.setenv("GOOGLE_GENAI_API_VERSION", "v1")
+    GeminiProvider(api_key="AIza-key", model="gemini-3.5-flash")
+    assert client_cls.call_args.kwargs == {"api_key": "AIza-key", "http_options": None}
+
+
+def test_vertex_client_gets_no_api_version_pin(client_cls, monkeypatch):
+    monkeypatch.delenv("GOOGLE_GENAI_API_VERSION", raising=False)
+    GeminiProvider(api_key=None, model="gemini-3.5-flash", platform="vertexai",
+                   project_id="p", location="global")
+    assert "http_options" not in client_cls.call_args.kwargs
 
 
 def test_platform_kwarg_is_the_same_as_the_backend_alias(client_cls):

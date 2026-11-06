@@ -2,6 +2,84 @@
 
 ## Unreleased
 
+### 0.7.0 -- SDK majors: anthropic 2.x, google-genai 3.x; Python 3.11+
+
+Djinnite is validated on the current SDK majors and declares **floors
+only, never ceilings** for them. A consumer had to add `anthropic<2` and
+`google-genai<3` to keep 0.6.0 working; that is exactly the friction a
+library must not export. The rule is recorded in AGENTS.md ("Dependencies
+have floors, never ceilings") and enforced by
+`tests/test_package_metadata.py`. Details in DEVELOPMENT.md "Breaking
+Changes Log".
+
+- **Validated on** anthropic 2.6.0, google-genai 3.0.0, openai 3.46.0
+  (`uv.lock`). Floors are unchanged (`anthropic[vertex]>=1.0`,
+  `google-genai>=2.0`, `openai>=3.0`): the code is written to behave the
+  same on either major, so a consumer pinned to an older major for its own
+  reasons is not forced to move.
+- **Python 3.11 or newer** is required (was 3.10). google-genai 3.x needs
+  3.11, and Python 3.10 reached end of life on 2026-10-01.
+- **Behavior change -- Claude never carries a temperature.** Claude API
+  version 2026-10-21, the default on anthropic 2.x for the direct and the
+  Vertex client, returns 400 for any request that sends `temperature`,
+  `top_p` or `top_k`, even at the parameter's default value, and nothing
+  replaces them. An explicit `temperature=` on a Claude model is now logged
+  (`temperature=... dropped: claude/<model> does not accept a temperature
+  ...`) and dropped on every model, including the 4.5/4.6 family that
+  accepted one under the old API version. No exception is raised. The
+  catalog records every Claude model as `temperature: ["default"]`;
+  `probe_temperature` returns that without a request.
+- **Gemini direct access is pinned to API version `v1beta`.** google-genai
+  3.x moved the SDK's Gemini Developer API default from `v1beta` to `v1`,
+  and on `v1` every preview and `-latest` model is unlisted and uncallable
+  (404 "not found for API version v1"): 28 of the 46 catalog models on
+  2026-11-06, `gemini-3.1-pro-preview` and `gemini-3-flash-preview` among
+  them. On the models `v1` does serve, structured output ("JSON mode is not
+  enabled for api version v1") and Google Search grounding ("Search as tool
+  is not enabled for api version v1") are rejected as well. `v1beta` is
+  what google-genai 2.x used, so nothing changes for callers. The SDK's
+  `GOOGLE_GENAI_API_VERSION` environment variable, when set, overrides the
+  pin. Vertex is unchanged (`v1beta1`).
+- **`httpx` is no longer installed transitively.** google-genai 3.x,
+  anthropic and openai all use `httpx2`. A project that imported `httpx`
+  only because Djinnite's dependencies brought it in must add it itself.
+  google-genai 3.x also verifies TLS against the OS trust store
+  (`truststore`); set `SSL_CERT_FILE` / `SSL_CERT_DIR` for a custom CA.
+- **anthropic 2.x sends the API key as `Authorization: Bearer`**, not
+  `X-Api-Key`. Only a proxy or gateway that reads `X-Api-Key` notices.
+- **Gemini `AIResponse.finish_reason` is the bare enum name** (`"STOP"`),
+  as USE.md documents; it was `"FinishReason.STOP"`.
+- **Gemini `MALFORMED_RESPONSE`** (new in google-genai 3.0) raises
+  `AIEmptyResponseError`, like every other non-STOP finish; a finish reason
+  the installed SDK does not know is treated the same way.
+- `anthropic` Vertex error mapping also falls back to the HTTP status for
+  the error-code exception classes anthropic 2.5+ raises.
+- `pyproject.toml` and `__version__` agree again (they said 0.5.0 and
+  0.6.0); a test pins them together.
+- Live tests adjusted to what the models bill today (both reproduced
+  against the raw SDK responses, neither caused by the SDK change): the
+  truncation contract cuts off at 64 output tokens, because gpt-5 bills
+  zero output and reasoning tokens below that; the Claude thinking-cost
+  check asks a question that needs working out at `effort="high"`, because
+  adaptive thinking emitted no thinking block for "What is 2+2?".
+
+### 0.6.0 -- Djinnite effort levels, no invented temperature
+
+Recorded here for completeness; this release was described only in
+DEVELOPMENT.md "Breaking Changes Log" (November 2026, 0.6.0) and
+THINKING_EFFORT_DESIGN.md.
+
+- **`effort=`** (keyword-only) on `generate()` / `generate_json()`, mapped
+  per provider by `config/request_policy.json` and stepped to the model's
+  catalog `effort_levels`; `DjinniteEffortMappingError`.
+- **Deprecated:** a level string in `thinking="..."` (read as `effort=`,
+  with a `DeprecationWarning`).
+- **Behavior change:** omitted effort preserves native defaults;
+  `temperature` defaults to `None` on every provider (Gemini, OpenAI and
+  Grok sent 0.7 / 0.3 before); a temperature the model cannot take is
+  logged and dropped instead of silently stripped or raised.
+- OpenAI catalog corrections from the 2026-11-03 reprobe.
+
 ### 0.5.0 -- Added: platform access mode (Google Vertex AI)
 
 Djinnite now reaches models in one of two access modes: **direct** (the

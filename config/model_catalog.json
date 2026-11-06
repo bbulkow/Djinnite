@@ -3515,7 +3515,6 @@
             "off"
           ],
           "temperature": [
-            "any",
             "default"
           ],
           "thinking": [
@@ -3541,12 +3540,7 @@
             "high",
             "max"
           ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -3593,7 +3587,6 @@
             "off"
           ],
           "temperature": [
-            "any",
             "default"
           ],
           "thinking": [
@@ -3619,12 +3612,7 @@
             "high",
             "max"
           ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -3671,7 +3659,6 @@
             "off"
           ],
           "temperature": [
-            "any",
             "default"
           ],
           "thinking": [
@@ -3695,12 +3682,7 @@
             "medium",
             "high"
           ],
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -3747,7 +3729,6 @@
             "off"
           ],
           "temperature": [
-            "any",
             "default"
           ],
           "thinking": [
@@ -3766,12 +3747,7 @@
             "budget"
           ],
           "effort_levels": null,
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": 5242880,
@@ -3818,7 +3794,6 @@
             "off"
           ],
           "temperature": [
-            "any",
             "default"
           ],
           "thinking": [
@@ -3837,12 +3812,7 @@
             "budget"
           ],
           "effort_levels": null,
-          "incompatible": [
-            {
-              "temperature": "any",
-              "thinking": "on"
-            }
-          ]
+          "incompatible": []
         },
         "vision_limits": {
           "max_image_bytes": 5242880,

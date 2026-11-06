@@ -211,10 +211,17 @@ def _check_thinking_cost(provider, provider_name: str) -> bool:
     print(f"  [thinking_cost] Sending thinking request (thinking={thinking_arg})...",
           end=" ", flush=True)
 
+    # Claude 5.x thinking is adaptive: the model decides whether to think
+    # at all, and for "What is 2+2?" it emitted no thinking block (0 thinking
+    # tokens, observed 2026-11-06 on claude-sonnet-5, streamed). Ask something
+    # that needs working out, at high effort, so thinking is actually billed.
     try:
         response = provider.generate(
-            "What is 2+2? Think step by step.",
+            "A train leaves at 09:47 and arrives at 13:12 the same day after "
+            "one 18-minute stop. What was its average speed in km/h if the "
+            "distance was 412 km? Work it out step by step, then answer.",
             thinking=thinking_arg,
+            effort="high",
             max_output_tokens=4096,
         )
 

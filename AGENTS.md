@@ -106,6 +106,33 @@ branches or rewriting history. That is also the human's call.
 
 ## Repo conventions
 
+### Dependencies have floors, never ceilings
+
+The provider SDKs (`anthropic`, `google-genai`, `openai`) are declared with
+`>=` only, in `pyproject.toml` and the matching `requirements.txt`. Never add
+an upper bound (`<N`, `==`, `~=`, `!=`). A library's ceiling becomes every
+consumer's ceiling: when Djinnite says `anthropic<2`, every project that
+depends on Djinnite is held on anthropic 1.x too, including for its own
+direct use of the SDK. That friction was reported by a consumer on
+2026-11-06 and is what this rule prevents.
+
+A new SDK major that breaks Djinnite is a **work item**, not a reason to
+pin:
+
+1. Find the breaking change in the SDK's changelog or migration guide and
+   fix Djinnite's side of it.
+2. Record it in DEVELOPMENT.md "Breaking Changes Log" and CHANGELOG.md.
+3. Regenerate `uv.lock` (`uv lock --upgrade`) and run the offline, live
+   and (for platform code) e2e tiers against the new versions.
+
+If it cannot be fixed in the session, say so in the summary and leave the
+bound alone. The lock file, not the floor, records what was validated: a
+floor is raised only when the code needs something from the newer major.
+`tests/test_package_metadata.py` fails on any ceiling and on drift between
+`pyproject.toml` and `requirements.txt`. The 2026-11-06 migration to
+anthropic 2.x and google-genai 3.x is written up in DEVELOPMENT.md
+"Breaking Changes Log" (0.7.0).
+
 ### Preserve native defaults; normalize explicit preferences
 
 Naming a provider and model must not impose Djinnite's own effort policy.
@@ -528,6 +555,13 @@ Claude model. `tests/test_update_models_scope.py` guards it.
   `max_output_tokens`, `context_window`, and `thinking` each control a
   different budget and the per-provider semantics differ.
 * **Breaking change log:** [DEVELOPMENT.md § Breaking Changes Log](DEVELOPMENT.md).
+  The 0.7.0 entry there is the write-up of the anthropic 2.x / google-genai
+  3.x migration (2026-11-06): why Claude never carries a temperature, why
+  the Gemini API version is not pinned, and why the floors did not move.
+* **Model availability by SDK and API version** (open, recorded 2026-11-06:
+  a catalog model can be unusable in a consumer's process because of the SDK
+  or API version it runs; call-time check and flagged listing wanted):
+  [MODEL_VERSION_RESTRICTIONS_DESIGN.md](MODEL_VERSION_RESTRICTIONS_DESIGN.md).
 * **Effort levels** (implemented; platform e2e validation pending) **and the OpenAI
   thinking-discovery fixes** (implemented 2026-11-03):
   [THINKING_EFFORT_DESIGN.md](THINKING_EFFORT_DESIGN.md).
